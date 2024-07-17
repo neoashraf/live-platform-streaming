@@ -4,10 +4,10 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class StateMachineServiceApplication {
+public class MaxLiveSpringHomeApplication {
 
 	public static void main(String[] args) {
-		SpringApplication.run(StateMachineServiceApplication.class, args);
+		SpringApplication.run(MaxLiveSpringHomeApplication.class, args);
 	}
 
 }
