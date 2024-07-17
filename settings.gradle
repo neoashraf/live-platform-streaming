@@ -1,2 +1,2 @@
-rootProject.name = 'state-machine-service'
+rootProject.name = 'max-live-spring-home'
 include 'integration-test'
