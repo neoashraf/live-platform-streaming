@@ -1,0 +1,103 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.2.0'
+	id 'io.spring.dependency-management' version '1.1.4'
+}
+
+group = 'com.tanvir'
+version = '0.0.1-SNAPSHOT'
+
+java {
+	sourceCompatibility = '17'
+}
+
+repositories {
+	mavenCentral()
+	maven { url 'https://repo.spring.io/milestone' }
+}
+
+sourceSets {
+	integration {
+		java.srcDir "$projectDir/src/integration-test/java"
+		compileClasspath += main.output + test.output
+		runtimeClasspath += main.output + test.output
+	}
+}
+
+configurations {
+	compileOnly {
+		extendsFrom annotationProcessor
+	}
+	integrationTest.extendsFrom testImplementation
+	integrationRuntime.extendsFrom testRuntime
+}
+
+tasks.register('integrationTest', Test) {
+	testClassesDirs = sourceSets.integration.output.classesDirs
+	classpath = sourceSets.integration.runtimeClasspath
+	useJUnitPlatform()
+}
+
+ext {
+	set('sentryVersion', "6.28.0")
+	set('springCloudVersion', "2023.0.0-RC1")
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-webflux'
+//	implementation 'org.springframework.boot:spring-boot-starter-data-r2dbc'
+//  runtimeOnly 'org.postgresql:postgresql'
+//	implementation 'org.postgresql:r2dbc-postgresql'
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb-reactive'
+	implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+	implementation 'org.testng:testng:7.7.0'
+
+	implementation 'org.modelmapper:modelmapper:3.1.1'
+	compileOnly 'org.projectlombok:lombok'
+	annotationProcessor 'org.projectlombok:lombok'
+	implementation 'com.google.code.gson:gson:2.10.1'
+
+	implementation 'io.micrometer:micrometer-tracing-bridge-brave'
+	implementation 'io.zipkin.reporter2:zipkin-reporter-brave'
+
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
+	implementation 'io.sentry:sentry-spring-boot-starter-jakarta'
+
+    implementation 'com.github.loki4j:loki-logback-appender:1.5.1'
+
+
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'io.projectreactor:reactor-test'
+
+//	testImplementation 'org.testcontainers:junit-jupiter:1.19.8'
+//	testImplementation 'org.testcontainers:postgresql:1.17.6'
+
+	implementation 'org.springframework.boot:spring-boot-starter-security'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.security:spring-security-test'
+	testImplementation 'org.projectlombok:lombok'
+
+//	implementation 'org.springframework.cloud:spring-cloud-starter-config'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom "io.sentry:sentry-bom:${sentryVersion}"
+		mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+	}
+}
+
+tasks.named('bootBuildImage') {
+	builder = 'paketobuildpacks/builder-jammy-base:latest'
+}
+
+tasks.named('test') {
+//	filter{
+//		excludeTestsMatching "*IntegrationTest"
+//	}
+	useJUnitPlatform()
+}

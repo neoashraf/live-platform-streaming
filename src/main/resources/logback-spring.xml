@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property resource="application.properties"/>
+    <property name="LOG_DIR" value="/var/log/mra/loanportfolio-0"/>
+
+    <appender name="Console"
+              class="ch.qos.logback.core.ConsoleAppender">
+        <layout class="ch.qos.logback.classic.PatternLayout">
+            <Pattern>
+                %d{yyyy-MM-dd HH:mm:ss.SSS} [ ${spring.application.name}, %X{spanId:-}, %X{traceId:-}, %X{Method} %X{Uri} ] [Request-Trace-Id: %X{Trace-Id}] [%t] %highlight(%-5level) %yellow(%class{0}) - %msg%n%throwable
+            </Pattern>
+        </layout>
+    </appender>
+
+    <appender name="RollingFile"
+              class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/loanportfolio-0.log</file>
+        <encoder
+            class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <Pattern>
+                %d{yyyy-MM-dd HH:mm:ss.SSS} [ ${spring.application.name}, %X{spanId:-}, %X{traceId:-}, %X{Method} %X{Uri} ] [Request-Trace-Id: %X{Trace-Id}] [%t] %-5level %class{0} - %msg%n%throwable
+            </Pattern>
+        </encoder>
+
+        <rollingPolicy
+            class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- rollover daily and when the file reaches 10 MegaBytes -->
+            <fileNamePattern>${LOG_DIR}/archived/ib-api-0-%d{yyyy-MM-dd_HH}.log.gz
+            </fileNamePattern>
+        </rollingPolicy>
+    </appender>
+
+    <appender name="ASYNC" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1000000</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <includeCallerData>true</includeCallerData>
+        <appender-ref ref="RollingFile"/>
+    </appender>
+
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <encoder class="com.github.loki4j.logback.JsonEncoder" />
+        <sender class="com.github.loki4j.logback.HttpSender">
+            <url>http://localhost:3100/loki/api/v1/push</url>
+        </sender>
+    </appender>
+
+    <!-- LOG everything at INFO level -->
+
+    <root level="info">
+        <appender-ref ref="ASYNC"/>
+        <appender-ref ref="Console"/>
+        <appender-ref ref="LOKI" />
+    </root>
+
+</configuration>

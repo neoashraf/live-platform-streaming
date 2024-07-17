@@ -1,0 +1,28 @@
+package com.tanvir.core.util.enums;
+
+import lombok.Getter;
+
+@Getter
+public enum Constants {
+    ACCOUNT_TYPE_LOAN("Loan"),
+    ACCOUNT_TYPE_SAVINGS("Savings"),
+    TRANSACTION_CODE_LOAN_REPAY("LOAN_REPAY"),
+    TRANSACTION_CODE_SAVINGS_WITHDRAW("SAVINGS_WITHDRAW"),
+    TRANSACTION_CODE_SAVINGS_DEPOSIT("SAVINGS_DEPOSIT"),
+    TRANSACTION_CODE_ACCRUED_INTEREST_DEPOSIT("ACCRUED_INTEREST_DEPOSIT"),
+    TRANSACTION_CODE_LOAN_DISBURSEMENT("LOAN_DISBURSEMENT"),
+
+    CLOSING_TYPE_JUNE_CLOSING("JUNE_CLOSING"),
+    CLOSING_TYPE_YEAR_CLOSING("YEAR_CLOSING"),
+
+    PAYMENT_MODE_CASH("CASH"),
+    CALCULATION_META_PROPERTY("Calculation Meta-Property"),
+
+    SAVINGS_TYPE_ID_FDR("FDR")
+    ;
+    private final String value;
+
+    Constants(String value) {
+        this.value = value;
+    }
+}
