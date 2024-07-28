@@ -1,0 +1,46 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_IMAGE_NAME: technologieswithak2/max-live-spring-home:v1
+  REMOTE_HOST: 52.87.191.57
+  REMOTE_USER: ubuntu
+  REMOTE_DEPLOY_DIRECTORY: /home/ubuntu/max-live-spring-home
+  # Ensure SSH_PRIVATE_KEY is set in your GitLab CI/CD variables
+
+before_script:
+  - 'which ssh-agent || ( apk update -y && apk add openssh-client -y )'
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - ssh-keyscan $REMOTE_HOST >> ~/.ssh/known_hosts
+  - chmod 644 ~/.ssh/known_hosts
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+    - docker build -t $DOCKER_IMAGE_NAME .
+    - docker push $DOCKER_IMAGE_NAME
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk --no-cache add openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan $REMOTE_HOST >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - ssh $REMOTE_USER@$REMOTE_HOST "docker pull $DOCKER_IMAGE_NAME && docker stop max_live_spring_home || true && docker rm max_live_spring_home || true && docker run -d --name max_live_spring_home -p 8071:8071 $DOCKER_IMAGE_NAME"
+
+
+
