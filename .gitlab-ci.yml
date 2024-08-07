@@ -4,7 +4,7 @@ stages:
 
 variables:
   DOCKER_IMAGE_NAME: technologieswithak2/max-live-spring-home:v1
-  REMOTE_HOST: 52.87.191.57
+  REMOTE_HOST: 44.209.31.1
   REMOTE_USER: ubuntu
   REMOTE_DEPLOY_DIRECTORY: /home/ubuntu/max-live-spring-home
   # Ensure SSH_PRIVATE_KEY is set in your GitLab CI/CD variables
