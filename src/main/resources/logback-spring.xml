@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <property resource="application.properties"/>
-    <property name="LOG_DIR" value="/var/log/mra/loanportfolio-0"/>
+    <property name="LOG_DIR" value="/var/log/max-live/home"/>
 
     <appender name="Console"
               class="ch.qos.logback.core.ConsoleAppender">
@@ -14,7 +14,7 @@
 
     <appender name="RollingFile"
               class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>${LOG_DIR}/loanportfolio-0.log</file>
+        <file>${LOG_DIR}/home-0.log</file>
         <encoder
             class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
             <Pattern>
@@ -40,7 +40,7 @@
     <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
         <encoder class="com.github.loki4j.logback.JsonEncoder" />
         <sender class="com.github.loki4j.logback.HttpSender">
-            <url>http://localhost:3100/loki/api/v1/push</url>
+<!--            <url>http://localhost:3100/loki/api/v1/push</url>-->
         </sender>
     </appender>
 

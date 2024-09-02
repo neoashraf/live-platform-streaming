@@ -2,13 +2,12 @@ package com.tanvir.core.routes;
 
 public class RouteNames {
 
-	public static String BASE_URL = "/base/url/api/v1";
-
-	public final static String RESTART = "/restart";
-	public final static String GET_NEXT_DAY_FROM_CALENDAR = "/next-day";
-
-	public final static String PERSON = "/person";
-	public final static String GET_PERSON_BY_ID = PERSON + "/{personId}";
-
+	public static String MAX_LIVE_HOME_BASE_URL = "/api/v1/home";
+	public static String LIVE_ROOMS = "/live-rooms";
+	public static String LIVE_ROOM = "/live-room";
+	public static String ID = "/{id}";
+	public static String JOIN = "/join";
+	public static String LEAVE = "/leave";
+	public static String KICK = "/kick";
 
 }

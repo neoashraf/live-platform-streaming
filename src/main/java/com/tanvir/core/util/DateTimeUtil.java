@@ -19,6 +19,11 @@ import java.util.Date;
 @Slf4j
 public class DateTimeUtil {
 
+    public String convertLocalDateTimeToString(LocalDateTime dateTime) {
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS");
+        return dateTime.format(dtf);
+    }
+
     public String convertDateToString(Date date, String dateFormat) {
         DateFormat formatter = new SimpleDateFormat(dateFormat);
         String formattedDate = formatter.format(date);
