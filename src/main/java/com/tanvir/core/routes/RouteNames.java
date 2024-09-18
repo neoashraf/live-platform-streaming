@@ -2,7 +2,7 @@ package com.tanvir.core.routes;
 
 public class RouteNames {
 
-	public static String MAX_LIVE_HOME_BASE_URL = "/api/v1/home";
+	public static String MAX_LIVE_HOME_BASE_URL = "/api/v1/streaming";
 	public static String LIVE_ROOMS = "/live-rooms";
 	public static String LIVE_ROOM = "/live-room";
 	public static String ID = "/{id}";
