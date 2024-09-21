@@ -8,4 +8,5 @@ public interface LiveRoomPersistencePort {
     Mono<LiveRoom> saveLiveRoom(LiveRoom liveRoom);
     Mono<LiveRoom> getLiveRoomById(String id);
     Flux<LiveRoom> getActiveLiveRooms();
+    Mono<LiveRoom> getActiveLiveRoomByKeyCloakId(String keycloakId);
 }

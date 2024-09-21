@@ -60,9 +60,7 @@ public class LiveRoomHandler {
         log.info("Leaving stream");
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
         String id = serverRequest.pathVariable("id");
-        return serverRequest
-                .bodyToMono(Fan.class)
-                .map(fan -> LiveRoomEntryLeaveRequestDto.builder().fan(fan).build())
+        return Mono.just(LiveRoomEntryLeaveRequestDto.builder().build())
                 .map(requestDto -> {
                     requestDto.setKeycloakId(keycloakId);
                     requestDto.setLiveRoomId(id);

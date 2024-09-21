@@ -44,4 +44,13 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
                 .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class));
     }
 
+    @Override
+    public Mono<LiveRoom> getActiveLiveRoomByKeyCloakId(String keycloakId) {
+        return repository.getLiveRoomEntityByIsLiveAndKeycloakId(Constants.STATUS_YES.getValue(), keycloakId)
+                .doOnRequest(l -> log.info("Request received to get active live room by keycloak id : {}", keycloakId))
+                .doOnSuccess(liveRoomEntity -> log.info("Got active live room by keycloak id : {}", liveRoomEntity))
+                .doOnError(throwable -> log.error("Error while getting active live room by keycloak id : {}", throwable.getMessage()))
+                .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class));
+    }
+
 }

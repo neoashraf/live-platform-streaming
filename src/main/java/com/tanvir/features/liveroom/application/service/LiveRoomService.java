@@ -3,6 +3,7 @@ package com.tanvir.features.liveroom.application.service;
 import com.tanvir.core.util.enums.Constants;
 import com.tanvir.core.util.enums.ExceptionMessages;
 import com.tanvir.core.util.enums.MetaPropertyEnums;
+import com.tanvir.core.util.enums.UserTypeEnum;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
@@ -62,6 +63,15 @@ public class LiveRoomService implements LiveRoomUseCase {
                 userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
                 .doOnNext(user -> log.info("User received : {}", user))
                 .doOnError(throwable -> log.error("Error happened while retrieving user : {}", throwable.getMessage()))
+                .filter(user -> user.getUserType().equals(UserTypeEnum.USER_TYPE_HOST.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
+                .flatMap(user -> port.getActiveLiveRoomByKeyCloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.just(LiveRoom.builder().build()))
+                        .flatMap(liveRoom ->
+                            liveRoom.getId() != null
+                                    ? Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already has an active LiveRoom."))
+                                    : Mono.just(liveRoom))
+                        .thenReturn(user))
                 .map(user -> buildLiveRoomDomain(user, requestDto))
                 .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
                 .flatMap(port::saveLiveRoom)
@@ -87,6 +97,11 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .filter(liveRoom -> liveRoom.getIsLive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot join.")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomEntryLeaveRequestDto.getKeycloakId())
+                        .map(user -> {
+                            liveRoomEntryLeaveRequestDto.getFan().setUserId(user.getId());
+                            return liveRoom;
+                        }))
                 .filter(liveRoom -> !liveRoom.getFans().containsKey(liveRoomEntryLeaveRequestDto.getFan().getUserId()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Fan already exists in LiveRoom.")))
                 .flatMap(liveRoom -> {
@@ -117,6 +132,11 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .filter(liveRoom -> liveRoom.getIsLive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot leave.")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .map(user -> {
+                            requestDto.setFan(Fan.builder().userId(user.getId()).build());
+                            return liveRoom;
+                        }))
                 .filter(liveRoom -> liveRoom.getFans().containsKey(requestDto.getFan().getUserId()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Fan doesn't exist in LiveRoom.")))
                 .map(liveRoom -> this.updateLiveRoomForFanLeave(liveRoom, requestDto))

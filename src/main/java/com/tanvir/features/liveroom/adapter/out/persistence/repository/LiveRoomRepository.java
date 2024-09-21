@@ -8,4 +8,5 @@ import reactor.core.publisher.Mono;
 public interface LiveRoomRepository extends ReactiveMongoRepository<LiveRoomEntity, String> {
     Mono<LiveRoomEntity> getLiveRoomEntityById(String id);
     Flux<LiveRoomEntity> getAllByIsLive(String isLive);
+    Mono<LiveRoomEntity> getLiveRoomEntityByIsLiveAndKeycloakId(String isLive, String keycloakId);
 }
