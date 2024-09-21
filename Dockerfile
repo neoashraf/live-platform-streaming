@@ -5,7 +5,7 @@ COPY . /workspace/
 
 RUN chmod +x gradlew
 
-RUN ./gradlew build --x test
+RUN gradle clean build -x test
 
 RUN mkdir -p build/dependency && (cd build/dependency; jar -xf ../libs/*-SNAPSHOT.jar)
 RUN echo $(ls -a)
@@ -13,7 +13,7 @@ RUN echo $(ls -a)
 FROM openjdk:17
 WORKDIR /workspace
 ENV TZ=Asia/Dhaka
-RUN mkdir -p /var/log/teenpatti
+RUN mkdir -p /var/log/max-live-spring-home
 
 ARG DEPENDENCY=/workspace/build/dependency
 COPY --from=builder ${DEPENDENCY}/BOOT-INF/lib app/lib
