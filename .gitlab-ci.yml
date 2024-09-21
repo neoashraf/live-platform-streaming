@@ -1,46 +1,148 @@
+# stages:
+#   - build
+#   - deploy
+
+# variables:
+#   DOCKER_IMAGE_NAME: technologieswithak2/max-live-spring-home:v1
+#   REMOTE_HOST: 44.209.31.1
+#   REMOTE_USER: ubuntu
+#   REMOTE_DEPLOY_DIRECTORY: /opt/max-live/max-live-spring-home
+#   # Ensure SSH_PRIVATE_KEY is set in your GitLab CI/CD variables
+
+# before_script:
+#   - 'which ssh-agent || ( apk update -y && apk add openssh-client -y )'
+#   - eval $(ssh-agent -s)
+#   - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+#   - mkdir -p ~/.ssh
+#   - chmod 700 ~/.ssh
+#   - ssh-keyscan $REMOTE_HOST >> ~/.ssh/known_hosts
+#   - chmod 644 ~/.ssh/known_hosts
+
+# build:
+#   stage: build
+#   image: docker:latest
+#   services:
+#     - docker:dind
+#   script:
+#     - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+#     - docker build -t $DOCKER_IMAGE_NAME .
+#     - docker push $DOCKER_IMAGE_NAME
+
+# deploy:
+#   stage: deploy
+#   image: alpine:latest
+#   before_script:
+#     - apk --no-cache add openssh-client
+#     - eval $(ssh-agent -s)
+#     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+#     - mkdir -p ~/.ssh
+#     - chmod 700 ~/.ssh
+#     - ssh-keyscan $REMOTE_HOST >> ~/.ssh/known_hosts
+#     - chmod 644 ~/.ssh/known_hosts
+#   script:
+#     - ssh $REMOTE_USER@$REMOTE_HOST "docker pull $DOCKER_IMAGE_NAME && docker stop max_live_spring_home || true && docker rm max_live_spring_home || true && docker run -d --name max_live_spring_home -p 8071:8071 $DOCKER_IMAGE_NAME"
+
+
+
+
 stages:
-  - build
-  - deploy
+  - build_dev
+  - build_prod
+  - deploy_dev
+  - deploy_prod
 
 variables:
-  DOCKER_IMAGE_NAME: technologieswithak2/max-live-spring-home:v1
-  REMOTE_HOST: 44.209.31.1
-  REMOTE_USER: ubuntu
-  REMOTE_DEPLOY_DIRECTORY: /opt/max-live/max-live-spring-home
-  # Ensure SSH_PRIVATE_KEY is set in your GitLab CI/CD variables
+  DOCKER_IMAGE_NAME_PROD: technologieswithak2/prod-max-live-spring-home
+  DOCKER_IMAGE_NAME_DEV: technologieswithak2/max-live-spring-home
+  DEPLOY_DIRECTORY_DEV: /opt/max-live/dev/max-live-deployment
+  DEPLOY_DIRECTORY_PROD: /opt/max-live/prod/max-live-deployment
+  # Ensure SSH_PRIVATE_KEY DOCKER_USERNAME DOCKER_PASSWORD is set in your GitLab CI/CD variables
 
-before_script:
-  - 'which ssh-agent || ( apk update -y && apk add openssh-client -y )'
-  - eval $(ssh-agent -s)
-  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-  - mkdir -p ~/.ssh
-  - chmod 700 ~/.ssh
-  - ssh-keyscan $REMOTE_HOST >> ~/.ssh/known_hosts
-  - chmod 644 ~/.ssh/known_hosts
-
-build:
-  stage: build
-  image: docker:latest
-  services:
-    - docker:dind
+build_dev:
+  stage: build_dev
+  tags:
+    - max-live
+  only:
+    - dev
+  resource_group: deploy_max_live
   script:
+    - git config --global --add safe.directory $DEPLOY_DIRECTORY_DEV
+    - pushd $DEPLOY_DIRECTORY_DEV
+    - git checkout dev
+    - git pull
+    - VERSION=$(grep MAX_LIVE_SPRING_HOME_VERSION .env | cut -d '=' -f2)
+    - echo "VERSION=$VERSION"
+    - NEW_VERSION=$(($VERSION + 1))
+    - echo "NEW_VERSION=$NEW_VERSION"
+    - IMAGE_NAME="$DOCKER_IMAGE_NAME_DEV:$NEW_VERSION"
+    - echo "IMAGE_NAME=$IMAGE_NAME"
+    - popd
     - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
-    - docker build -t $DOCKER_IMAGE_NAME .
-    - docker push $DOCKER_IMAGE_NAME
+    - docker build -t $IMAGE_NAME .
+    - docker push $IMAGE_NAME
 
-deploy:
-  stage: deploy
-  image: alpine:latest
-  before_script:
-    - apk --no-cache add openssh-client
-    - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-    - ssh-keyscan $REMOTE_HOST >> ~/.ssh/known_hosts
-    - chmod 644 ~/.ssh/known_hosts
+
+deploy_dev:
+  stage: deploy_dev
+  tags:
+    - max-live
+  only:
+    - dev
+  resource_group: deploy_max_live
   script:
-    - ssh $REMOTE_USER@$REMOTE_HOST "docker pull $DOCKER_IMAGE_NAME && docker stop max_live_spring_home || true && docker rm max_live_spring_home || true && docker run -d --name max_live_spring_home -p 8071:8071 $DOCKER_IMAGE_NAME"
+    - git config --global --add safe.directory $DEPLOY_DIRECTORY_DEV
+    - cd $DEPLOY_DIRECTORY_DEV
+    - git checkout dev
+    - git pull
+    - VERSION=$(grep MAX_LIVE_SPRING_HOME_VERSION .env | cut -d '=' -f2)
+    - NEW_VERSION=$(($VERSION + 1))
+    - sed -i "s/MAX_LIVE_SPRING_HOME_VERSION=$VERSION/MAX_LIVE_SPRING_HOME_VERSION=$NEW_VERSION/" .env
+    - cat .env
+    - git add .env
+    - git commit -m "max-live-spring-home branch=dev $(date +\"%Y-%m-%d %H:%M:%S\")"
+    - git push
 
+build_prod:
+  stage: build_dev
+  tags:
+    - max-live
+  only:
+    - main
+  resource_group: deploy_max_live
+  script:
+    - git config --global --add safe.directory $DEPLOY_DIRECTORY_PROD
+    - pushd $DEPLOY_DIRECTORY_PROD
+    - git checkout main
+    - git pull
+    - VERSION=$(grep MAX_LIVE_SPRING_HOME_VERSION .env | cut -d '=' -f2)
+    - echo "VERSION=$VERSION"
+    - NEW_VERSION=$(($VERSION + 1))
+    - echo "NEW_VERSION=$NEW_VERSION"
+    - IMAGE_NAME="$DOCKER_IMAGE_NAME_PROD:$NEW_VERSION"
+    - echo "IMAGE_NAME=$IMAGE_NAME"
+    - popd
+    - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
+    - docker build -t $IMAGE_NAME .
+    - docker push $IMAGE_NAME
+
+deploy_prod:
+  stage: deploy_prod
+  tags:
+    - max-live
+  only:
+    - main
+  resource_group: deploy_max_live
+  script:
+    - git config --global --add safe.directory $DEPLOY_DIRECTORY_PROD
+    - cd $DEPLOY_DIRECTORY_PROD
+    - git checkout main
+    - git pull
+    - VERSION=$(grep MAX_LIVE_SPRING_HOME_VERSION .env | cut -d '=' -f2)
+    - NEW_VERSION=$(($VERSION + 1))
+    - sed -i "s/MAX_LIVE_SPRING_HOME_VERSION=$VERSION/MAX_LIVE_SPRING_HOME_VERSION=$NEW_VERSION/" .env
+    - cat .env
+    - git add .env
+    - git commit -m "max-live-spring-home branch=dev $(date +\"%Y-%m-%d %H:%M:%S\")"
+    - git push
 
 
