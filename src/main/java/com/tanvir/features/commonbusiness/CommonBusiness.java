@@ -14,4 +14,19 @@ public class CommonBusiness {
         return String.valueOf((long) value);
     }
 
+    private static String convertToShortName(Double value) {
+        if (value >= 1e9) {
+            return String.format("%.3fB", value / 1e9);
+        }
+        else if (value >= 1e6) {
+            return String.format("%.3fM", value / 1e6);
+        }
+        else if (value >= 1e3) {
+            return String.format("%.3fK", value / 1e3);
+        }
+        else {
+            return String.format("%.3f", value);
+        }
+    }
+
 }
