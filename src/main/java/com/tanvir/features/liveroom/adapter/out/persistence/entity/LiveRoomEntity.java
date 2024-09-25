@@ -32,12 +32,11 @@ public class LiveRoomEntity implements Persistable<String> {
     private String type;
     private String status;
     private String country;
-    private String hostId;
+    private String hostUserId;
     private List<String> kickedOutUserIds;
     private long viewerCount;
-    private long dailyReceivedGems;
+    private long hostDailyGems;
 
-    private long duration;
 
 
     @Override

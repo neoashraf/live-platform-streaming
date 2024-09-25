@@ -12,6 +12,10 @@ import lombok.NoArgsConstructor;
 public class DailyStarProgress {
     private int starLevel;
     private int nextStarLevel;
-    private long totalGiftsReceived;
-    private long trailingByNextLevelGiftAmount;
+    private double dailyReceivedGemsValue;
+    private String dailyReceivedGemsName;
+    private double nextLevelGemsValue;
+    private String nextLevelGemsName;
+    private long trailingByNextLevelGemsValue;
+    private String trailingByNextLevelGemsName;
 }

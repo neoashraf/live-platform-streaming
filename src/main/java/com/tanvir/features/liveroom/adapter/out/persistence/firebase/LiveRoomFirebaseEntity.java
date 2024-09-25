@@ -25,9 +25,10 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private String description;
     private List<String> tags;
     private String type;
+    private String status;
+    private String country;
     private HostSummary host;
     private List<Viewer> viewers;
-    private List<String> viewerUserIds;
     private long viewerCount;
     private List<Announcement> announcements;
 }

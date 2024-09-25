@@ -14,13 +14,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Viewer {
     private String userId;
-    private String name;
-    private Integer userLevel;
-    private String profilePicture;
-    private String entryBanner;
-    private String frame;
-    private String ride;
-    private LocalDateTime entryTime;
+    private String displayName;
+    private String gender;
+    private String profilePictureUrl;
+    private String frameUrl;
+    private int userLevel;
 
     @Override
     public String toString() {

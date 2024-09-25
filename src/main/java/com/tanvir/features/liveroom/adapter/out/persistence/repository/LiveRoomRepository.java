@@ -17,5 +17,5 @@ public interface LiveRoomRepository extends ReactiveMongoRepository<LiveRoomEnti
     Mono<Long> countByTypeAndStatusAndCountry(String type, String status, String country);
 //    Flux<LiveRoomEntity> getLiveRoomEntitiesByTypeAndStatusOrderByPopularityLevelDesc(String type, String status, Pageable pageable);
 
-    Mono<LiveRoomEntity> getLiveRoomEntityByHostIdAndStatus(String hostId, String status);
+    Mono<LiveRoomEntity> getLiveRoomEntityByHostUserIdAndStatus(String hostId, String status);
 }

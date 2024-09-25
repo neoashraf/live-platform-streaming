@@ -12,5 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Announcement {
-    private List<String> comments;
+   private String userId;
+    private String displayName;
+    private int userLevel;
 }

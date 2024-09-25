@@ -24,7 +24,7 @@ public class LiveRoomRouter {
                         builder -> builder
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
-                                                .GET(OFFSET, handler::homepage)
+                                                .GET(LIVE_ROOMS, handler::homepage)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder

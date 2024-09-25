@@ -67,7 +67,8 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<LiveRoomGridViewResponseDto> createStream(LiveRoomRequestDto requestDto) {
         AtomicReference<String> liveRoomId = new AtomicReference<>();
-        return userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+        return this.validateCreateStreamRequest(requestDto)
+                .flatMap(liveRoomRequestDto -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId()))
                 .doOnNext(user -> log.info("User received : {}", user))
                 .doOnError(throwable -> log.error("Error happened while retrieving user : {}", throwable.getMessage()))
                 .filter(user -> user.getUserType().equals(UserTypeEnum.USER_TYPE_HOST.getValue()))
@@ -113,6 +114,16 @@ public class LiveRoomService implements LiveRoomUseCase {
                 });
     }
 
+    private Mono<LiveRoomRequestDto> validateCreateStreamRequest(LiveRoomRequestDto requestDto) {
+        List<String> validTypes = Arrays.asList(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), Constants.LIVE_ROOM_TYPE_VIDEO.getValue());
+
+        if (!validTypes.contains(requestDto.getType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid LiveRoom Type!"));
+        }
+
+        return Mono.just(requestDto);
+    }
+
     private LiveRoomFirebaseEntity buildFirebaseEntity(LiveRoom liveRoom, Host host) {
         HostSummary hostSummary = HostSummary
                 .builder()
@@ -123,7 +134,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .profileImageId(host.getProfileImageId())
                 .profileImageUrl(host.getProfileImageUrl())
                 .userLevel(host.getUserLevel())
-                .gemsCount(host.getGems())
+                .gemsCount(liveRoom.getHostDailyGems())
                 .dailyStarProgress(DailyStarProgress.builder().build())
                 .build();
 
@@ -136,9 +147,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .description(liveRoom.getDescription())
                 .tags(liveRoom.getTags())
                 .type(liveRoom.getType())
+                .status(liveRoom.getStatus())
+                .country(host.getCountry())
                 .host(hostSummary)
                 .viewers(new ArrayList<>())
-                .viewerUserIds(new ArrayList<>())
                 .viewerCount(0)
                 .announcements(new ArrayList<>())
                 .build();
@@ -217,7 +229,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .map(liveRoom -> {
                     liveRoom.setStatus(Constants.STATUS_NO.getValue());
                     liveRoom.setEndedOn(LocalDateTime.now());
-                    liveRoom.setDuration(Math.abs(ChronoUnit.SECONDS.between(liveRoom.getCreatedOn(), liveRoom.getEndedOn())));
                     return liveRoom;
                 })
                 .flatMap(port::saveLiveRoom)
@@ -385,12 +396,12 @@ public class LiveRoomService implements LiveRoomUseCase {
     private EndStreamResponseDto buildLiveStreamInfo(LiveRoom liveRoom, EndStreamResponseDto responseDto) {
         DecimalFormat decimalFormat = new DecimalFormat("00");
         LiveStreamInfo liveStreamInfo = modelMapper.map(liveRoom, LiveStreamInfo.class);
-        liveStreamInfo.setDurationInSeconds(liveRoom.getDuration());
+//        liveStreamInfo.setDurationInSeconds(liveRoom.getDuration());
 
-        long hours = liveRoom.getDuration() / 3600;
-        long minutes = (liveRoom.getDuration() % 3600) / 60;
-        long seconds = (liveRoom.getDuration() - (hours * 3600) - (minutes * 60));
-        liveStreamInfo.setDurationString(decimalFormat.format(hours) + ":" + decimalFormat.format(minutes) + ":" + decimalFormat.format(seconds));
+//        long hours = liveRoom.getDuration() / 3600;
+//        long minutes = (liveRoom.getDuration() % 3600) / 60;
+//        long seconds = (liveRoom.getDuration() - (hours * 3600) - (minutes * 60));
+//        liveStreamInfo.setDurationString(decimalFormat.format(hours) + ":" + decimalFormat.format(minutes) + ":" + decimalFormat.format(seconds));
 
         responseDto.setLiveStreamInfo(liveStreamInfo);
         responseDto.setUserMessage("LiveStream Ended Successfully");
@@ -473,8 +484,6 @@ public class LiveRoomService implements LiveRoomUseCase {
 
 
     private LiveRoomResponse buildLiveRoomResponse(LiveRoom liveRoom) {
-//        Map<String, Fan> fanMap = liveRoom.getFans();
-//        liveRoomResponse.setFans(fanMap != null ? fanMap.values().stream().toList() : new ArrayList<>());
         LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
         liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
         return liveRoomResponse;
@@ -540,11 +549,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .type(requestDto.getType())
                 .status(Constants.STATUS_LIVE.getValue())
                 .country(host.getCountry())
-                .hostId(host.getId())
+                .hostUserId(host.getId())
                 .kickedOutUserIds(new ArrayList<>())
                 .viewerCount(0)
-                .dailyReceivedGems(0)
-                .duration(0)
+                .hostDailyGems(0)
                 .createdOn(LocalDateTime.now())
 //                .userId(user.getId())
 //                .keycloakId(requestDto.getKeycloakId())
