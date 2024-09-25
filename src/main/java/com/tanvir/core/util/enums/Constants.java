@@ -11,6 +11,9 @@ public enum Constants {
     TAB_POPULAR("Popular"),
     TAB_FRESHERS("Freshers"),
     TAB_PARTY("Party"),
+
+    STATUS_LIVE("Live"),
+    STATUS_OFFLINE("Offline")
     ;
     private final String value;
 

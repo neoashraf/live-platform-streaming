@@ -2,12 +2,15 @@ package com.tanvir.features.liveroom.adapter.in.web.handler;
 
 import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
+import com.tanvir.features.liveroom.application.port.in.dto.request.GridViewRequestDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.KickOutUserRequestDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.LiveRoomEntryLeaveRequestDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.LiveRoomRequestDto;
 import com.tanvir.features.liveroom.domain.valueobject.Fan;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -102,5 +105,30 @@ public class LiveRoomHandler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto))
                 ;
+    }
+
+    public Mono<ServerResponse> homepage(ServerRequest serverRequest) {
+        return liveRoomUseCase.getHomepage(this.buildGridViewRequestDto(serverRequest))
+                .flatMap(dto -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                ;
+    }
+
+    private GridViewRequestDto buildGridViewRequestDto(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
+        String viewMode = serverRequest.queryParam(QueryParams.VIEW_MODE.getValue()).orElseThrow(() -> new IllegalArgumentException("viewMode is required"));
+        String country = serverRequest.queryParam(QueryParams.COUNTRY.getValue()).orElse(null);
+        int limit = Integer.parseInt(serverRequest.queryParam(QueryParams.LIMIT.getValue()).orElse("20"));
+        int offSet = Integer.parseInt(serverRequest.queryParam(QueryParams.OFFSET.getValue()).orElse("0"));
+        limit = Math.min(limit, 100);
+        Pageable pageable = PageRequest.of(offSet, limit);
+        return GridViewRequestDto.builder()
+                .keycloakId(keycloakId)
+                .viewMode(viewMode)
+                .country(country)
+                .pageable(pageable)
+                .build();
     }
 }

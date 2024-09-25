@@ -29,7 +29,7 @@ public class LiveRoom {
     private String tag;
     private Integer fansCount;
     private Long beansCount;
-    private String isLive;
+    private String status;
     private Integer popularityLevel;
     private Integer userLevel;
     private Map<String, Fan> fans;

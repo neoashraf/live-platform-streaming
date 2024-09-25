@@ -35,6 +35,10 @@ public enum QueryParams {
     FIRST_NAME("firstName"),
     LAST_NAME("lastName"),
     DATE_OF_BIRTH("dateOfBirth"),
+    VIEW_MODE("viewMode"),
+
+    LIMIT("limit"),
+    OFFSET("offset")
 
     ;
     private final String value;

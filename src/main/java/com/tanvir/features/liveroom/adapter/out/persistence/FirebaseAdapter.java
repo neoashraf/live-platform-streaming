@@ -34,7 +34,7 @@ public class FirebaseAdapter implements CachePort {
 
     @Override
     public Mono<LiveRoomEntity> update(LiveRoomEntity entity) {
-        entity.getFans().values().forEach(fan -> fan.setEntryTime(null));
+//        entity.getFans().values().forEach(fan -> fan.setEntryTime(null));
         return firebaseRepository.update(modelMapper.map(entity, LiveRoomFirebaseEntity.class), entity.getId())
                 .map(firebaseReturnedEntity -> modelMapper.map(firebaseReturnedEntity, LiveRoomEntity.class));
     }

@@ -15,26 +15,13 @@ import java.util.List;
 @NoArgsConstructor
 public class LiveRoomResponse {
     private String id;
-    private String userId;
-    private String country;
-    private String profilePicture;
-    private String name;
-    private String welcomeNote;
-    private Integer starCount;
-    private Long gemsCount;
+    private String thumbnailId;
+    private String thumbnailUrl;
+    private String title;
     private String type;
-    private String tag;
-    private Integer fansCount;
-    private Long beansCount;
-    private String isLive;
-    private Integer popularityLevel;
-    private Integer userLevel;
-    private List<Fan> fans;
-    private Long duration;
-    private Integer levelCompletionPercentage;
-
-    private String createdBy;
+    private List<String> tags;
+    private String status;
+    private Integer viewers;
     private LocalDateTime createdOn;
-    private String endedBy;
-    private LocalDateTime endedOn;
+    private String country;
 }

@@ -1,6 +1,5 @@
 package com.tanvir.features.liveroom.adapter.in.web.router;
 
-import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.features.liveroom.adapter.in.web.handler.LiveRoomHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -23,6 +22,10 @@ public class LiveRoomRouter {
         return route()
                 .path(MAX_LIVE_HOME_BASE_URL,
                         builder -> builder
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
+                                                .GET(OFFSET, handler::homepage)
+                                )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
                                                 .POST(LIVE_ROOMS, handler::createStream)

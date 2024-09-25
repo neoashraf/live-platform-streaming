@@ -21,36 +21,53 @@ import java.util.UUID;
 @NoArgsConstructor
 @Document(collection = "liverooms")
 public class LiveRoomEntity implements Persistable<String> {
+
+    private List<String> tags;
+    private Integer viewers;
+
+//  new proposed
     private String id;
+
+
+    private LocalDateTime createdOn;
+    private LocalDateTime endedOn;
+
+
+    private String thumbnailId;
+    private String thumbnailUrl;
+
+
+    private String title;
+    private String welcomeNote;
+    private List<String> tag;
+    private String type;
+    private String status;
+    private Long duration;
+    private String hostUserId;
+    private List<String> kickedOutUserIds;
+    private long dailyReceivedGems;
+
+
+    private Integer levelCompletionPercentage; // no need (only needed in response)
+
+
+
+
+    // host related info
     private String userId;
     private String keycloakId;
     private String country;
     private String profilePicture; // profilePictureUrl
-    private String name;
-    private String welcomeNote;
     private Integer starCount;
     private Long gemsCount;
     private Long beansCount;
-    private String type;
-    private String tag; // array
-    private Integer fansCount;
-    private String isLive;
-    private Integer popularityLevel; // no need
-    private Integer userLevel;
-    private Map<String, Fan> fans;
-    private List<String> kickedOutUsers;
-    private Long duration;
-    private Integer levelCompletionPercentage; // no need (only needed in response)
-
-    private String createdBy; // no need
-    private LocalDateTime createdOn;
-    private String endedBy; // no need
-    private LocalDateTime endedOn;
-
     private String maxId;
     private String gender;
     private String profilePictureUrl;
-    private long dailyReceivedGems;
+
+    private Integer popularityLevel; // no need
+    private Integer userLevel;
+
 
 
 

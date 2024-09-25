@@ -95,7 +95,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         return port.getLiveRoomById(liveRoomEntryLeaveRequestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomEntryLeaveRequestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
-                .filter(liveRoom -> liveRoom.getIsLive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot join.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomEntryLeaveRequestDto.getKeycloakId())
                         .map(user -> {
@@ -130,7 +130,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
-                .filter(liveRoom -> liveRoom.getIsLive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot leave.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
                         .map(user -> {
@@ -156,12 +156,12 @@ public class LiveRoomService implements LiveRoomUseCase {
         return port.getLiveRoomById(liveRoomId)
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomId)))
-                .filter(liveRoom -> liveRoom.getIsLive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot End.")))
                 .filter(liveRoom -> liveRoom.getKeycloakId().equalsIgnoreCase(keycloakId))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom cannot be deleted by this user.")))
                 .map(liveRoom -> {
-                    liveRoom.setIsLive(Constants.STATUS_NO.getValue());
+                    liveRoom.setStatus(Constants.STATUS_NO.getValue());
                     liveRoom.setEndedOn(LocalDateTime.now());
                     liveRoom.setEndedBy(keycloakId);
                     liveRoom.setDuration(Math.abs(ChronoUnit.SECONDS.between(liveRoom.getCreatedOn(), liveRoom.getEndedOn())));
@@ -210,18 +210,41 @@ public class LiveRoomService implements LiveRoomUseCase {
         return port.getLiveRoomById(id)
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + id)))
                 .map(this::buildLiveRoomResponse)
-                .map(liveRoomResponse -> this.buildLiveRoomResponseDto(
-                        this.sortAndLimitFansByEntryTimeAndCount(liveRoomResponse, 5L),
-                        "LiveRoom Detail Fetched Successfully."));
+                .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "LiveRoom Detail Fetched Successfully."));
     }
 
+
     @Override
-    public Mono<LiveRoomGridViewResponseDto> getGridViewOfLiveRoom(GridViewRequestDto requestDto) {
-        return port.getActiveLiveRooms()
-                .collectList()
-                .flatMap(liveRoomList -> liveRoomList.isEmpty()
-                        ? this.getGridViewResponseForEmptyList()
-                        : this.getGridViewByTab(liveRoomList, requestDto));
+    public Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto) {
+
+        return this.validateGridViewRequest(requestDto)
+                .flatMap(requestDto1 -> requestDto.getViewMode().equals(Constants.TAB_PARTY.getValue())
+                    ? port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
+                        .zipWith(port.getActiveAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
+                        .map(countAndDataTuple -> LiveRoomGridViewResponseDto
+                                .builder()
+                                .userMessage("LiveRoom Grid View Fetched Successfully.")
+                                .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
+                                .count(countAndDataTuple.getT1().intValue())
+                                .build())
+                    : port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_VIDEO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
+                        .zipWith(port.getActiveVideoLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
+                        .map(countAndDataTuple -> LiveRoomGridViewResponseDto
+                                .builder()
+                                .userMessage("LiveRoom Grid View Fetched Successfully.")
+                                .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
+                                .count(countAndDataTuple.getT1().intValue())
+                                .build()));
+    }
+
+    private Mono<GridViewRequestDto> validateGridViewRequest(GridViewRequestDto requestDto) {
+        List<String> validViewModes = Arrays.asList(Constants.TAB_PARTY.getValue(), Constants.TAB_POPULAR.getValue(), Constants.TAB_FRESHERS.getValue());
+        if (!validViewModes.contains(requestDto.getViewMode())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid viewMode!"));
+        }
+
+        return Mono.just(requestDto);
+
     }
 
     @Override
@@ -337,7 +360,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     private Mono<List<LiveRoom>> filterLiveRoomsAccordingToTypeAndTag(List<LiveRoom> liveRoomList, GridViewRequestDto requestDto) {
 
-        if (requestDto.getTab().equalsIgnoreCase(Constants.TAB_PARTY.getValue())) {
+        if (requestDto.getViewMode().equalsIgnoreCase(Constants.TAB_PARTY.getValue())) {
             List<LiveRoom> audioLiveRoomList = liveRoomList.stream()
                     .filter(liveRoom -> liveRoom.getType().equalsIgnoreCase(Constants.LIVE_ROOM_TYPE_AUDIO.getValue()))
                     .toList();
@@ -350,17 +373,19 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .map(popularIndex -> {
                     List<LiveRoom> popularList = liveRoomList.stream().filter(liveRoom -> liveRoom.getPopularityLevel() >= popularIndex).toList();
                     List<LiveRoom> freshersList = liveRoomList.stream().filter(liveRoom -> liveRoom.getPopularityLevel() <= popularIndex).toList();
-                    return requestDto.getTab().equalsIgnoreCase(Constants.TAB_POPULAR.getValue())
+                    return requestDto.getViewMode().equalsIgnoreCase(Constants.TAB_POPULAR.getValue())
                             ? popularList
                             : freshersList;
                 });
     }
 
     private Mono<List<LiveRoom>> getPaginatedLiveRoomList(List<LiveRoom> liveRoomList, GridViewRequestDto requestDto) {
-        int offset = requestDto.getOffset() == null || requestDto.getOffset() == 0
+        /*int offset = requestDto.getOffset() == null || requestDto.getOffset() == 0
                         ? 0 : requestDto.getOffset();
         int limit = requestDto.getLimit() == null || requestDto.getLimit() == 0
-                        ? 20 : requestDto.getLimit();
+                        ? 20 : requestDto.getLimit();*/
+        int offset = requestDto.getPageable().getPageNumber();
+        int limit = requestDto.getPageable().getPageSize();
 
         List<LiveRoom> paginatedLiveRoomList = liveRoomList.stream()
                 .skip((long) offset * limit)
@@ -372,7 +397,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
-    private LiveRoomResponse sortAndLimitFansByEntryTimeAndCount(LiveRoomResponse liveRoomResponse, Long fanCount) {
+    /*private LiveRoomResponse sortAndLimitFansByEntryTimeAndCount(LiveRoomResponse liveRoomResponse, Long fanCount) {
         List<Fan> fanList = liveRoomResponse.getFans()
                 .stream()
                 .sorted(Comparator.comparing(Fan::getEntryTime))
@@ -381,14 +406,13 @@ public class LiveRoomService implements LiveRoomUseCase {
 
         liveRoomResponse.setFans(fanList);
         return liveRoomResponse;
-    }
+    }*/
 
 
     private LiveRoomResponse buildLiveRoomResponse(LiveRoom liveRoom) {
-        Map<String, Fan> fanMap = liveRoom.getFans();
-        LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
-        liveRoomResponse.setFans(fanMap != null ? fanMap.values().stream().toList() : new ArrayList<>());
-        return liveRoomResponse;
+//        Map<String, Fan> fanMap = liveRoom.getFans();
+//        liveRoomResponse.setFans(fanMap != null ? fanMap.values().stream().toList() : new ArrayList<>());
+        return modelMapper.map(liveRoom, LiveRoomResponse.class);
     }
 
 
@@ -397,7 +421,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         for (LiveRoom liveRoom : liveRoomList) {
             Map<String, Fan> fanMap = liveRoom.getFans();
             LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
-            liveRoomResponse.setFans(fanMap.values().stream().toList());
+//            liveRoomResponse.setFans(fanMap.values().stream().toList());
             liveRoomResponseList.add(liveRoomResponse);
         }
 
@@ -459,7 +483,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         ? null
                         : requestDto.getWelcomeNote())
                 .fansCount(0)
-                .isLive(Constants.STATUS_YES.getValue())
+                .status(Constants.STATUS_YES.getValue())
                 .fans(new HashMap<>())
                 .createdOn(LocalDateTime.now())
                 .createdBy(requestDto.getUserId())

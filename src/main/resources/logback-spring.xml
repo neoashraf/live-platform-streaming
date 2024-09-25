@@ -37,19 +37,19 @@
         <appender-ref ref="RollingFile"/>
     </appender>
 
-    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+   <!-- <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
         <encoder class="com.github.loki4j.logback.JsonEncoder" />
         <sender class="com.github.loki4j.logback.HttpSender">
-<!--            <url>http://localhost:3100/loki/api/v1/push</url>-->
+&lt;!&ndash;            <url>http://localhost:3100/loki/api/v1/push</url>&ndash;&gt;
         </sender>
-    </appender>
+    </appender>-->
 
     <!-- LOG everything at INFO level -->
 
     <root level="info">
         <appender-ref ref="ASYNC"/>
         <appender-ref ref="Console"/>
-        <appender-ref ref="LOKI" />
+<!--        <appender-ref ref="LOKI" />-->
     </root>
 
 </configuration>
