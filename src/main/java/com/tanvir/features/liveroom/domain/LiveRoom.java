@@ -26,7 +26,8 @@ public class LiveRoom {
     private String type;
     private String status;
     private String country;
-    private String hostUserId;
+    private String hostId;
+    private String userId;
     private List<String> kickedOutUserIds;
     private long viewerCount;
     private long hostDailyGems;

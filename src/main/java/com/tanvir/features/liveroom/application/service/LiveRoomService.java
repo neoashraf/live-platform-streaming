@@ -39,7 +39,6 @@ import reactor.util.function.Tuple3;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -76,6 +75,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(user ->
                         hostUseCase.getHostByUserId(user.getId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
+                        .filter(host -> host.getActive().equals(Constants.STATUS_YES.getValue()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host is Banned. Cannot create LiveRoom.")))
                         .flatMap(host -> port.getActiveLiveRoomByHostId(host.getId())
                         .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                         .switchIfEmpty(Mono.just(LiveRoom.builder().build()))
@@ -549,7 +550,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .type(requestDto.getType())
                 .status(Constants.STATUS_LIVE.getValue())
                 .country(host.getCountry())
-                .hostUserId(host.getId())
+                .hostId(host.getId())
+                .userId(host.getUserId())
                 .kickedOutUserIds(new ArrayList<>())
                 .viewerCount(0)
                 .hostDailyGems(0)
