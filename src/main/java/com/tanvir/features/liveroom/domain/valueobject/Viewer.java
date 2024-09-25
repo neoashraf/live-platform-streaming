@@ -1,4 +1,4 @@
-package com.tanvir.features.liveroom.application.port.in.dto.request;
+package com.tanvir.features.liveroom.domain.valueobject;
 
 import com.tanvir.core.util.CommonFunctions;
 import lombok.AllArgsConstructor;
@@ -6,23 +6,21 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class LiveRoomRequestDto {
-    private String keycloakId;
+public class Viewer {
     private String userId;
+    private String name;
+    private Integer userLevel;
     private String profilePicture;
-    private String title;
-    private String welcomeNote;
-    private String type;
-    private List<String> tags;
-    private String description;
-    private String thumbnailId;
-    private String thumbnailUrl;
+    private String entryBanner;
+    private String frame;
+    private String ride;
+    private LocalDateTime entryTime;
 
     @Override
     public String toString() {

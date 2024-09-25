@@ -1,7 +1,6 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.entity;
 
 import com.tanvir.core.util.CommonFunctions;
-import com.tanvir.features.liveroom.domain.valueobject.Fan;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -11,7 +10,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -22,53 +20,24 @@ import java.util.UUID;
 @Document(collection = "liverooms")
 public class LiveRoomEntity implements Persistable<String> {
 
-    private List<String> tags;
-    private Integer viewers;
-
-//  new proposed
     private String id;
-
-
     private LocalDateTime createdOn;
     private LocalDateTime endedOn;
-
-
     private String thumbnailId;
     private String thumbnailUrl;
 
-
     private String title;
-    private String welcomeNote;
-    private List<String> tag;
+    private String description;
+    private List<String> tags;
     private String type;
     private String status;
-    private Long duration;
-    private String hostUserId;
+    private String country;
+    private String hostId;
     private List<String> kickedOutUserIds;
+    private long viewerCount;
     private long dailyReceivedGems;
 
-
-    private Integer levelCompletionPercentage; // no need (only needed in response)
-
-
-
-
-    // host related info
-    private String userId;
-    private String keycloakId;
-    private String country;
-    private String profilePicture; // profilePictureUrl
-    private Integer starCount;
-    private Long gemsCount;
-    private Long beansCount;
-    private String maxId;
-    private String gender;
-    private String profilePictureUrl;
-
-    private Integer popularityLevel; // no need
-    private Integer userLevel;
-
-
+    private long duration;
 
 
     @Override

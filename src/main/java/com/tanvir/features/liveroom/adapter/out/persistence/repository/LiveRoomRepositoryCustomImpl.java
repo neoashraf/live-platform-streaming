@@ -32,7 +32,7 @@ public class LiveRoomRepositoryCustomImpl implements LiveRoomRepositoryCustom {
             criteria.and("country").is(country);
         }
 
-        Query query = new Query(criteria).with(pageable).with(Sort.by(Sort.Direction.DESC, "createdOn"));
+        Query query = new Query(criteria).with(pageable).with(Sort.by(Sort.Direction.DESC, "dailyReceivedGems"));
 
         return reactiveMongoTemplate.find(query, LiveRoomEntity.class);
     }

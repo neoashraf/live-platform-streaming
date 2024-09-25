@@ -1,10 +1,11 @@
 package com.tanvir.features.liveroom.application.port.out;
 
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
+import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import reactor.core.publisher.Mono;
 
 public interface CachePort {
-    Mono<LiveRoomEntity> create(LiveRoomEntity entity);
-    Mono<Void> delete(String id);
+    Mono<LiveRoomFirebaseEntity> create(LiveRoomFirebaseEntity entity);
+    Mono<String> delete(String id);
     Mono<LiveRoomEntity> update(LiveRoomEntity entity);
 }

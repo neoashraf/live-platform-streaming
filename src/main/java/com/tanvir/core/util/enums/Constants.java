@@ -9,7 +9,7 @@ public enum Constants {
     LIVE_ROOM_TYPE_VIDEO("Video"),
     LIVE_ROOM_TYPE_AUDIO("Audio"),
     TAB_POPULAR("Popular"),
-    TAB_FRESHERS("Freshers"),
+    TAB_FRESHER("Fresher"),
     TAB_PARTY("Party"),
 
     STATUS_LIVE("Live"),

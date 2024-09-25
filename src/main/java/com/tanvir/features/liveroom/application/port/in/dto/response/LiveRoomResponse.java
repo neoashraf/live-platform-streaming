@@ -1,11 +1,11 @@
 package com.tanvir.features.liveroom.application.port.in.dto.response;
 
-import com.tanvir.features.liveroom.domain.valueobject.Fan;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -21,7 +21,7 @@ public class LiveRoomResponse {
     private String type;
     private List<String> tags;
     private String status;
-    private Integer viewers;
-    private LocalDateTime createdOn;
+    private long viewerCount;
+    private Instant createdOn;
     private String country;
 }

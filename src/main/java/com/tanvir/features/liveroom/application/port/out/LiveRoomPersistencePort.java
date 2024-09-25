@@ -15,4 +15,6 @@ public interface LiveRoomPersistencePort {
     Flux<LiveRoom> getActiveAudioLiveRooms(Pageable pageable, String country);
     Flux<LiveRoom> getActiveVideoLiveRooms(Pageable pageable, String country);
     Mono<Long> getActiveLiveRoomsCountByTypeAndCountry(String type, String country, String viewMode);
+
+    Mono<LiveRoom> getActiveLiveRoomByHostId(String hostId);
 }

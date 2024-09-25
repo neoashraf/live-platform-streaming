@@ -51,11 +51,13 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
 
     @Override
     public Mono<LiveRoom> getActiveLiveRoomByKeyCloakId(String keycloakId) {
-        return repository.getLiveRoomEntityByStatusAndKeycloakId(Constants.STATUS_LIVE.getValue(), keycloakId)
+        /*return repository.getLiveRoomEntityByStatusAndKeycloakId(Constants.STATUS_LIVE.getValue(), keycloakId)
                 .doOnRequest(l -> log.info("Request received to get active live room by keycloak id : {}", keycloakId))
                 .doOnSuccess(liveRoomEntity -> log.info("Got active live room by keycloak id : {}", liveRoomEntity))
                 .doOnError(throwable -> log.error("Error while getting active live room by keycloak id : {}", throwable.getMessage()))
-                .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class));
+                .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class));*/
+
+        return null;
     }
 
     @Override
@@ -90,6 +92,12 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
                 .doOnRequest(l -> log.info("Request received to get active live rooms count by type : {}", type))
                 .doOnSuccess(count -> log.info("Got active live rooms count by type : {}", count))
                 .doOnError(throwable -> log.error("Error while getting active live rooms count by type : {}", throwable.getMessage()));
+    }
+
+    @Override
+    public Mono<LiveRoom> getActiveLiveRoomByHostId(String hostId) {
+        return repository.getLiveRoomEntityByHostIdAndStatus(hostId, Constants.STATUS_LIVE.getValue())
+                .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class));
     }
 
 }

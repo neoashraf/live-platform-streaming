@@ -1,7 +1,10 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.firebase;
 
 import com.tanvir.common.firebase.BaseFirebaseEntity;
+import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.Fan;
+import com.tanvir.features.liveroom.domain.valueobject.HostSummary;
+import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -15,35 +18,16 @@ import java.util.Map;
 @Builder
 @Data
 public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
-
     private String id;
-    private String userId;
-    private String country;
-    private String profilePicture; // profilePictureUrl
+    private String thumbnailId;
+    private String thumbnailUrl;
     private String title;
-    private String welcomeNote;
-    private Integer starCount;
-    private Long gemsCount;
-    private Long beansCount;
-    private String type;
+    private String description;
     private List<String> tags;
-    private Integer viewers;
-    private String isLive;
-    private Integer popularityLevel; // no need
-    private Integer userLevel;
-    private Map<String, Fan> fans;
-    private List<String> kickedOutUsers;
-    private Long duration;
-    private Integer levelCompletionPercentage; // no need (only needed in response)
-
-    private String createdBy; // no need
-//    private LocalDateTime createdOn;
-    private String endedBy; // no need
-//    private LocalDateTime endedOn;
-
-    private String maxId;
-    private String gender;
-    private String profilePictureUrl;
-    private long dailyReceivedGems;
-
+    private String type;
+    private HostSummary host;
+    private List<Viewer> viewers;
+    private List<String> viewerUserIds;
+    private long viewerCount;
+    private List<Announcement> announcements;
 }
