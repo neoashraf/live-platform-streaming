@@ -2,12 +2,15 @@ package com.tanvir.common.firebase;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.database.*;
+import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
+import com.tanvir.features.liveroom.application.service.FirebaseTimeService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,11 +22,13 @@ public class ReactiveFirebaseRepository<T extends BaseFirebaseEntity> {
     private final DatabaseReference databaseReference;
     private final Class<T> entityClass;
     private final ObjectMapper mapper;
+    private final FirebaseTimeService firebaseTimeService;
 
-    public ReactiveFirebaseRepository(String referencePath, Class<T> entityClass, ObjectMapper mapper) {
+    public ReactiveFirebaseRepository(String referencePath, Class<T> entityClass, ObjectMapper mapper, FirebaseTimeService firebaseTimeService) {
         this.databaseReference = FirebaseDatabase.getInstance().getReference(referencePath);
         this.entityClass = entityClass;
         this.mapper = mapper;
+        this.firebaseTimeService = firebaseTimeService;
     }
 
     public Mono<T> create(T entity) {
@@ -47,6 +52,44 @@ public class ReactiveFirebaseRepository<T extends BaseFirebaseEntity> {
                     sink.error(databaseError.toException());
                 } else {
                     sink.success(entity);
+                }
+            });
+        });
+    }
+
+    public Mono<LiveRoomFirebaseEntity> createLiveRoom(LiveRoomFirebaseEntity entity, String key) {
+        return Mono.create(sink -> {
+            /*String key = databaseReference.push().getKey();
+            entity.setId(key);*/
+            databaseReference.child(key).setValue(mapper.convertValue(entity, Map.class), (databaseError, databaseReference) -> {
+                if (databaseError != null) {
+                    sink.error(databaseError.toException());
+                } else {
+                    sink.success(entity);
+                }
+            });
+        })
+        .doOnSuccess(createdEntity -> {
+            // Start the timer when the entity is successfully created
+            firebaseTimeService.startTimerV2(entity, databaseReference);
+        })
+        .thenReturn(entity);
+    }
+
+    public Mono<Void> stopTimer(LiveRoomFirebaseEntity entity) {
+        entity.setStatus("Offline");
+        firebaseTimeService.stopTimer();
+
+        // Update status in Firebase
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("status", "Offline");
+
+        return Mono.create(sink -> {
+            databaseReference.child(entity.getId()).updateChildren(updates, (error, ref) -> {
+                if (error != null) {
+                    sink.error(error.toException());
+                } else {
+                    sink.success();
                 }
             });
         });

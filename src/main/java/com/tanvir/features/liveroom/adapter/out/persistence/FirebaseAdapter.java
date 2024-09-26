@@ -23,14 +23,18 @@ public class FirebaseAdapter implements CachePort {
 
     @Override
     public Mono<LiveRoomFirebaseEntity> create(LiveRoomFirebaseEntity entity) {
-        return firebaseRepository.create(entity, entity.getId());
+        return firebaseRepository.createLiveRoom(entity, entity.getId());
     }
 
     @Override
     public Mono<String> delete(String id) {
-        return firebaseRepository.delete(id)
+        return firebaseRepository.read(id)
+                .flatMap(firebaseEntity -> firebaseRepository.stopTimer(firebaseEntity)
+                        .then(firebaseRepository.delete(id)))
                 .thenReturn(id);
     }
+
+
 
     @Override
     public Mono<LiveRoomEntity> update(LiveRoomEntity entity) {

@@ -1,5 +1,7 @@
 package com.tanvir.features.liveroom.application.service;
 
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
 import com.tanvir.core.util.enums.Constants;
 import com.tanvir.core.util.enums.ExceptionMessages;
 import com.tanvir.core.util.enums.MetaPropertyEnums;
@@ -154,6 +156,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .viewers(new ArrayList<>())
                 .viewerCount(0)
                 .announcements(new ArrayList<>())
+                .elapsedSeconds(0)
                 .build();
     }
 
@@ -233,7 +236,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                     return liveRoom;
                 })
                 .flatMap(port::saveLiveRoom)
-                .flatMap(liveRoom -> cachePort.delete(liveRoomId)
+                .flatMap(liveRoom ->
+                        cachePort.delete(liveRoomId)
                         .doOnSuccess(liveRoomEntity -> log.info("LiveRoom deleted from firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while deleting LiveRoom from Firebase : {}", throwable.getMessage()))
                         .thenReturn(liveRoom))

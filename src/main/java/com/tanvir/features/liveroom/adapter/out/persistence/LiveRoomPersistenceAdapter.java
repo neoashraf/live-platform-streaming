@@ -96,7 +96,7 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
 
     @Override
     public Mono<LiveRoom> getActiveLiveRoomByHostId(String hostId) {
-        return repository.getLiveRoomEntityByHostUserIdAndStatus(hostId, Constants.STATUS_LIVE.getValue())
+        return repository.getLiveRoomEntityByHostIdAndStatus(hostId, Constants.STATUS_LIVE.getValue())
                 .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class));
     }
 

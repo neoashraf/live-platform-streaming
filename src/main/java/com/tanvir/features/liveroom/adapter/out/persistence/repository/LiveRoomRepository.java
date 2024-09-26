@@ -1,7 +1,6 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.repository;
 
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import reactor.core.publisher.Flux;
@@ -17,5 +16,5 @@ public interface LiveRoomRepository extends ReactiveMongoRepository<LiveRoomEnti
     Mono<Long> countByTypeAndStatusAndCountry(String type, String status, String country);
 //    Flux<LiveRoomEntity> getLiveRoomEntitiesByTypeAndStatusOrderByPopularityLevelDesc(String type, String status, Pageable pageable);
 
-    Mono<LiveRoomEntity> getLiveRoomEntityByHostUserIdAndStatus(String hostId, String status);
+    Mono<LiveRoomEntity> getLiveRoomEntityByHostIdAndStatus(String hostId, String status);
 }

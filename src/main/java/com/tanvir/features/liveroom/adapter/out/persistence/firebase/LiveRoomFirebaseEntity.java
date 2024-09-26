@@ -31,4 +31,6 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private List<Viewer> viewers;
     private long viewerCount;
     private List<Announcement> announcements;
+    private int elapsedSeconds;
+    private String formattedTime;
 }
