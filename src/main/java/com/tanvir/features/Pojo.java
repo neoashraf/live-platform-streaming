@@ -2,6 +2,7 @@ package com.tanvir.features;
 
 import com.tanvir.features.liveroom.application.port.in.dto.request.SendGiftRequestDto;
 import com.tanvir.features.liveroom.domain.LiveRoom;
+import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.LiveStreamInfo;
 import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.domain.User;
@@ -10,6 +11,8 @@ import org.modelmapper.ModelMapper;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Timer;
 
 public class Pojo {
@@ -18,6 +21,15 @@ public class Pojo {
         System.out.println(formatToK(32000));  // 32K
         System.out.println(formatToK(32500));  // 32.5K
         System.out.println(formatToK(100000));
+
+        List<Integer> integerList = new ArrayList<>(List.of(1, 2, 3, 4, 5, 6, 7, 8, 9));
+        System.out.println("before : " + integerList);
+        if (integerList.size() >= 10) {
+            integerList = integerList.subList(integerList.size() - 9, integerList.size());
+        }
+        integerList.add(11);
+        System.out.println("after : " + integerList);
+
     }
 
     public static String formatToK(double value) {

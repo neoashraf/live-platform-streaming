@@ -19,11 +19,8 @@ import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomRes
 import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomResponseDto;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort;
-import com.tanvir.features.liveroom.domain.valueobject.DailyStarProgress;
-import com.tanvir.features.liveroom.domain.valueobject.Fan;
+import com.tanvir.features.liveroom.domain.valueobject.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
-import com.tanvir.features.liveroom.domain.valueobject.HostSummary;
-import com.tanvir.features.liveroom.domain.valueobject.LiveStreamInfo;
 import com.tanvir.features.metaproperty.application.port.in.MetaPropertyUseCase;
 import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.application.port.in.UserUseCase;
@@ -165,34 +162,50 @@ public class LiveRoomService implements LiveRoomUseCase {
         return port.getLiveRoomById(liveRoomEntryLeaveRequestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomEntryLeaveRequestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
-                .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot join.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomEntryLeaveRequestDto.getKeycloakId())
                         .map(user -> {
-                            liveRoomEntryLeaveRequestDto.getFan().setUserId(user.getId());
+                            Viewer viewer = Viewer
+                                    .builder()
+                                    .userId(user.getId())
+                                    .displayName(user.getDisplayName())
+                                    .gender(user.getGender())
+                                    .profilePictureUrl(user.getProfileImageUrl())
+                                    .frameUrl(user.getProfileFrameUrl())
+                                    .userLevel(user.getUserLevel())
+                                    .build();
+                            liveRoom.setViewer(viewer);
                             return liveRoom;
                         }))
                 /*.filter(liveRoom -> !liveRoom.getFans().containsKey(liveRoomEntryLeaveRequestDto.getFan().getUserId()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Fan already exists in LiveRoom.")))*/
+//                .doOnNext(liveRoom -> log.info("LiveRoom with viewer : {}", liveRoom))
                 .flatMap(liveRoom -> {
                     if (liveRoom.getKickedOutUserIds() == null || liveRoom.getKickedOutUserIds().isEmpty()) {
                         liveRoom.setKickedOutUserIds(new ArrayList<>());
                     }
                     return Mono.just(liveRoom);
                 })
-                .filter(liveRoom -> !liveRoom.getKickedOutUserIds().contains(liveRoomEntryLeaveRequestDto.getFan().getUserId()))
+                .filter(liveRoom -> !liveRoom.getKickedOutUserIds().contains(liveRoom.getViewer().getUserId()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is kicked out from LiveRoom. Cannot join.")))
-                .map(liveRoom -> this.updateLiveRoomForFanEntry(liveRoom, liveRoomEntryLeaveRequestDto))
-                .doOnNext(liveRoom -> log.info("Updated LiveRoom with fan entry : {}", liveRoom))
-                .flatMap(port::saveLiveRoom)
-                .doOnNext(liveRoom -> cachePort.update(modelMapper.map(liveRoom, LiveRoomEntity.class))
+                /*.map(liveRoom -> this.updateLiveRoomForFanEntry(liveRoom, liveRoomEntryLeaveRequestDto))
+                .doOnNext(liveRoom -> log.info("Updated LiveRoom with fan entry : {}", liveRoom))*/
+                .flatMap(liveRoom -> port.saveLiveRoom(liveRoom)
+                        .thenReturn(liveRoom))
+                .map(this::buildAnnouncement)
+                .flatMap(liveRoom -> cachePort.update(liveRoom)
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                        .subscribeOn(Schedulers.boundedElastic()).subscribe())
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
                 .map(this::buildLiveRoomResponse)
-                .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "Fan Entered into LiveRoom Successfully."))
+                .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "User has successfully joined the room."))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
 
+    }
+
+    private LiveRoom buildAnnouncement(LiveRoom liveRoom) {
+//        todo : build announcement
+        return liveRoom;
     }
 
     @Override
@@ -204,7 +217,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot leave.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
                         .map(user -> {
-                            requestDto.setFan(Fan.builder().userId(user.getId()).build());
+//                            requestDto.setFan(Fan.builder().userId(user.getId()).build());
                             return liveRoom;
                         }))
                 /*.filter(liveRoom -> liveRoom.getFans().containsKey(requestDto.getFan().getUserId()))
@@ -490,6 +503,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     private LiveRoomResponse buildLiveRoomResponse(LiveRoom liveRoom) {
         LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
+        liveRoomResponse.setAnnouncement(liveRoom.getAnnouncement());
         liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
         return liveRoomResponse;
     }
@@ -511,8 +525,8 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     private LiveRoom updateLiveRoomForFanEntry(LiveRoom liveRoom, LiveRoomEntryLeaveRequestDto requestDto) {
 //        Map<String, Fan> fans = liveRoom.getFans();
-        Fan newFan = requestDto.getFan();
-        newFan.setEntryTime(LocalDateTime.now());
+//        Fan newFan = requestDto.getFan();
+//        newFan.setEntryTime(LocalDateTime.now());
 
        /* fans.put(newFan.getUserId(), newFan);
         liveRoom.setFans(fans);

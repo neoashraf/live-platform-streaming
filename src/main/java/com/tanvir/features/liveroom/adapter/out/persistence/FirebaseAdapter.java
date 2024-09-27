@@ -5,9 +5,15 @@ import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntit
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseRepository;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
+import com.tanvir.features.liveroom.domain.LiveRoom;
+import com.tanvir.features.liveroom.domain.valueobject.Announcement;
+import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Component
 public class FirebaseAdapter implements CachePort {
@@ -43,5 +49,30 @@ public class FirebaseAdapter implements CachePort {
 //        entity.getFans().values().forEach(fan -> fan.setEntryTime(null));
         return firebaseRepository.update(modelMapper.map(entity, LiveRoomFirebaseEntity.class), entity.getId())
                 .map(firebaseReturnedEntity -> modelMapper.map(firebaseReturnedEntity, LiveRoomEntity.class));
+    }
+
+    @Override
+    public Mono<LiveRoom> update(LiveRoom liveRoom) {
+
+        return firebaseRepository.read(liveRoom.getId())
+                .map(firebaseEntity -> {
+                    List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
+                    currentViewersInFirebase.add(liveRoom.getViewer());
+
+                    firebaseEntity.setViewers(currentViewersInFirebase);
+                    firebaseEntity.setViewerCount(currentViewersInFirebase.size());
+
+                    List<Announcement> currentAnnouncementsInFirebase = new ArrayList<>(firebaseEntity.getAnnouncements() != null ? firebaseEntity.getAnnouncements() : new ArrayList<>());
+                    if (currentAnnouncementsInFirebase.size() >= 10) {
+                        currentAnnouncementsInFirebase = currentAnnouncementsInFirebase.subList(currentAnnouncementsInFirebase.size() - 9, currentAnnouncementsInFirebase.size());
+                    }
+                    currentAnnouncementsInFirebase.add(liveRoom.getAnnouncement());
+                    firebaseEntity.setAnnouncements(currentAnnouncementsInFirebase);
+
+                    return firebaseEntity;
+
+                })
+                .flatMap(firebaseEntity -> firebaseRepository.update(firebaseEntity))
+                .map(firebaseReturnedEntity -> liveRoom);
     }
 }

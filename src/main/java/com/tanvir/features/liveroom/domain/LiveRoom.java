@@ -1,11 +1,14 @@
 package com.tanvir.features.liveroom.domain;
 
 import com.tanvir.core.util.CommonFunctions;
+import com.tanvir.features.liveroom.domain.valueobject.Announcement;
+import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import javax.swing.text.View;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -31,6 +34,9 @@ public class LiveRoom {
     private List<String> kickedOutUserIds;
     private long viewerCount;
     private long hostDailyGems;
+
+    private Viewer viewer;
+    private Announcement announcement;
 
 
     @Override

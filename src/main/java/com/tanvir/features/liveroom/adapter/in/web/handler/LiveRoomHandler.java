@@ -43,15 +43,11 @@ public class LiveRoomHandler {
         log.info("Joining stream");
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
         String id = serverRequest.pathVariable("id");
-        return serverRequest
-                .bodyToMono(Fan.class)
-                .map(fan -> LiveRoomEntryLeaveRequestDto.builder().fan(fan).build())
-                .map(requestDto -> {
-                    requestDto.setKeycloakId(keycloakId);
-                    requestDto.setLiveRoomId(id);
-                    return requestDto;
-                })
-                .flatMap(liveRoomUseCase::joinStream)
+        return liveRoomUseCase.joinStream(LiveRoomEntryLeaveRequestDto
+                        .builder()
+                        .liveRoomId(id)
+                        .keycloakId(keycloakId)
+                        .build())
                 .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)

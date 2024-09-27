@@ -2,6 +2,7 @@ package com.tanvir.features.liveroom.application.port.in.dto.request;
 
 import com.tanvir.core.util.CommonFunctions;
 import com.tanvir.features.liveroom.domain.valueobject.Fan;
+import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -14,7 +15,8 @@ import lombok.NoArgsConstructor;
 public class LiveRoomEntryLeaveRequestDto {
     private String keycloakId;
     private String liveRoomId;
-    private Fan fan;
+//    private Fan fan;
+    private Viewer viewer;
 
     @Override
     public String toString() {

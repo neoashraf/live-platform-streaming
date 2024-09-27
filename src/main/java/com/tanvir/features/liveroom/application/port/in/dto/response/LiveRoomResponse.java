@@ -1,5 +1,7 @@
 package com.tanvir.features.liveroom.application.port.in.dto.response;
 
+import com.tanvir.features.liveroom.domain.valueobject.Announcement;
+import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,4 +26,6 @@ public class LiveRoomResponse {
     private long viewerCount;
     private Instant createdOn;
     private String country;
+    private Viewer viewer;
+    private Announcement announcement;
 }
