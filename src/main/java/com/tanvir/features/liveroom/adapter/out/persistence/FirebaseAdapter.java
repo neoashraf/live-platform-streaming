@@ -28,9 +28,11 @@ public class FirebaseAdapter implements CachePort {
 
     @Override
     public Mono<String> delete(String id) {
-        return firebaseRepository.read(id)
+        /*return firebaseRepository.read(id)
                 .flatMap(firebaseEntity -> firebaseRepository.stopTimer(firebaseEntity)
                         .then(firebaseRepository.delete(id)))
+                .thenReturn(id);*/
+        return firebaseRepository.delete(id)
                 .thenReturn(id);
     }
 

@@ -69,10 +69,10 @@ public class ReactiveFirebaseRepository<T extends BaseFirebaseEntity> {
                 }
             });
         })
-        .doOnSuccess(createdEntity -> {
+        /*.doOnSuccess(createdEntity -> {
             // Start the timer when the entity is successfully created
             firebaseTimeService.startTimerV2(entity, databaseReference);
-        })
+        })*/
         .thenReturn(entity);
     }
 
