@@ -99,7 +99,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .thenReturn(liveRoom)))
                 .map(liveRoom -> LiveRoomGridViewResponseDto
                         .builder()
-                        .userMessage("LiveRoom Grid View Fetched Successfully.")
+                        .userMessage("Live room created successfully.")
                         .data(List.of(this.buildLiveRoomResponse(liveRoom)))
                         .count(1)
                         .build())
