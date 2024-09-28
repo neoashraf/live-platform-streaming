@@ -5,12 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
+
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 public class RoomDataDto {
     private String id;
-    private String joinedOn;
+    private Instant joinedOn;
     private Announcement announcement;
 }

@@ -5,8 +5,10 @@ import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -18,7 +20,7 @@ public class CommonFunctions {
 		return buildGson(object).toJson(object);
 	}
 	
-	public Gson buildGson(Object object) {
+	/*public Gson buildGson(Object object) {
 		return new GsonBuilder()
 				.registerTypeAdapter(LocalDateTime.class,
 						(JsonDeserializer<LocalDateTime>) (json, typeOfT, context) -> LocalDateTime.parse(json.getAsString(),
@@ -33,6 +35,36 @@ public class CommonFunctions {
 						(JsonSerializer<LocalDate>) (localDateTime, type, jsonSerializationContext) ->
 								new JsonPrimitive(localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))))
 				.setPrettyPrinting().create();
+	}*/
+
+	public Gson buildGson(Object object) {
+		return new GsonBuilder()
+				.registerTypeAdapter(LocalDateTime.class,
+						(JsonDeserializer<LocalDateTime>) (json, typeOfT, context) ->
+								LocalDateTime.parse(json.getAsString(), DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS")))
+				.registerTypeAdapter(LocalDateTime.class,
+						(JsonSerializer<LocalDateTime>) (localDateTime, type, jsonSerializationContext) ->
+								new JsonPrimitive(localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS"))))
+				.registerTypeAdapter(LocalDate.class,
+						(JsonDeserializer<LocalDate>) (json, typeOfT, context) ->
+								LocalDate.parse(json.getAsString(), DateTimeFormatter.ofPattern("yyyy-MM-dd")))
+				.registerTypeAdapter(LocalDate.class,
+						(JsonSerializer<LocalDate>) (localDateTime, type, jsonSerializationContext) ->
+								new JsonPrimitive(localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))))
+				.registerTypeAdapter(Instant.class, new JsonSerializer<Instant>() {
+					@Override
+					public JsonElement serialize(Instant instant, Type typeOfSrc, JsonSerializationContext context) {
+						return new JsonPrimitive(instant.toString()); // Serialize Instant to ISO-8601 format
+					}
+				})
+				.registerTypeAdapter(Instant.class, new JsonDeserializer<Instant>() {
+					@Override
+					public Instant deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+						return Instant.parse(json.getAsString()); // Deserialize ISO-8601 format back to Instant
+					}
+				})
+				.setPrettyPrinting()
+				.create();
 	}
 	
 	public double round(int scale, double amount, RoundingMode roundingMode) {

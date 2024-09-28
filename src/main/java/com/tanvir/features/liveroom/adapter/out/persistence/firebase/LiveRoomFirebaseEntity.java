@@ -29,8 +29,9 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private String country;
     private HostSummary host;
     private List<Viewer> viewers;
+    private List<String> viewerIds;
     private long viewerCount;
     private List<Announcement> announcements;
-    private int elapsedSeconds;
-    private String formattedTime;
+//    private int elapsedSeconds;
+//    private String formattedTime;
 }

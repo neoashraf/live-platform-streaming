@@ -17,11 +17,11 @@ public class FirebaseTimeService {
     public void startTimer(LiveRoomFirebaseEntity entity, DatabaseReference databaseReference) {
         scheduler.scheduleAtFixedRate(() -> {
             if (!"stopped".equals(entity.getStatus())) {
-                entity.setElapsedSeconds(entity.getElapsedSeconds() + 1);
+//                entity.setElapsedSeconds(entity.getElapsedSeconds() + 1);
 
                 // Update elapsed time in Firebase
                 Map<String, Object> updates = new HashMap<>();
-                updates.put("elapsedSeconds", entity.getElapsedSeconds());
+//                updates.put("elapsedSeconds", entity.getElapsedSeconds());
 
                 databaseReference.child(entity.getId()).updateChildren(updates, (databaseError, ref) -> {
                     if (databaseError != null) {
@@ -43,18 +43,18 @@ public class FirebaseTimeService {
     public void startTimerV2(LiveRoomFirebaseEntity entity, DatabaseReference databaseReference) {
         scheduler.scheduleAtFixedRate(() -> {
             if (!"stopped".equals(entity.getStatus())) {
-                entity.setElapsedSeconds(entity.getElapsedSeconds() + 1);
+//                entity.setElapsedSeconds(entity.getElapsedSeconds() + 1);
 
                 // Convert elapsedSeconds to hh:mm:ss format
-                String formattedTime = String.format("%02d:%02d:%02d",
+                /*String formattedTime = String.format("%02d:%02d:%02d",
                         TimeUnit.SECONDS.toHours(entity.getElapsedSeconds()),
                         TimeUnit.SECONDS.toMinutes(entity.getElapsedSeconds()) % 60,
-                        entity.getElapsedSeconds() % 60);
+                        entity.getElapsedSeconds() % 60);*/
 
                 // Update both elapsedSeconds and formattedTime in Firebase
                 Map<String, Object> updates = new HashMap<>();
-                updates.put("elapsedSeconds", entity.getElapsedSeconds());
-                updates.put("formattedTime", formattedTime);
+//                updates.put("elapsedSeconds", entity.getElapsedSeconds());
+//                updates.put("formattedTime", formattedTime);
 
                 databaseReference.child(entity.getId()).updateChildren(updates, (databaseError, ref) -> {
                     if (databaseError != null) {
@@ -62,7 +62,7 @@ public class FirebaseTimeService {
                         System.err.println("Failed to update entity: " + databaseError.getMessage());
                     } else {
                         // Timer successfully updated
-                        System.out.println("Timer updated successfully: " + formattedTime);
+//                        System.out.println("Timer updated successfully: " + formattedTime);
                     }
                 });
             }

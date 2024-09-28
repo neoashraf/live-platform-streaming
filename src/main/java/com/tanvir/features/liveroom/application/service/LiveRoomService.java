@@ -4,6 +4,7 @@ import com.tanvir.core.util.enums.*;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.content.application.port.in.ContentUseCase;
+import com.tanvir.features.gift.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
@@ -153,7 +154,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .viewers(new ArrayList<>())
                 .viewerCount(0)
                 .announcements(new ArrayList<>())
-                .elapsedSeconds(0)
+//                .elapsedSeconds(0)
                 .build();
     }
 
@@ -166,6 +167,15 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot join.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomEntryLeaveRequestDto.getKeycloakId())
                         .flatMap(user -> {
+
+                            if (liveRoom.getUserId().equals(user.getId())) {
+                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host Cannot join his/her own LiveRoom."));
+                            }
+
+                            if (liveRoom.getViewerIds() != null && liveRoom.getViewerIds().contains(user.getId())) {
+                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already joined the LiveRoom."));
+                            }
+
                             Viewer viewer = Viewer
                                     .builder()
                                     .userId(user.getId())
@@ -176,9 +186,13 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .userLevel(user.getUserLevel())
                                     .build();
                             liveRoom.setViewer(viewer);
-                            if (liveRoom.getUserId().equals(user.getId())) {
-                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host Cannot join his/her own LiveRoom."));
-                            }
+                            liveRoom.setViewerCount(liveRoom.getViewerCount() + 1);
+
+                            List<String> currentViewerIdsInLiveroom = new ArrayList<>(liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().isEmpty()
+                                    ? liveRoom.getViewerIds() : new ArrayList<>());
+                            currentViewerIdsInLiveroom.add(viewer.getUserId());
+                            liveRoom.setViewerIds(currentViewerIdsInLiveroom);
+
                             return Mono.just(liveRoom);
                         }))
                 .flatMap(liveRoom -> {
@@ -193,6 +207,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .thenReturn(liveRoom))
                 .flatMap(this::buildJoinAnnouncement)
                 .flatMap(liveRoom -> cachePort.update(liveRoom)
+                        .doOnRequest(liveRoomEntity -> log.info("Requesting to update LiveRoom into firebase"))
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
                 .flatMap(liveRoom -> this.buildStreamResponseDto(liveRoom, "User has successfully joined the room."))
@@ -202,19 +217,19 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     private Mono<StreamResponseDto> buildStreamResponseDto(LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
+        roomDataDto.setId(liveRoom.getId());
+        roomDataDto.setJoinedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+        roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
         return Mono.just(StreamResponseDto
                 .builder()
                 .message(message)
                 .data(roomDataDto)
+                .count(1)
                 .build());
     }
 
     private Mono<LiveRoom> buildJoinAnnouncement(LiveRoom liveRoom) {
 //        todo : build announcement
-        /*Announcement announcement = new Announcement();
-        announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(announcementType));
-        announcement.setType(announcementType);
-        announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC));*/
         return userUseCase.getUserById(liveRoom.getViewer().getUserId())
                 .flatMap(user -> {
                     Announcement announcement = new Announcement();
@@ -223,12 +238,16 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .map(content -> {
                                     announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue()));
                                     announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue());
-                                    announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+                                    announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
+                                    List<String> imageUrlList = content.getResourceFormats()
+                                            .stream()
+                                            .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
+                                            .map(ResourceFormat::getThumbnailUrl).toList();
                                     announcement.setResource(
                                             Resource
                                                 .builder()
                                                     .name(content.getName())
-//                                                    .imageUrl(content.ge)
+                                                    .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
                                                 .build()
                                     );
                                     return Tuples.of(announcement, user);
@@ -238,20 +257,24 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .map(content -> {
                                     announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue()));
                                     announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue());
-                                    announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+                                    announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
+                                    List<String> imageUrlList = content.getResourceFormats()
+                                            .stream()
+                                            .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
+                                            .map(ResourceFormat::getThumbnailUrl).toList();
                                     announcement.setResource(
                                             Resource
                                                     .builder()
                                                     .name(content.getName())
-//                                                    .imageUrl(content.ge)
+                                                    .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
                                                     .build()
                                     );
                                     return Tuples.of(announcement, user);
                                 });
-                    } else if (Strings.isNotNullAndNotEmpty(user.getEntryCardId()) && Strings.isNotNullAndNotEmpty(user.getRideId())) {
+                    } else if (Strings.isNullOrEmpty(user.getEntryCardId()) && Strings.isNullOrEmpty(user.getRideId())) {
                         announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue()));
                         announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue());
-                        announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+                        announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
                         return Mono.just(Tuples.of(announcement, user));
                     }
                     return Mono.just(Tuples.of(announcement, user));

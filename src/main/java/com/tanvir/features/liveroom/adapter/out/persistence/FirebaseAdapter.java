@@ -8,6 +8,7 @@ import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.Viewer;
+import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -16,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@Slf4j
 public class FirebaseAdapter implements CachePort {
     private final LiveRoomFirebaseRepository firebaseRepository;
     private final ModelMapper modelMapper;
@@ -55,6 +57,8 @@ public class FirebaseAdapter implements CachePort {
     public Mono<LiveRoom> update(LiveRoom liveRoom) {
 
         return firebaseRepository.read(liveRoom.getId())
+                .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
+                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
                     currentViewersInFirebase.add(liveRoom.getViewer());
@@ -69,10 +73,17 @@ public class FirebaseAdapter implements CachePort {
                     currentAnnouncementsInFirebase.add(liveRoom.getAnnouncement());
                     firebaseEntity.setAnnouncements(currentAnnouncementsInFirebase);
 
+                    List<String> currentViewersIdsInFirebase = new ArrayList<>(firebaseEntity.getViewerIds() != null && !firebaseEntity.getViewerIds().isEmpty()
+                            ? firebaseEntity.getViewerIds() : new ArrayList<>());
+                    currentViewersIdsInFirebase.add(liveRoom.getViewer().getUserId());
+
+                    firebaseEntity.setViewerIds(currentViewersIdsInFirebase);
+
                     return firebaseEntity;
 
                 })
-                .flatMap(firebaseEntity -> firebaseRepository.update(firebaseEntity))
+                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
+                .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
 }

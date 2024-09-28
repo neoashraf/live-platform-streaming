@@ -32,6 +32,7 @@ public class LiveRoom {
     private String hostId;
     private String userId;
     private List<String> kickedOutUserIds;
+    private List<String> viewerIds;
     private long viewerCount;
     private long hostDailyGems;
 

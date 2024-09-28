@@ -1,5 +1,6 @@
 package com.tanvir.features.liveroom.domain.valueobject;
 
+import com.tanvir.core.util.CommonFunctions;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -18,5 +19,10 @@ public class Announcement {
     private AnnouncementUser publisher;
     private AnnouncementUser mentionedUser;
     private Resource resource;
-    private Instant time;
+    private String time;
+
+    @Override
+    public String toString() {
+        return CommonFunctions.buildGsonBuilder(this);
+    }
 }
