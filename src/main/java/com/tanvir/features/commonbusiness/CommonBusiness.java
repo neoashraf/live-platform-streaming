@@ -1,5 +1,9 @@
 package com.tanvir.features.commonbusiness;
 
+import com.tanvir.core.util.enums.AnnouncementEnum;
+
+import java.util.Map;
+
 public class CommonBusiness {
 
     public static String formatToK(double value) {
@@ -27,6 +31,16 @@ public class CommonBusiness {
         else {
             return String.format("%.3f", value);
         }
+    }
+
+    public static String getAnnouncementMessage(String announcementType) {
+        Map<String, String> announcementMessage = Map.of(
+                AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_CASUAL.getValue(),
+                AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_RIDE_ENTRY.getValue(),
+                AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_ENTRY_CARD_ENTRY.getValue()
+        );
+
+        return announcementMessage.get(announcementType);
     }
 
 }

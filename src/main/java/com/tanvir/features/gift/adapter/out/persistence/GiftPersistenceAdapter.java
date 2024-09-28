@@ -1,4 +1,4 @@
-package com.tanvir.features.gift.adapter;
+package com.tanvir.features.gift.adapter.out.persistence;
 
 import com.tanvir.features.gift.adapter.out.persistence.entity.GiftEntity;
 import com.tanvir.features.gift.adapter.out.persistence.repository.GiftRepository;

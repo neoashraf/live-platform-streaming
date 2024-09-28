@@ -1,22 +1,17 @@
 package com.tanvir.features.liveroom.application.service;
 
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.tanvir.core.util.enums.Constants;
-import com.tanvir.core.util.enums.ExceptionMessages;
-import com.tanvir.core.util.enums.MetaPropertyEnums;
-import com.tanvir.core.util.enums.UserTypeEnum;
+import com.tanvir.core.util.enums.*;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
+import com.tanvir.features.commonbusiness.CommonBusiness;
+import com.tanvir.features.content.application.port.in.ContentUseCase;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
+import com.tanvir.features.level.application.port.in.LevelUseCase;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
-import com.tanvir.features.liveroom.application.port.in.dto.response.EndStreamResponseDto;
-import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomGridViewResponseDto;
-import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomResponse;
-import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomResponseDto;
+import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort;
 import com.tanvir.features.liveroom.domain.valueobject.*;
@@ -34,6 +29,7 @@ import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuple3;
+import reactor.util.function.Tuples;
 
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
@@ -51,8 +47,10 @@ public class LiveRoomService implements LiveRoomUseCase {
     private final TransactionalOperator rxtx;
     private final CachePort cachePort;
     private final HostUseCase hostUseCase;
+    private final ContentUseCase contentUseCase;
+    private final LevelUseCase levelUseCase;
 
-    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase) {
+    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase) {
         this.userUseCase = userUseCase;
         this.port = port;
         this.metaPropertyUseCase = metaPropertyUseCase;
@@ -60,6 +58,8 @@ public class LiveRoomService implements LiveRoomUseCase {
         this.rxtx = rxtx;
         this.cachePort = cachePort;
         this.hostUseCase = hostUseCase;
+        this.contentUseCase = contentUseCase;
+        this.levelUseCase = levelUseCase;
     }
 
     @Override
@@ -158,14 +158,14 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<LiveRoomResponseDto> joinStream(LiveRoomEntryLeaveRequestDto liveRoomEntryLeaveRequestDto) {
+    public Mono<StreamResponseDto> joinStream(LiveRoomEntryLeaveRequestDto liveRoomEntryLeaveRequestDto) {
         return port.getLiveRoomById(liveRoomEntryLeaveRequestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomEntryLeaveRequestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot join.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomEntryLeaveRequestDto.getKeycloakId())
-                        .map(user -> {
+                        .flatMap(user -> {
                             Viewer viewer = Viewer
                                     .builder()
                                     .userId(user.getId())
@@ -176,11 +176,11 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .userLevel(user.getUserLevel())
                                     .build();
                             liveRoom.setViewer(viewer);
-                            return liveRoom;
+                            if (liveRoom.getUserId().equals(user.getId())) {
+                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host Cannot join his/her own LiveRoom."));
+                            }
+                            return Mono.just(liveRoom);
                         }))
-                /*.filter(liveRoom -> !liveRoom.getFans().containsKey(liveRoomEntryLeaveRequestDto.getFan().getUserId()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Fan already exists in LiveRoom.")))*/
-//                .doOnNext(liveRoom -> log.info("LiveRoom with viewer : {}", liveRoom))
                 .flatMap(liveRoom -> {
                     if (liveRoom.getKickedOutUserIds() == null || liveRoom.getKickedOutUserIds().isEmpty()) {
                         liveRoom.setKickedOutUserIds(new ArrayList<>());
@@ -189,23 +189,91 @@ public class LiveRoomService implements LiveRoomUseCase {
                 })
                 .filter(liveRoom -> !liveRoom.getKickedOutUserIds().contains(liveRoom.getViewer().getUserId()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is kicked out from LiveRoom. Cannot join.")))
-                /*.map(liveRoom -> this.updateLiveRoomForFanEntry(liveRoom, liveRoomEntryLeaveRequestDto))
-                .doOnNext(liveRoom -> log.info("Updated LiveRoom with fan entry : {}", liveRoom))*/
                 .flatMap(liveRoom -> port.saveLiveRoom(liveRoom)
                         .thenReturn(liveRoom))
-                .map(this::buildAnnouncement)
+                .flatMap(this::buildJoinAnnouncement)
                 .flatMap(liveRoom -> cachePort.update(liveRoom)
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
-                .map(this::buildLiveRoomResponse)
-                .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "User has successfully joined the room."))
+                .flatMap(liveRoom -> this.buildStreamResponseDto(liveRoom, "User has successfully joined the room."))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
 
     }
 
-    private LiveRoom buildAnnouncement(LiveRoom liveRoom) {
+    private Mono<StreamResponseDto> buildStreamResponseDto(LiveRoom liveRoom, String message) {
+        RoomDataDto roomDataDto = new RoomDataDto();
+        return Mono.just(StreamResponseDto
+                .builder()
+                .message(message)
+                .data(roomDataDto)
+                .build());
+    }
+
+    private Mono<LiveRoom> buildJoinAnnouncement(LiveRoom liveRoom) {
 //        todo : build announcement
-        return liveRoom;
+        /*Announcement announcement = new Announcement();
+        announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(announcementType));
+        announcement.setType(announcementType);
+        announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC));*/
+        return userUseCase.getUserById(liveRoom.getViewer().getUserId())
+                .flatMap(user -> {
+                    Announcement announcement = new Announcement();
+                    if (Strings.isNotNullAndNotEmpty(user.getRideId())) {
+                        return contentUseCase.getContentById(user.getRideId())
+                                .map(content -> {
+                                    announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue()));
+                                    announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue());
+                                    announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+                                    announcement.setResource(
+                                            Resource
+                                                .builder()
+                                                    .name(content.getName())
+//                                                    .imageUrl(content.ge)
+                                                .build()
+                                    );
+                                    return Tuples.of(announcement, user);
+                                });
+                    } else if (Strings.isNotNullAndNotEmpty(user.getEntryCardId())) {
+                        return contentUseCase.getContentById(user.getEntryCardId())
+                                .map(content -> {
+                                    announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue()));
+                                    announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue());
+                                    announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+                                    announcement.setResource(
+                                            Resource
+                                                    .builder()
+                                                    .name(content.getName())
+//                                                    .imageUrl(content.ge)
+                                                    .build()
+                                    );
+                                    return Tuples.of(announcement, user);
+                                });
+                    } else if (Strings.isNotNullAndNotEmpty(user.getEntryCardId()) && Strings.isNotNullAndNotEmpty(user.getRideId())) {
+                        announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue()));
+                        announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue());
+                        announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+                        return Mono.just(Tuples.of(announcement, user));
+                    }
+                    return Mono.just(Tuples.of(announcement, user));
+                })
+                .flatMap(announcementAndUserTuple -> {
+                    Announcement announcement = announcementAndUserTuple.getT1();
+                    User user = announcementAndUserTuple.getT2();
+                    return levelUseCase.getLevelDomainByLevel(liveRoom.getViewer().getUserLevel())
+                            .map(level -> {
+                                announcement.setMentionedUser(AnnouncementUser
+                                        .builder()
+                                        .userId(user.getId())
+                                        .name(user.getDisplayName())
+                                        .levelUrl(level.getLevelBadgeUrl())
+                                        .build());
+                                return announcement;
+                            });
+                })
+                .map(announcement -> {
+                    liveRoom.setAnnouncement(announcement);
+                    return liveRoom;
+                });
     }
 
     @Override

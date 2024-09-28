@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.List;
 
 @Data
@@ -12,7 +13,10 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Announcement {
-   private String userId;
-    private String displayName;
-    private int userLevel;
+    private String type;
+    private String messageTemplate;
+    private AnnouncementUser publisher;
+    private AnnouncementUser mentionedUser;
+    private Resource resource;
+    private Instant time;
 }
