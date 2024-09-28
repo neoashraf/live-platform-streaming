@@ -10,7 +10,7 @@ import reactor.core.publisher.Mono;
 public interface LiveRoomUseCase {
     Mono<LiveRoomGridViewResponseDto> createStream(LiveRoomRequestDto requestDto);
     Mono<StreamResponseDto> joinStream(LiveRoomEntryLeaveRequestDto requestDto);
-    Mono<LiveRoomResponseDto> leaveStream(LiveRoomEntryLeaveRequestDto requestDto);
+    Mono<StreamResponseDto> leaveStream(LiveRoomEntryLeaveRequestDto requestDto);
     Mono<EndStreamResponseDto> endStream(String liveRoomId, String userId);
     Mono<LiveRoomResponseDto> kickOutUser(KickOutUserRequestDto requestDto);
     Mono<LiveRoomResponseDto> getLiveRoomDetailViewById(String id);

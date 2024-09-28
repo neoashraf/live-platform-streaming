@@ -10,4 +10,5 @@ public interface CachePort {
     Mono<String> delete(String id);
     Mono<LiveRoomEntity> update(LiveRoomEntity entity);
     Mono<LiveRoom> update(LiveRoom liveRoom);
+    Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom);
 }

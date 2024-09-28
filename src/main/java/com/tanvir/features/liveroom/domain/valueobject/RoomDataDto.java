@@ -14,5 +14,6 @@ import java.time.Instant;
 public class RoomDataDto {
     private String id;
     private Instant joinedOn;
+    private Instant leftOn;
     private Announcement announcement;
 }

@@ -86,4 +86,37 @@ public class FirebaseAdapter implements CachePort {
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
+
+    @Override
+    public Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom) {
+        return firebaseRepository.read(liveRoom.getId())
+                .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
+                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
+                .map(firebaseEntity -> {
+                    List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
+                    currentViewersInFirebase.remove(liveRoom.getViewer());
+
+                    firebaseEntity.setViewers(currentViewersInFirebase);
+                    firebaseEntity.setViewerCount(currentViewersInFirebase.size());
+
+                    /*List<Announcement> currentAnnouncementsInFirebase = new ArrayList<>(firebaseEntity.getAnnouncements() != null ? firebaseEntity.getAnnouncements() : new ArrayList<>());
+                    if (currentAnnouncementsInFirebase.size() >= 10) {
+                        currentAnnouncementsInFirebase = currentAnnouncementsInFirebase.subList(currentAnnouncementsInFirebase.size() - 9, currentAnnouncementsInFirebase.size());
+                    }
+                    currentAnnouncementsInFirebase.add(liveRoom.getAnnouncement());
+                    firebaseEntity.setAnnouncements(currentAnnouncementsInFirebase);*/
+
+                    List<String> currentViewersIdsInFirebase = new ArrayList<>(firebaseEntity.getViewerIds() != null && !firebaseEntity.getViewerIds().isEmpty()
+                            ? firebaseEntity.getViewerIds() : new ArrayList<>());
+                    currentViewersIdsInFirebase.remove(liveRoom.getViewer().getUserId());
+
+                    firebaseEntity.setViewerIds(currentViewersIdsInFirebase);
+
+                    return firebaseEntity;
+
+                })
+                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
+                .flatMap(firebaseRepository::update)
+                .map(firebaseReturnedEntity -> liveRoom);
+    }
 }

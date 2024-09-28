@@ -30,7 +30,10 @@ public class Pojo {
         integerList.add(11);
         System.out.println("after : " + integerList);
 
-        String string = "{{publisher}}: {{mentionedUser}} actual welcome message";
+        List<String> fruits = new ArrayList<>(List.of("Apple"));
+        System.out.println("fruits : " + fruits);
+        fruits.remove("Banana");
+        System.out.println("fruits after remove : " + fruits);
 
     }
 

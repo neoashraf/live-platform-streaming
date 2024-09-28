@@ -210,16 +210,28 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnRequest(liveRoomEntity -> log.info("Requesting to update LiveRoom into firebase"))
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
-                .flatMap(liveRoom -> this.buildStreamResponseDto(liveRoom, "User has successfully joined the room."))
+                .flatMap(liveRoom -> this.buildJoinStreamResponseDto(liveRoom, "User has successfully joined the room."))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
 
     }
 
-    private Mono<StreamResponseDto> buildStreamResponseDto(LiveRoom liveRoom, String message) {
+    private Mono<StreamResponseDto> buildJoinStreamResponseDto(LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
         roomDataDto.setJoinedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
         roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
+        return Mono.just(StreamResponseDto
+                .builder()
+                .message(message)
+                .data(roomDataDto)
+                .count(1)
+                .build());
+    }
+
+    private Mono<StreamResponseDto> buildLeaveStreamResponseDto(LiveRoom liveRoom, String message) {
+        RoomDataDto roomDataDto = new RoomDataDto();
+        roomDataDto.setId(liveRoom.getId());
+        roomDataDto.setLeftOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
         return Mono.just(StreamResponseDto
                 .builder()
                 .message(message)
@@ -300,28 +312,21 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<LiveRoomResponseDto> leaveStream(LiveRoomEntryLeaveRequestDto requestDto) {
+    public Mono<StreamResponseDto> leaveStream(LiveRoomEntryLeaveRequestDto requestDto) {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
-                .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot leave.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
-                        .map(user -> {
-//                            requestDto.setFan(Fan.builder().userId(user.getId()).build());
-                            return liveRoom;
-                        }))
-                /*.filter(liveRoom -> liveRoom.getFans().containsKey(requestDto.getFan().getUserId()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Fan doesn't exist in LiveRoom.")))*/
-                .map(liveRoom -> this.updateLiveRoomForFanLeave(liveRoom, requestDto))
+                        .flatMap(user -> this.updateLiveRoomForFanLeave(liveRoom, user)))
                 .doOnNext(liveRoom -> log.info("Updated LiveRoom with fan leave : {}", liveRoom))
-                .flatMap(port::saveLiveRoom)
-                .doOnNext(liveRoom -> cachePort.update(modelMapper.map(liveRoom, LiveRoomEntity.class))
+                .flatMap(liveRoom1 -> port.saveLiveRoom(liveRoom1)
+                        .thenReturn(liveRoom1))
+                .flatMap(liveRoom -> cachePort.updateForViewerLeave(liveRoom)
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                        .subscribeOn(Schedulers.boundedElastic()).subscribe())
-                .map(this::buildLiveRoomResponse)
-                .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "Fan Left LiveRoom Successfully."))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
+                .flatMap(liveRoom -> this.buildLeaveStreamResponseDto(liveRoom, "User successfully left the live room."))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Leave. Error : {}", throwable.getMessage()));
     }
 
@@ -626,12 +631,30 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
-    private LiveRoom updateLiveRoomForFanLeave(LiveRoom liveRoom, LiveRoomEntryLeaveRequestDto requestDto) {
-        /*Map<String, Fan> fans = liveRoom.getFans();
-        fans.remove(requestDto.getFan().getUserId());
-        liveRoom.setFans(fans);
-        liveRoom.setFansCount(fans.size());*/
-        return liveRoom;
+    private Mono<LiveRoom> updateLiveRoomForFanLeave(LiveRoom liveRoom, User user) {
+       if (liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().contains(user.getId())) {
+           return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User doesn't exist in Stream! Can't Leave."));
+       }
+
+
+       if (liveRoom.getViewerIds() != null) {
+           liveRoom.getViewerIds().remove(user.getId());
+           liveRoom.setViewerCount(liveRoom.getViewerIds().size());
+       }
+
+
+        Viewer viewer = Viewer
+                .builder()
+                .userId(user.getId())
+                .displayName(user.getDisplayName())
+                .gender(user.getGender())
+                .profilePictureUrl(user.getProfileImageUrl())
+                .frameUrl(user.getProfileFrameUrl())
+                .userLevel(user.getUserLevel())
+                .build();
+        liveRoom.setViewer(viewer);
+
+        return Mono.just(liveRoom);
     }
 
 
