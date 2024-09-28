@@ -37,7 +37,8 @@ public class CommonBusiness {
         Map<String, String> announcementMessage = Map.of(
                 AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_CASUAL.getValue(),
                 AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_RIDE_ENTRY.getValue(),
-                AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_ENTRY_CARD_ENTRY.getValue()
+                AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_ENTRY_CARD_ENTRY.getValue(),
+                AnnouncementEnum.ANNOUNCEMENT_TYPE_KICK.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_KICK.getValue()
         );
 
         return announcementMessage.get(announcementType);

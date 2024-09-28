@@ -11,4 +11,5 @@ public interface CachePort {
     Mono<LiveRoomEntity> update(LiveRoomEntity entity);
     Mono<LiveRoom> update(LiveRoom liveRoom);
     Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom);
+    Mono<LiveRoom> updateForViewerKick(LiveRoom liveRoom);
 }

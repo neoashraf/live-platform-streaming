@@ -8,7 +8,7 @@ import com.tanvir.features.gift.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
-import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
+import com.tanvir.features.level.domain.Level;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
@@ -28,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
@@ -240,6 +239,17 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .build());
     }
 
+    private Mono<StreamResponseDto> buildKickViewerStreamResponseDto(LiveRoom liveRoom, String message) {
+        RoomDataDto roomDataDto = new RoomDataDto();
+        roomDataDto.setId(liveRoom.getId());
+        return Mono.just(StreamResponseDto
+                .builder()
+                .message(message)
+                .data(roomDataDto)
+                .count(1)
+                .build());
+    }
+
     private Mono<LiveRoom> buildJoinAnnouncement(LiveRoom liveRoom) {
 //        todo : build announcement
         return userUseCase.getUserById(liveRoom.getViewer().getUserId())
@@ -311,6 +321,41 @@ public class LiveRoomService implements LiveRoomUseCase {
                 });
     }
 
+    private Mono<LiveRoom> buildKickOutAnnouncement(LiveRoom liveRoom, User host, User viewer) {
+        Announcement announcement = new Announcement();
+        announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_KICK.getValue());
+        announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
+        announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_KICK.getValue()));
+
+
+        return levelUseCase
+                .getLevelDomainByLevel(host.getUserLevel())
+                .map(Level::getLevelBadgeUrl)
+                .zipWith(levelUseCase.getLevelDomainByLevel(viewer.getUserLevel())
+                        .map(Level::getLevelBadgeUrl))
+                .map(hostAndViewerLevelUrl -> {
+                    announcement.setPublisher(AnnouncementUser
+                            .builder()
+                            .userId(host.getId())
+                            .name(host.getDisplayName())
+                            .levelUrl(hostAndViewerLevelUrl.getT1())
+                            .build());
+
+                    announcement.setMentionedUser(AnnouncementUser
+                            .builder()
+                            .userId(viewer.getId())
+                            .name(viewer.getDisplayName())
+                            .levelUrl(hostAndViewerLevelUrl.getT2())
+                            .build());
+
+                    return announcement;
+                })
+                .map(announcement1 -> {
+                    liveRoom.setAnnouncement(announcement1);
+                    return liveRoom;
+                });
+    }
+
     @Override
     public Mono<StreamResponseDto> leaveStream(LiveRoomEntryLeaveRequestDto requestDto) {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
@@ -354,33 +399,51 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<LiveRoomResponseDto> kickOutUser(KickOutUserRequestDto requestDto) {
+    public Mono<StreamResponseDto> kickOutUser(KickOutUserRequestDto requestDto) {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
-                /*.filter(liveRoom -> liveRoom.getKeycloakId().equalsIgnoreCase(requestDto.getKeycloakId()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Fan cannot be kicked-out by this user.")))
-                .filter(liveRoom -> liveRoom.getFans().containsKey(requestDto.getUserId()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Fan doesn't exist in LiveRoom. Cannot kick out.")))*/
-                .map(liveRoom -> {
-                   /* liveRoom.getFans().remove(requestDto.getUserId());
-                    liveRoom.setFansCount(liveRoom.getFans().size());*/
-                    if (liveRoom.getKickedOutUserIds() == null || liveRoom.getKickedOutUserIds().isEmpty()) {
-                        liveRoom.setKickedOutUserIds(List.of(requestDto.getUserId()));
-                    } else {
-                        List<String> updatedKickedOutUsers = new ArrayList<>(liveRoom.getKickedOutUserIds());
-                        updatedKickedOutUsers.add(requestDto.getUserId());
-                        liveRoom.setKickedOutUserIds(updatedKickedOutUsers);
-                    }
-
-                    return liveRoom;
-                })
-                .flatMap(port::saveLiveRoom)
-                .doOnNext(liveRoom -> cachePort.update(modelMapper.map(liveRoom, LiveRoomEntity.class))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot kick out.")))
+                .filter(liveRoom -> liveRoom.getViewerIds().contains(requestDto.getUserId()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Viewer doesn't exist in LiveRoom. Cannot kick out.")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                            .filter(host -> liveRoom.getUserId().equals(host.getId()))
+                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot kick out.")))
+                            .flatMap(host -> userUseCase.getUserById(requestDto.getUserId())
+                            .flatMap(kickedUser -> this.updateLiveRoomForKick(liveRoom, kickedUser)
+                                    .thenReturn(kickedUser))
+                            .flatMap(kickedUser -> this.buildKickOutAnnouncement(liveRoom, host, kickedUser))))
+                .flatMap(liveRoom1 -> port.saveLiveRoom(liveRoom1)
+                        .thenReturn(liveRoom1))
+                .flatMap(liveRoom -> cachePort.updateForViewerKick(liveRoom)
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                        .subscribeOn(Schedulers.boundedElastic()).subscribe())
-                .map(this::buildLiveRoomResponse)
-                .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "User Kicked Out Successfully."));
+                        .thenReturn(liveRoom))
+                .flatMap(liveRoom -> this.buildKickViewerStreamResponseDto(liveRoom, "User successfully kicked out from LiveRoom."))
+                .as(rxtx::transactional);
+    }
+
+    private Mono<LiveRoom> updateLiveRoomForKick(LiveRoom liveRoom, User kickedUser) {
+        if (liveRoom.getKickedOutUserIds() == null || liveRoom.getKickedOutUserIds().isEmpty()) {
+            liveRoom.setKickedOutUserIds(List.of(kickedUser.getId()));
+        } else {
+            List<String> updatedKickedOutUsers = new ArrayList<>(liveRoom.getKickedOutUserIds());
+            updatedKickedOutUsers.add(kickedUser.getId());
+            liveRoom.setKickedOutUserIds(updatedKickedOutUsers);
+        }
+        liveRoom.setViewerCount(liveRoom.getViewerCount() - 1);
+
+        Viewer viewer = Viewer
+                .builder()
+                .userId(kickedUser.getId())
+                .displayName(kickedUser.getDisplayName())
+                .gender(kickedUser.getGender())
+                .profilePictureUrl(kickedUser.getProfileImageUrl())
+                .frameUrl(kickedUser.getProfileFrameUrl())
+                .userLevel(kickedUser.getUserLevel())
+                .build();
+        liveRoom.setViewer(viewer);
+        return Mono.just(liveRoom);
     }
 
     @Override

@@ -12,7 +12,7 @@ public interface LiveRoomUseCase {
     Mono<StreamResponseDto> joinStream(LiveRoomEntryLeaveRequestDto requestDto);
     Mono<StreamResponseDto> leaveStream(LiveRoomEntryLeaveRequestDto requestDto);
     Mono<EndStreamResponseDto> endStream(String liveRoomId, String userId);
-    Mono<LiveRoomResponseDto> kickOutUser(KickOutUserRequestDto requestDto);
+    Mono<StreamResponseDto> kickOutUser(KickOutUserRequestDto requestDto);
     Mono<LiveRoomResponseDto> getLiveRoomDetailViewById(String id);
     Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto);
     Mono<LiveRoomResponseDto> sendGift(SendGiftRequestDto requestDto);
