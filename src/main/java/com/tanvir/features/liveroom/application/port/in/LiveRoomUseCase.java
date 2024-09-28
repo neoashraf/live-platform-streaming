@@ -11,7 +11,7 @@ public interface LiveRoomUseCase {
     Mono<LiveRoomGridViewResponseDto> createStream(LiveRoomRequestDto requestDto);
     Mono<StreamResponseDto> joinStream(LiveRoomEntryLeaveRequestDto requestDto);
     Mono<StreamResponseDto> leaveStream(LiveRoomEntryLeaveRequestDto requestDto);
-    Mono<EndStreamResponseDto> endStream(String liveRoomId, String userId);
+    Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId);
     Mono<StreamResponseDto> kickOutUser(KickOutUserRequestDto requestDto);
     Mono<LiveRoomResponseDto> getLiveRoomDetailViewById(String id);
     Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto);

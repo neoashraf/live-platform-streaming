@@ -38,6 +38,7 @@ public class LiveRoom {
 
     private Viewer viewer;
     private Announcement announcement;
+    private long durationInSeconds;
 
 
     @Override

@@ -376,17 +376,20 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<EndStreamResponseDto> endStream(String liveRoomId, String keycloakId) {
+    public Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId) {
         return port.getLiveRoomById(liveRoomId)
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomId)))
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot End.")))
-               /* .filter(liveRoom -> liveRoom.getKeycloakId().equalsIgnoreCase(keycloakId))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom cannot be deleted by this user.")))*/
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(keycloakId)
+                        .filter(user -> liveRoom.getUserId().equals(user.getId()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot end.")))
+                        .map(user -> liveRoom))
                 .map(liveRoom -> {
-                    liveRoom.setStatus(Constants.STATUS_NO.getValue());
+                    liveRoom.setStatus(Constants.STATUS_OFFLINE.getValue());
                     liveRoom.setEndedOn(LocalDateTime.now());
+                    liveRoom.setDurationInSeconds((liveRoom.getEndedOn().toEpochSecond(ZoneOffset.UTC) - liveRoom.getCreatedOn().toEpochSecond(ZoneOffset.UTC)));
                     return liveRoom;
                 })
                 .flatMap(port::saveLiveRoom)
@@ -395,7 +398,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnSuccess(liveRoomEntity -> log.info("LiveRoom deleted from firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while deleting LiveRoom from Firebase : {}", throwable.getMessage()))
                         .thenReturn(liveRoom))
-                .flatMap(liveRoom -> this.buildEndStreamResponseDto(liveRoom));
+                .flatMap(this::buildEndStreamResponseDto);
     }
 
     @Override
@@ -542,14 +545,15 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
-    private Mono<EndStreamResponseDto> buildEndStreamResponseDto(LiveRoom liveRoom) {
-        /*EndStreamResponseDto endStreamResponseDto = new EndStreamResponseDto();
-        return userUseCase.getUserById(liveRoom.getUserId())
-                .map(user -> this.buildUserInfo(user, endStreamResponseDto))
-                .map(responseDto -> this.buildLiveStreamInfo(liveRoom, responseDto));*/
-        return Mono.just(EndStreamResponseDto
+    private Mono<StreamResponseDto> buildEndStreamResponseDto(LiveRoom liveRoom) {
+        return Mono.just(StreamResponseDto
                 .builder()
-                .userMessage("LiveStream Ended Successfully")
+                .message("LiveStream Ended Successfully")
+                .data(RoomDataDto
+                        .builder()
+                        .id(liveRoom.getId())
+                        .endedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC))
+                        .build())
                 .build());
     }
 

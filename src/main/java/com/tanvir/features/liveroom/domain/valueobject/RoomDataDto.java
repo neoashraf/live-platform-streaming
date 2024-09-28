@@ -15,5 +15,6 @@ public class RoomDataDto {
     private String id;
     private Instant joinedOn;
     private Instant leftOn;
+    private Instant endedOn;
     private Announcement announcement;
 }
