@@ -56,6 +56,9 @@ public class UserEntity {
     @Indexed(unique = true)
     private String keycloakId;
 
+    private String rideId;
+    private String entryCardId;
+
 
 
     @Override

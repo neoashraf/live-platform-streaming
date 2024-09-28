@@ -42,12 +42,17 @@ public class User {
     private String active;
 
     private int userLevel;
+    private String levelBadgeUrl;
     private double beans;
     private double gems;
+
 
     private String referralId;
     private String profileDescription;
     private String keycloakId;
+
+    private String rideId;
+    private String entryCardId;
 
 
 	@Override

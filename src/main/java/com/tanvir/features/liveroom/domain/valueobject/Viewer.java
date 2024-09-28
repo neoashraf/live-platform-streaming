@@ -19,6 +19,9 @@ public class Viewer {
     private String profilePictureUrl;
     private String frameUrl;
     private int userLevel;
+    private String levelBadgeUrl;
+    private String rideId;
+    private String entryCardId;
 
     @Override
     public String toString() {
