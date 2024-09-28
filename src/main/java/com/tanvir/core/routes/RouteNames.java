@@ -13,4 +13,5 @@ public class RouteNames {
 	public static String AGORA = "/agora";
 	public static String TOKEN = "/token";
 
+	public static String GIFTS = "/gifts";
 }

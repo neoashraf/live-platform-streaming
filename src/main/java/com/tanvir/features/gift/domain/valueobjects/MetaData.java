@@ -11,4 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class MetaData {
     private String key;
+    private String type;
+    private String value;
 }
