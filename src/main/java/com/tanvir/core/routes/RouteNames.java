@@ -10,6 +10,7 @@ public class RouteNames {
 	public static String JOIN = "/join";
 	public static String LEAVE = "/leave";
 	public static String KICK = "/kick";
+	public static String COMMENT = "/comment";
 	public static String AGORA = "/agora";
 	public static String TOKEN = "/token";
 

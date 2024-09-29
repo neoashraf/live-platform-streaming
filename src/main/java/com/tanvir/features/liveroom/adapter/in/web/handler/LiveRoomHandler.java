@@ -4,9 +4,8 @@ import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.GridViewRequestDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.KickOutUserRequestDto;
-import com.tanvir.features.liveroom.application.port.in.dto.request.LiveRoomEntryLeaveRequestDto;
+import com.tanvir.features.liveroom.application.port.in.dto.request.LiveRoomViewerRequestDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.LiveRoomRequestDto;
-import com.tanvir.features.liveroom.domain.valueobject.Fan;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -43,7 +42,7 @@ public class LiveRoomHandler {
         log.info("Joining stream");
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
         String id = serverRequest.pathVariable("id");
-        return liveRoomUseCase.joinStream(LiveRoomEntryLeaveRequestDto
+        return liveRoomUseCase.joinStream(LiveRoomViewerRequestDto
                         .builder()
                         .liveRoomId(id)
                         .keycloakId(keycloakId)
@@ -59,7 +58,7 @@ public class LiveRoomHandler {
         log.info("Leaving stream");
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
         String id = serverRequest.pathVariable("id");
-        return Mono.just(LiveRoomEntryLeaveRequestDto.builder().build())
+        return Mono.just(LiveRoomViewerRequestDto.builder().build())
                 .map(requestDto -> {
                     requestDto.setKeycloakId(keycloakId);
                     requestDto.setLiveRoomId(id);
@@ -96,6 +95,24 @@ public class LiveRoomHandler {
                     return requestDto;
                 })
                 .flatMap(liveRoomUseCase::kickOutUser)
+                .flatMap(dto -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                ;
+    }
+
+    public Mono<ServerResponse> comment(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
+        String liveRoomId = serverRequest.pathVariable("id");
+        return serverRequest
+                .bodyToMono(LiveRoomViewerRequestDto.class)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    requestDto.setLiveRoomId(liveRoomId);
+                    return requestDto;
+                })
+                .flatMap(liveRoomUseCase::comment)
                 .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)

@@ -158,13 +158,13 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<StreamResponseDto> joinStream(LiveRoomEntryLeaveRequestDto liveRoomEntryLeaveRequestDto) {
-        return port.getLiveRoomById(liveRoomEntryLeaveRequestDto.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomEntryLeaveRequestDto.getLiveRoomId())))
+    public Mono<StreamResponseDto> joinStream(LiveRoomViewerRequestDto liveRoomViewerRequestDto) {
+        return port.getLiveRoomById(liveRoomViewerRequestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomViewerRequestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot join.")))
-                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomEntryLeaveRequestDto.getKeycloakId())
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomViewerRequestDto.getKeycloakId())
                         .flatMap(user -> {
 
                             if (liveRoom.getUserId().equals(user.getId())) {
@@ -239,9 +239,22 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .build());
     }
 
+    private Mono<StreamResponseDto> buildCommentStreamResponseDto(LiveRoom liveRoom, String message) {
+        RoomDataDto roomDataDto = new RoomDataDto();
+        roomDataDto.setId(liveRoom.getId());
+        roomDataDto.setCommentedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+        return Mono.just(StreamResponseDto
+                .builder()
+                .message(message)
+                .data(roomDataDto)
+                .count(1)
+                .build());
+    }
+
     private Mono<StreamResponseDto> buildKickViewerStreamResponseDto(LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
+        roomDataDto.setKickedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
         return Mono.just(StreamResponseDto
                 .builder()
                 .message(message)
@@ -357,7 +370,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<StreamResponseDto> leaveStream(LiveRoomEntryLeaveRequestDto requestDto) {
+    public Mono<StreamResponseDto> leaveStream(LiveRoomViewerRequestDto requestDto) {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
@@ -510,6 +523,41 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .flatMap(fanUser -> Mono.zip(Mono.just(liveRoom), Mono.just(fanUser), metaPropertyUseCase.getMetaPropertyByDescription(MetaPropertyEnums.INDEX_META_PROPERTY.getValue()))))
                     .flatMap(tuple3 -> this.updateFanAndHostBeansCountGemsCountLevelPercentage(tuple3, requestDto))
                     .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "Gift Sent Successfully")));
+    }
+
+    @Override
+    public Mono<StreamResponseDto> comment(LiveRoomViewerRequestDto requestDto) {
+        return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User not found!")))
+                        .filter(user -> liveRoom.getViewerIds().contains(user.getId()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom. Cannot comment.")))
+                        .flatMap(user -> levelUseCase.getLevelDomainByLevel(user.getUserLevel())
+                            .map(level -> {
+                                Announcement announcement = Announcement
+                                    .builder()
+                                    .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue())
+                                    .time(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString())
+                                    .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue()) + requestDto.getComment())
+                                    .publisher(AnnouncementUser
+                                            .builder()
+                                            .userId(user.getId())
+                                            .name(user.getDisplayName())
+                                            .levelUrl(level.getLevelBadgeUrl())
+                                            .build())
+                                    .build();
+
+                                liveRoom.setAnnouncement(announcement);
+                                return liveRoom;
+                            })))
+                .flatMap(liveRoom1 -> cachePort.updateForComment(liveRoom1)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                        .thenReturn(liveRoom1))
+                .flatMap(liveRoom1 -> this.buildCommentStreamResponseDto(liveRoom1, "Comment posted successfully."))
+                .as(rxtx::transactional);
+
     }
 
     private Mono<LiveRoomResponse> updateFanAndHostBeansCountGemsCountLevelPercentage(Tuple3<LiveRoom, User, MetaProperty> tuple, SendGiftRequestDto requestDto) {
@@ -686,7 +734,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
-    private LiveRoom updateLiveRoomForFanEntry(LiveRoom liveRoom, LiveRoomEntryLeaveRequestDto requestDto) {
+    private LiveRoom updateLiveRoomForFanEntry(LiveRoom liveRoom, LiveRoomViewerRequestDto requestDto) {
 //        Map<String, Fan> fans = liveRoom.getFans();
 //        Fan newFan = requestDto.getFan();
 //        newFan.setEntryTime(LocalDateTime.now());

@@ -46,6 +46,10 @@ public class LiveRoomRouter {
                                         nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(ID).concat(KICK), handler::kickOutUser)
                                 )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
+                                                .POST(LIVE_ROOMS.concat(ID).concat(COMMENT), handler::comment)
+                                )
                 )
                 .build();
     }
