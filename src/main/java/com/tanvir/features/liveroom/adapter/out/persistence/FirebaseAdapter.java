@@ -174,4 +174,27 @@ public class FirebaseAdapter implements CachePort {
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
+
+    @Override
+    public Mono<LiveRoom> updateForGift(LiveRoom liveRoom) {
+        return firebaseRepository.read(liveRoom.getId())
+                .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
+                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
+                .map(firebaseEntity -> {
+
+                    // add announcement to announcements list
+                    List<Announcement> currentAnnouncementsInFirebase = new ArrayList<>(firebaseEntity.getAnnouncements() != null ? firebaseEntity.getAnnouncements() : new ArrayList<>());
+                    if (currentAnnouncementsInFirebase.size() >= 10) {
+                        currentAnnouncementsInFirebase = currentAnnouncementsInFirebase.subList(currentAnnouncementsInFirebase.size() - 9, currentAnnouncementsInFirebase.size());
+                    }
+                    currentAnnouncementsInFirebase.add(liveRoom.getAnnouncement());
+                    firebaseEntity.setAnnouncements(currentAnnouncementsInFirebase);
+
+
+                    return firebaseEntity;
+                })
+                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
+                .flatMap(firebaseRepository::update)
+                .map(firebaseReturnedEntity -> liveRoom);
+    }
 }

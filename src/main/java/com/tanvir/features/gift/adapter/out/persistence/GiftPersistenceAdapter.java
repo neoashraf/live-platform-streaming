@@ -35,4 +35,10 @@ public class GiftPersistenceAdapter implements GiftPersistencePort {
                 });
 
     }
+
+    @Override
+    public Mono<Gift> getGiftById(String giftId) {
+        return repository.findById(giftId)
+                .map(giftEntity -> modelMapper.map(giftEntity, Gift.class));
+    }
 }

@@ -15,4 +15,5 @@ public class RouteNames {
 	public static String TOKEN = "/token";
 
 	public static String GIFTS = "/gifts";
+	public static String SEND = "/send";
 }

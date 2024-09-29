@@ -4,6 +4,7 @@ import com.tanvir.features.gift.application.port.in.GiftUseCase;
 import com.tanvir.features.gift.application.port.in.dto.requestDto.GiftRequestDto;
 import com.tanvir.features.gift.application.port.in.dto.responseDto.GiftResponseDto;
 import com.tanvir.features.gift.application.port.out.GiftPersistencePort;
+import com.tanvir.features.gift.domain.Gift;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,5 +39,10 @@ public class GiftService implements GiftUseCase {
                         .build())
                 .doOnSuccess(giftResponseDto -> log.info("Gifts fetched successfully"))
                 .doOnError(throwable -> log.error("Error while fetching gifts"));
+    }
+
+    @Override
+    public Mono<Gift> getGiftById(String giftId) {
+        return port.getGiftById(giftId);
     }
 }

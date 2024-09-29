@@ -4,6 +4,7 @@ import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomGridViewResponseDto;
 import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomResponseDto;
 import com.tanvir.features.liveroom.application.port.in.dto.response.StreamResponseDto;
+import com.tanvir.features.liveroom.domain.LiveRoom;
 import reactor.core.publisher.Mono;
 
 public interface LiveRoomUseCase {
@@ -16,5 +17,5 @@ public interface LiveRoomUseCase {
     Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto);
     Mono<LiveRoomResponseDto> sendGift(SendGiftRequestDto requestDto);
     Mono<StreamResponseDto> comment(LiveRoomViewerRequestDto requestDto);
-
+    Mono<LiveRoom> getLiveRoomById(String id);
 }

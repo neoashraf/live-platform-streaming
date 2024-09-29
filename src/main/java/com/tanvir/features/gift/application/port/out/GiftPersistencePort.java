@@ -10,4 +10,6 @@ public interface GiftPersistencePort {
     Mono<Double> getGiftCostByGiftId(String id);
 
     Flux<Gift> getGifts(Pageable pageable);
+
+    Mono<Gift> getGiftById(String giftId);
 }

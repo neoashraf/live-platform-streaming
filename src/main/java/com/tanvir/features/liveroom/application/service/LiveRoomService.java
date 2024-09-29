@@ -279,7 +279,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                             .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
                                             .map(ResourceFormat::getThumbnailUrl).toList();
                                     announcement.setResource(
-                                            Resource
+                                            Announcement.Resource
                                                 .builder()
                                                     .name(content.getName())
                                                     .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
@@ -298,7 +298,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                             .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
                                             .map(ResourceFormat::getThumbnailUrl).toList();
                                     announcement.setResource(
-                                            Resource
+                                            Announcement.Resource
                                                     .builder()
                                                     .name(content.getName())
                                                     .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
@@ -558,6 +558,11 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom1 -> this.buildCommentStreamResponseDto(liveRoom1, "Comment posted successfully."))
                 .as(rxtx::transactional);
 
+    }
+
+    @Override
+    public Mono<LiveRoom> getLiveRoomById(String id) {
+        return port.getLiveRoomById(id);
     }
 
     private Mono<LiveRoomResponse> updateFanAndHostBeansCountGemsCountLevelPercentage(Tuple3<LiveRoom, User, MetaProperty> tuple, SendGiftRequestDto requestDto) {

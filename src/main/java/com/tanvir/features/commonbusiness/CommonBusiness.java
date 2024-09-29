@@ -39,7 +39,8 @@ public class CommonBusiness {
                 AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_RIDE_ENTRY.getValue(),
                 AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_JOIN_ENTRY_CARD_ENTRY.getValue(),
                 AnnouncementEnum.ANNOUNCEMENT_TYPE_KICK.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_KICK.getValue(),
-                AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_COMMENT.getValue()
+                AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_COMMENT.getValue(),
+                AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue(), AnnouncementEnum.ANNOUNCEMENT_MESSAGE_GIFT.getValue()
         );
 
         return announcementMessage.get(announcementType);

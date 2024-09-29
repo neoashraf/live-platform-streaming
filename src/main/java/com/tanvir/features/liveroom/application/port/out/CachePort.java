@@ -13,4 +13,5 @@ public interface CachePort {
     Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom);
     Mono<LiveRoom> updateForViewerKick(LiveRoom liveRoom);
     Mono<LiveRoom> updateForComment(LiveRoom liveRoom);
+    Mono<LiveRoom> updateForGift(LiveRoom liveRoom);
 }
