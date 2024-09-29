@@ -36,6 +36,8 @@ public enum QueryParams {
     LAST_NAME("lastName"),
     DATE_OF_BIRTH("dateOfBirth"),
     VIEW_MODE("viewMode"),
+    CREATED_AFTER("createdAfter"),
+    CREATED_BEFORE("createdBefore"),
 
     LIMIT("limit"),
     OFFSET("offset")

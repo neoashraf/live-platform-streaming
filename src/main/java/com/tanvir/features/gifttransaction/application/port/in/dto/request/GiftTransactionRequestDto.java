@@ -14,8 +14,7 @@ import java.time.LocalDateTime;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class
-BeanTransactionRequestDto {
+public class GiftTransactionRequestDto {
     private String keycloakId;
 //    private String senderMaxId;
     private String senderId;

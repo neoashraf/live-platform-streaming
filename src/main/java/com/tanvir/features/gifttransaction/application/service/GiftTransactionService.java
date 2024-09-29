@@ -3,12 +3,15 @@ package com.tanvir.features.gifttransaction.application.service;
 import com.google.gson.Gson;
 import com.tanvir.core.util.enums.AnnouncementEnum;
 import com.tanvir.core.util.enums.Constants;
+import com.tanvir.core.util.enums.TransactionTypeEnum;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.gift.application.port.in.GiftUseCase;
 import com.tanvir.features.gift.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.gifttransaction.application.port.in.GiftTransactionUseCase;
+import com.tanvir.features.gifttransaction.application.port.in.dto.request.GiftTransactionRequestDto;
 import com.tanvir.features.gifttransaction.application.port.in.dto.request.SendGiftRequestDto;
+import com.tanvir.features.gifttransaction.application.port.in.dto.response.GiftTransactionResponseDto;
 import com.tanvir.features.gifttransaction.application.port.in.dto.response.SendGiftResponseDto;
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.application.port.out.MaxUserPersistencePort;
@@ -39,6 +42,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -94,6 +99,36 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .as(transactionalOperator::transactional);
     }
 
+    @Override
+    public Mono<GiftTransactionResponseDto> getGiftTransactions(GiftTransactionRequestDto requestDto) {
+        log.info("get Bean Transactions command: {}", requestDto);
+        return userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                .flatMap(user -> {
+                    if (requestDto.getTransactionType().equals(TransactionTypeEnum.TRANSACTION_TYPE_SENT.getValue())) {
+                        requestDto.setSenderId(user.getId());
+                    } else if (requestDto.getTransactionType().equals(TransactionTypeEnum.TRANSACTION_TYPE_RECEIVED.getValue())) {
+                        requestDto.setReceiverId(user.getId());
+                    } else {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid transaction type"));
+                    }
+
+                    return port.getBeanTransactionsCount(requestDto)
+                            .flatMap(aLong -> port.getBeanTransactions(requestDto)
+                                .collectList()
+                                .map(giftTransactions -> GiftTransactionResponseDto
+                                        .builder()
+                                        .message("Gift Transactions fetched successfully")
+                                        .data(giftTransactions)
+                                        .count(aLong.intValue())
+                                        .build()));
+
+                });
+
+
+
+
+    }
+
     private Mono<GiftTransaction> validateSenderReceiver(SendGiftRequestDto requestDto) {
         return userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Sender User not found")))
@@ -141,7 +176,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .beans(giftTransaction.getBeans())
                 .liveSession(requestDto.getLiveSession())
                 .liveRoomId(requestDto.getLiveRoomId())
-                .transactionDate(LocalDate.of(LocalDateTime.now().getYear(), LocalDateTime.now().getMonth(), LocalDateTime.now().getDayOfMonth()))
+//                .transactionDate(LocalDate.now(ZoneOffset.UTC))
                 .createdOn(LocalDateTime.now())
                 .senderReceiverDto(giftTransaction.getSenderReceiverDto())
                 .gift(giftTransaction.getGift())

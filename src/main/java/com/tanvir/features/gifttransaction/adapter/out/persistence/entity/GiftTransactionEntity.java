@@ -31,7 +31,7 @@ public class GiftTransactionEntity implements Persistable<String> {
     private String liveSession;
     private String liveRoomId;
     private String transactionDateId;
-    private LocalDate transactionDate;
+//    private LocalDate transactionDate;
     private LocalDateTime createdOn;
 
     @Override

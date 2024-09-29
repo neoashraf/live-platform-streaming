@@ -18,13 +18,17 @@ public class GiftTransactionRouter {
     private final GiftTransactionHandler handler;
 
     @Bean
-    public RouterFunction<ServerResponse> beanTransactionRouterConfig() {
+    public RouterFunction<ServerResponse> giftTransactionRouterConfig() {
         return route()
                 .path(MAX_LIVE_HOME_BASE_URL,
                         builder -> builder
                             .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                 nestedBuilder
                                     .POST(GIFTS.concat(SEND), handler::sendGifts)
+                            )
+                            .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                nestedBuilder
+                                    .GET(GIFT_TRANSACTIONS, handler::getGiftTransactions)
                             )
                 )
                 .build();

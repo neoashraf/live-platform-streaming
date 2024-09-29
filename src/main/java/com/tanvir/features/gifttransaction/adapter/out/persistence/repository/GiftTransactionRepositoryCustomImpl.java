@@ -1,6 +1,7 @@
 package com.tanvir.features.gifttransaction.adapter.out.persistence.repository;
 
 import com.tanvir.features.gifttransaction.adapter.out.persistence.entity.GiftTransactionEntity;
+import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -9,6 +10,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -21,9 +23,7 @@ public class GiftTransactionRepositoryCustomImpl implements GiftTransactionRepos
     private ReactiveMongoTemplate reactiveMongoTemplate;
 
     @Override
-    public Flux<GiftTransactionEntity> findAllByFilters(
-            String senderId, String senderUserType, String receiverId, String receiverUserType, String category, String transactionId,
-            String searchKey, Instant createdAfter, Instant createdBefore, Pageable pageable) {
+    public Flux<GiftTransactionEntity> findAllByFilters(String senderId, String receiverId, String searchKey, Instant createdAfter, Instant createdBefore, Pageable pageable) {
 
         List<Criteria> criteriaList = new ArrayList<>();
 
@@ -33,14 +33,9 @@ public class GiftTransactionRepositoryCustomImpl implements GiftTransactionRepos
         if (senderId != null && !senderId.isEmpty()) {
             senderReceiverCriteria.add(Criteria.where("senderId").is(senderId));
         }
-        if (senderUserType != null && !senderUserType.isEmpty()) {
-            senderReceiverCriteria.add(Criteria.where("senderUserType").is(senderUserType));
-        }
+
         if (receiverId != null && !receiverId.isEmpty()) {
             senderReceiverCriteria.add(Criteria.where("receiverId").is(receiverId));
-        }
-        if (receiverUserType != null && !receiverUserType.isEmpty()) {
-            senderReceiverCriteria.add(Criteria.where("receiverUserType").is(receiverUserType));
         }
 
         // Add sender/receiver criteria only if we have any valid condition
@@ -59,21 +54,12 @@ public class GiftTransactionRepositoryCustomImpl implements GiftTransactionRepos
             }
         }
 
-        // Criteria for transactionId
-        if (transactionId != null && !transactionId.isEmpty()) {
-            criteriaList.add(Criteria.where("transactionId").is(transactionId));
-        }
-
-        // Criteria for category
-        if (category != null && !category.isEmpty()) {
-            criteriaList.add(Criteria.where("category").is(category));
-        }
 
         // Criteria for searchKey
         if (searchKey != null && !searchKey.isEmpty()) {
             Criteria searchCriteria = new Criteria().orOperator(
-                    Criteria.where("senderUserType").regex(searchKey, "i"),
-                    Criteria.where("receiverUserType").regex(searchKey, "i"),
+                    Criteria.where("senderId").regex(searchKey, "i"),
+                    Criteria.where("receiverId").regex(searchKey, "i"),
                     Criteria.where("receiverId").is(searchKey),
                     Criteria.where("senderId").is(searchKey)
             );
@@ -87,8 +73,54 @@ public class GiftTransactionRepositoryCustomImpl implements GiftTransactionRepos
         }
 
         // Query with pageable and sort by createdOn (descending)
-        Query query = new Query(criteria).with(Sort.by(Sort.Direction.DESC, "createdOn"));
+        Query query = new Query(criteria).with(pageable).with(Sort.by(Sort.Direction.DESC, "createdOn"));
 
         return reactiveMongoTemplate.find(query, GiftTransactionEntity.class);
+    }
+
+    @Override
+    public Mono<Long> getCountByFilters(String senderId, String receiverId, String searchKey, Instant fromDate, Instant toDate) {
+
+
+        // Create a list to hold individual criteria
+        List<Criteria> criteriaList = new ArrayList<>();
+
+        // Add criteria for senderId if it's provided
+        if (senderId != null && !senderId.isEmpty()) {
+            criteriaList.add(Criteria.where("senderId").is(senderId));
+        }
+
+        // Add criteria for receiverId if it's provided
+        if (receiverId != null && !receiverId.isEmpty()) {
+            criteriaList.add(Criteria.where("receiverId").is(receiverId));
+        }
+
+        // Add criteria for searchKey if it's provided (case-insensitive regex search)
+        if (searchKey != null && !searchKey.isEmpty()) {
+            criteriaList.add(Criteria.where("searchKey").regex(".*" + searchKey + ".*", "i"));
+        }
+
+        // Add criteria for date range if fromDate and/or toDate are provided
+        if (fromDate != null || toDate != null) {
+            if (fromDate != null && toDate != null) {
+                criteriaList.add(Criteria.where("createdOn").gte(fromDate).lt(toDate));
+            } else if (fromDate != null) {
+                criteriaList.add(Criteria.where("createdOn").gte(fromDate));
+            } else {
+                criteriaList.add(Criteria.where("createdOn").lt(toDate));
+            }
+        }
+
+        // Combine all criteria using 'andOperator' if there are any criteria
+        Criteria finalCriteria = new Criteria();
+        if (!criteriaList.isEmpty()) {
+            finalCriteria = new Criteria().andOperator(criteriaList.toArray(new Criteria[0]));
+        }
+
+        // Build the query with the final criteria
+        Query query = new Query(finalCriteria);
+
+        // Perform the count operation using reactiveMongoTemplate
+        return reactiveMongoTemplate.count(query, GiftTransactionEntity.class);
     }
 }

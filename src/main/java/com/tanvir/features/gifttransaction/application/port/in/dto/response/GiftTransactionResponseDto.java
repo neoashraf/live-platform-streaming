@@ -12,7 +12,7 @@ import java.util.List;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class BeanTransactionResponseDto {
+public class GiftTransactionResponseDto {
     private String message;
     private List<GiftTransaction> data;
     private Integer count;

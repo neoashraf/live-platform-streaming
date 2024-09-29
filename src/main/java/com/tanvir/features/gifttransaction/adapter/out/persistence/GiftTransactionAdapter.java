@@ -3,17 +3,22 @@ package com.tanvir.features.gifttransaction.adapter.out.persistence;
 import com.tanvir.features.gifttransaction.adapter.out.persistence.entity.GiftTransactionEntity;
 import com.tanvir.features.gifttransaction.adapter.out.persistence.repository.GiftTransactionRepository;
 import com.tanvir.features.gifttransaction.adapter.out.persistence.repository.GiftTransactionRepositoryCustom;
-import com.tanvir.features.gifttransaction.application.port.in.dto.request.BeanTransactionRequestDto;
+import com.tanvir.features.gifttransaction.application.port.in.dto.request.GiftTransactionRequestDto;
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.domain.GiftTransaction;
 import lombok.extern.slf4j.Slf4j;
+import org.modelmapper.Converter;
 import org.modelmapper.ModelMapper;
+import org.modelmapper.spi.MappingContext;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 
 @Component
 @Slf4j
@@ -39,15 +44,28 @@ public class GiftTransactionAdapter implements GiftTransactionPersistencePort {
     }
 
     @Override
-    public Flux<GiftTransaction> getBeanTransactions(BeanTransactionRequestDto requestDto) {
+    public Flux<GiftTransaction> getBeanTransactions(GiftTransactionRequestDto requestDto) {
         Instant createdAfterInstant = requestDto.getCreatedAfter().toInstant(ZoneOffset.UTC);
         Instant createdBeforeInstant = requestDto.getCreatedBefore().toInstant(ZoneOffset.UTC);
+
         return customRepository.findAllByFilters(
-                requestDto.getSenderId(), requestDto.getSenderUserType(),
-                requestDto.getReceiverId(), requestDto.getReceiverUserType(), requestDto.getCategory(), requestDto.getTransactionId(), requestDto.getSearchKey(),
+                requestDto.getSenderId(),
+                requestDto.getReceiverId(), requestDto.getSearchKey(),
                 createdAfterInstant, createdBeforeInstant, requestDto.getPageable())
-                .doOnRequest(l -> log.info("Requesting to fetch filtered bean transactions with senderId : {}, senderUserType : {}, receiverId : {}, receiverUserType : {}, category : {}, searchKey : {}, createdAfter: {}, createdBefore : {}", requestDto.getSenderId(), requestDto.getSenderUserType(), requestDto.getReceiverId(), requestDto.getReceiverUserType(), requestDto.getCategory(), requestDto.getSearchKey(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore()))
+                .doOnRequest(l -> log.info("Requesting to fetch filtered bean transactions with senderId : {}, receiverId : {}, searchKey : {}, createdAfter: {}, createdBefore : {}", requestDto.getSenderId(), requestDto.getReceiverId(), requestDto.getSearchKey(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore()))
                 .doOnError(throwable -> log.error("Error occurred while fetching bean transactions: {}", throwable.getMessage()))
                 .map(giftTransactionEntity -> modelMapper.map(giftTransactionEntity, GiftTransaction.class));
+    }
+
+    @Override
+    public Mono<Long> getBeanTransactionsCount(GiftTransactionRequestDto requestDto) {
+        Instant createdAfterInstant = requestDto.getCreatedAfter().toInstant(ZoneOffset.UTC);
+        Instant createdBeforeInstant = requestDto.getCreatedBefore().toInstant(ZoneOffset.UTC);
+        return customRepository.getCountByFilters(
+                requestDto.getSenderId(),
+                requestDto.getReceiverId(), requestDto.getSearchKey(),
+                createdAfterInstant, createdBeforeInstant)
+                .doOnRequest(l -> log.info("Requesting to fetch count of filtered bean transactions with senderId : {}, receiverId : {}, searchKey : {}, createdAfter: {}, createdBefore : {}", requestDto.getSenderId(), requestDto.getReceiverId(), requestDto.getSearchKey(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore()))
+                .doOnError(throwable -> log.error("Error occurred while fetching count of bean transactions: {}", throwable.getMessage()));
     }
 }
