@@ -20,7 +20,7 @@ public class CommonFunctions {
 		return buildGson(object).toJson(object);
 	}
 	
-	/*public Gson buildGson(Object object) {
+	public Gson buildGson(Object object) {
 		return new GsonBuilder()
 				.registerTypeAdapter(LocalDateTime.class,
 						(JsonDeserializer<LocalDateTime>) (json, typeOfT, context) -> LocalDateTime.parse(json.getAsString(),
@@ -35,9 +35,9 @@ public class CommonFunctions {
 						(JsonSerializer<LocalDate>) (localDateTime, type, jsonSerializationContext) ->
 								new JsonPrimitive(localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))))
 				.setPrettyPrinting().create();
-	}*/
+	}
 
-	public Gson buildGson(Object object) {
+	/*public Gson buildGson(Object object) {
 		return new GsonBuilder()
 				.registerTypeAdapter(LocalDateTime.class,
 						(JsonDeserializer<LocalDateTime>) (json, typeOfT, context) ->
@@ -65,7 +65,7 @@ public class CommonFunctions {
 				})
 				.setPrettyPrinting()
 				.create();
-	}
+	}*/
 	
 	public double round(int scale, double amount, RoundingMode roundingMode) {
 		return new BigDecimal(amount).setScale(scale, roundingMode).doubleValue();

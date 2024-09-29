@@ -37,4 +37,13 @@ public class HostPersistenceAdapter implements HostPersistencePort {
             .doOnError(throwable -> log.error("Error while getting host from mongo: {}", throwable.getMessage()))
             .doOnSuccess(host -> log.info("Got host from mongo {}", host));
     }
+
+    @Override
+    public Mono<Host> saveHost(Host host) {
+        return repository.save(modelMapper.map(host, HostEntity.class))
+            .map(entity -> modelMapper.map(entity, Host.class))
+            .doOnRequest(value -> log.info("Saving host to mongo"))
+            .doOnError(throwable -> log.error("Error while saving host to mongo: {}", throwable.getMessage()))
+            .doOnSuccess(host1 -> log.info("Saved host to mongo {}", host1));
+    }
 }

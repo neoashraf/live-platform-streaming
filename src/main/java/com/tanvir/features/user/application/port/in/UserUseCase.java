@@ -16,4 +16,5 @@ public interface UserUseCase {
 	Mono<User> getUserByKeycloakId(String keycloakId);
 
 	Mono<User> getUserByKeycloakIdOrEmail(String keycloakId, String email);
+	Mono<User> updateUser(User user);
 }

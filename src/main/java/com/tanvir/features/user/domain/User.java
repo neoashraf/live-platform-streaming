@@ -53,6 +53,10 @@ public class User {
 
     private String rideId;
     private String entryCardId;
+    private double beansGifted;
+
+    // for send gifts
+    private boolean isSender;
 
 
 	@Override

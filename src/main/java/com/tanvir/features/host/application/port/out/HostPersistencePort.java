@@ -8,4 +8,5 @@ import reactor.core.publisher.Mono;
 
 public interface HostPersistencePort {
     Mono<Host> getHostByUserId(String userId);
+    Mono<Host> saveHost(Host host);
 }

@@ -9,6 +9,7 @@ import com.tanvir.features.user.domain.User;
 import org.modelmapper.ModelMapper;
 
 import java.text.DecimalFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -17,7 +18,7 @@ import java.util.Timer;
 
 public class Pojo {
     public static void main(String[] args) {
-        System.out.println(formatToK(1140));  // 30K
+        /*System.out.println(formatToK(1140));  // 30K
         System.out.println(formatToK(32000));  // 32K
         System.out.println(formatToK(32500));  // 32.5K
         System.out.println(formatToK(100000));
@@ -33,7 +34,11 @@ public class Pojo {
         List<String> fruits = new ArrayList<>(List.of("Apple"));
         System.out.println("fruits : " + fruits);
         fruits.remove("Banana");
-        System.out.println("fruits after remove : " + fruits);
+        System.out.println("fruits after remove : " + fruits);*/
+
+        System.out.println("dateTime : " + LocalDateTime.now());
+        System.out.println("date : " + LocalDate.now());
+        System.out.println("formatted : " + LocalDateTime.now().toLocalDate());
 
     }
 

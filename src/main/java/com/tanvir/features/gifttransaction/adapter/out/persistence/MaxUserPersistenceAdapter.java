@@ -20,4 +20,9 @@ public class MaxUserPersistenceAdapter implements MaxUserPersistencePort {
     public Mono<MaxUserEntity> getMaxUserEntityByUserId(String userId) {
         return maxUserRepository.findMaxUserEntityByUserId(userId);
     }
+
+    @Override
+    public Mono<MaxUserEntity> saveMaxUserEntity(MaxUserEntity maxUserEntity) {
+        return maxUserRepository.save(maxUserEntity);
+    }
 }

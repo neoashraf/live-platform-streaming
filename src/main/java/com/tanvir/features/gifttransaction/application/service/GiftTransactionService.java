@@ -26,11 +26,13 @@ import com.tanvir.features.liveroom.domain.valueobject.Resource;
 import com.tanvir.features.liveroom.domain.valueobject.RoomDataDto;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserMongoRepository;
 import com.tanvir.features.user.application.port.in.UserUseCase;
+import com.tanvir.features.user.domain.User;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
+import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDate;
@@ -87,6 +89,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .doOnError(throwable -> log.error("Error while saving gift transaction"))
                 .flatMap(this::announceToFirebaseIfLiveSession)
                 .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
+                .flatMap(this::updateUserForGiftTransaction)
                 .map(giftTransaction -> this.buildSendGiftResponseDto(giftTransaction, "Gift sent successfully"))
                 .as(transactionalOperator::transactional);
     }
@@ -131,20 +134,22 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     private GiftTransaction buildGiftTransaction(GiftTransaction giftTransaction, SendGiftRequestDto requestDto) {
         return GiftTransaction
                 .builder()
-                .senderId(requestDto.getSenderId())
+                .senderId(giftTransaction.getSenderReceiverDto().getSender().getId())
                 .receiverId(requestDto.getReceiverId())
                 .giftId(requestDto.getGiftId())
                 .quantity(requestDto.getQuantity())
                 .beans(giftTransaction.getBeans())
                 .liveSession(requestDto.getLiveSession())
                 .liveRoomId(requestDto.getLiveRoomId())
-                .transactionDate(LocalDate.now())
+                .transactionDate(LocalDate.of(LocalDateTime.now().getYear(), LocalDateTime.now().getMonth(), LocalDateTime.now().getDayOfMonth()))
                 .createdOn(LocalDateTime.now())
+                .senderReceiverDto(giftTransaction.getSenderReceiverDto())
+                .gift(giftTransaction.getGift())
                 .build();
     }
 
     private Mono<GiftTransaction> announceToFirebaseIfLiveSession(GiftTransaction giftTransaction) {
-        return giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
+        return Strings.isNotNullAndNotEmpty(giftTransaction.getLiveSession()) && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
                 ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
                     .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
                     .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
@@ -205,6 +210,22 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .data(dataDto)
                 .count(1)
                 .build();
+    }
+
+    private Mono<GiftTransaction> updateUserForGiftTransaction(GiftTransaction giftTransaction) {
+        User sender = giftTransaction.getSenderReceiverDto().getSender();
+        User receiver = giftTransaction.getSenderReceiverDto().getReceiver();
+
+        sender.setBeans(sender.getBeans() - giftTransaction.getBeans());
+        receiver.setBeans(receiver.getBeans() + giftTransaction.getBeans());
+        sender.setBeansGifted(sender.getBeansGifted() + giftTransaction.getBeans());
+        sender.setSender(true);
+
+        return userUseCase.updateUser(sender)
+                .doOnError(throwable -> log.error("Error while updating sender user"))
+                .then(userUseCase.updateUser(receiver))
+                .doOnError(throwable -> log.error("Error while updating receiver user"))
+                .thenReturn(giftTransaction);
     }
 
 

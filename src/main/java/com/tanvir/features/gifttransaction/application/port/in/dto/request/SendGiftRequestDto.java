@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class SendGiftRequestDto {
+public class  SendGiftRequestDto {
     private String keycloakId;
     private String senderId;
     private String receiverId;

@@ -1,7 +1,10 @@
 package com.tanvir.features.user.application.service;
 
 import com.tanvir.core.util.enums.ExceptionMessages;
+import com.tanvir.core.util.enums.UserTypeEnum;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
+import com.tanvir.features.gifttransaction.application.port.out.MaxUserPersistencePort;
+import com.tanvir.features.host.application.port.out.HostPersistencePort;
 import com.tanvir.features.user.application.port.in.UserUseCase;
 import com.tanvir.features.user.application.port.in.dto.request.UserRequestDTO;
 import com.tanvir.features.user.application.port.in.dto.response.UserInfoResponseDto;
@@ -24,9 +27,13 @@ import java.util.List;
 @Slf4j
 public class UserService implements UserUseCase {
     private final DatabasePort userPort;
+    private final MaxUserPersistencePort maxUserPersistencePort;
+    private final HostPersistencePort hostPersistencePort;
 
-    public UserService(DatabasePort userPort) {
+    public UserService(DatabasePort userPort, MaxUserPersistencePort maxUserPersistencePort, HostPersistencePort hostPersistencePort) {
         this.userPort = userPort;
+        this.maxUserPersistencePort = maxUserPersistencePort;
+        this.hostPersistencePort = hostPersistencePort;
     }
 
     @Override
@@ -124,6 +131,55 @@ public class UserService implements UserUseCase {
     @Override
     public Mono<User> getUserByKeycloakIdOrEmail(String keycloakId, String email) {
         return userPort.getUserByKeyCloakIdOrEmail(keycloakId, email);
+    }
+
+    @Override
+    public Mono<User> updateUser(User user) {
+        return userPort.getById(user.getId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, ExceptionMessages.USER_NOT_FOUND.getValue())))
+                .map(user1 -> {
+                    user1.setBeans(user.getBeans());
+                    if (user.isSender()) {
+                        user1.setBeansGifted(user.getBeansGifted());
+                    }
+                    user1.setUpdatedOn(LocalDateTime.now());
+                    return user1;
+                })
+                .flatMap(userPort::save)
+                .doOnRequest(l -> log.info("Request received to update user"))
+                .doOnNext(user1 -> log.info("User updated successfully: {}", user))
+                .doOnError(throwable -> log.error("Error while updating user profile: {}", throwable.getMessage()))
+                .flatMap(user1 ->
+                        user.getUserType().equals(UserTypeEnum.USER_TYPE_MAX_USER.getValue())
+                                ? maxUserPersistencePort
+                                    .getMaxUserEntityByUserId(user.getId())
+                                    .flatMap(maxUserEntity -> {
+                                        maxUserEntity.setBeans(user.getBeans());
+                                        if (user.isSender()) {
+                                            maxUserEntity.setBeansGifted(user.getBeansGifted());
+                                        }
+                                        maxUserEntity.setUpdatedOn(LocalDateTime.now());
+                                        return maxUserPersistencePort.saveMaxUserEntity(maxUserEntity);
+                                    })
+                                    .doOnRequest(l -> log.info("Request received to update max user"))
+                                    .doOnSuccess(maxUser -> log.info("Max user updated successfully: {}", maxUser))
+                                    .doOnError(throwable -> log.error("Error while updating max user: {}", throwable.getMessage()))
+                                    .thenReturn(user)
+                                : hostPersistencePort
+                                    .getHostByUserId(user.getId())
+                                    .flatMap(host -> {
+                                        host.setBeans(user.getBeans());
+                                        if (user.isSender()) {
+                                            host.setBeansGifted(user.getBeansGifted());
+                                        }
+                                        host.setUpdatedOn(LocalDateTime.now());
+                                        return hostPersistencePort.saveHost(host);
+                                    })
+                                .doOnRequest(l -> log.info("Request received to update host"))
+                                .doOnSuccess(host -> log.info("Host updated successfully: {}", host))
+                                .doOnError(throwable -> log.error("Error while updating host: {}", throwable.getMessage()))
+                                .thenReturn(user)
+                );
     }
 
     private Mono<UserInfoResponseDto> handleUserInfoResponseError(String logMessage, Throwable err) {

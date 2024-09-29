@@ -50,6 +50,7 @@ public class UserEntity {
 
     private int userLevel;
     private double beans;
+    private double beansGifted;
     private double gems;
 
     private String profileDescription;
