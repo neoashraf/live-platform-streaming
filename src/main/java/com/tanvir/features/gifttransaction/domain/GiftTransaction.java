@@ -25,7 +25,7 @@ public class GiftTransaction {
     private String liveSession;
     private String liveRoomId;
     private String transactionDateId;
-//    private LocalDate transactionDate;
+    private String transactionDate;
     private LocalDateTime createdOn;
 
     // dto

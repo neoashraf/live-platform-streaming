@@ -8,6 +8,7 @@ import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.gift.application.port.in.GiftUseCase;
 import com.tanvir.features.gift.domain.valueobjects.ResourceFormat;
+import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
 import com.tanvir.features.gifttransaction.application.port.in.GiftTransactionUseCase;
 import com.tanvir.features.gifttransaction.application.port.in.dto.request.GiftTransactionRequestDto;
 import com.tanvir.features.gifttransaction.application.port.in.dto.request.SendGiftRequestDto;
@@ -62,8 +63,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     private final LiveRoomUseCase liveRoomUseCase;
     private final LevelUseCase levelUseCase;
     private final CachePort cachePort;
+    private final GiftSummaryUseCase giftSummaryUseCase;
 
-    public GiftTransactionService(GiftTransactionPersistencePort port, UserUseCase userUseCase, Gson gson, HostPersistencePort hostPersistencePort, MaxUserPersistencePort maxUserPersistencePort, UserMongoRepository userRepository, TransactionalOperator transactionalOperator, ModelMapper modelMapper, GiftUseCase giftUseCase, LiveRoomUseCase liveRoomUseCase, LevelUseCase levelUseCase, CachePort cachePort) {
+    public GiftTransactionService(GiftTransactionPersistencePort port, UserUseCase userUseCase, Gson gson, HostPersistencePort hostPersistencePort, MaxUserPersistencePort maxUserPersistencePort, UserMongoRepository userRepository, TransactionalOperator transactionalOperator, ModelMapper modelMapper, GiftUseCase giftUseCase, LiveRoomUseCase liveRoomUseCase, LevelUseCase levelUseCase, CachePort cachePort, GiftSummaryUseCase giftSummaryUseCase) {
         this.port = port;
         this.userUseCase = userUseCase;
         this.gson = gson;
@@ -76,6 +78,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         this.liveRoomUseCase = liveRoomUseCase;
         this.levelUseCase = levelUseCase;
         this.cachePort = cachePort;
+        this.giftSummaryUseCase = giftSummaryUseCase;
     }
 
 
@@ -90,11 +93,16 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .map(giftTransaction -> this.buildGiftTransaction(giftTransaction, requestDto))
                 .doOnError(throwable -> log.error("Error while building gift transaction"))
                 .flatMap(giftTransaction -> port.saveTransaction(giftTransaction)
-                        .thenReturn(giftTransaction))
+                        .map(savedTransaction -> {
+                            giftTransaction.setId(savedTransaction.getId());
+                            return giftTransaction;
+                        }))
                 .doOnError(throwable -> log.error("Error while saving gift transaction"))
                 .flatMap(this::announceToFirebaseIfLiveSession)
                 .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 .flatMap(this::updateUserForGiftTransaction)
+                .flatMap(giftTransaction -> giftSummaryUseCase.buildAndSaveGiftSummary(giftTransaction))
+                .doOnError(throwable -> log.error("Error while updating gift summary"))
                 .map(giftTransaction -> this.buildSendGiftResponseDto(giftTransaction, "Gift sent successfully"))
                 .as(transactionalOperator::transactional);
     }
@@ -176,8 +184,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .beans(giftTransaction.getBeans())
                 .liveSession(requestDto.getLiveSession())
                 .liveRoomId(requestDto.getLiveRoomId())
-//                .transactionDate(LocalDate.now(ZoneOffset.UTC))
-                .createdOn(LocalDateTime.now())
+                .transactionDate(LocalDateTime.now().toLocalDate().toString())
+                .createdOn(LocalDateTime.now(ZoneOffset.UTC))
                 .senderReceiverDto(giftTransaction.getSenderReceiverDto())
                 .gift(giftTransaction.getGift())
                 .build();

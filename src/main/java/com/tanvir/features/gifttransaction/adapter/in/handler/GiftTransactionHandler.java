@@ -45,12 +45,10 @@ public class GiftTransactionHandler {
         return this.buildBeanTransactionRequestDto(serverRequest)
                 .flatMap(giftTransactionUseCase::getGiftTransactions)
                 .flatMap(dto -> ServerResponse
-                        .created(serverRequest.uri())
+                        .ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto))
                 ;
-                /*.onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest))
-                .onErrorResume(Predicate.not(ExceptionHandlerUtil.class::isInstance), e -> ErrorHandler.buildErrorResponseForUncaught(e, serverRequest));*/
     }
 
     private Mono<GiftTransactionRequestDto> buildBeanTransactionRequestDto(ServerRequest serverRequest) {

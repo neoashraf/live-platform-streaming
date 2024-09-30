@@ -38,6 +38,7 @@ public enum QueryParams {
     VIEW_MODE("viewMode"),
     CREATED_AFTER("createdAfter"),
     CREATED_BEFORE("createdBefore"),
+    TOKEN_TYPE("tokenType"),
 
     LIMIT("limit"),
     OFFSET("offset")

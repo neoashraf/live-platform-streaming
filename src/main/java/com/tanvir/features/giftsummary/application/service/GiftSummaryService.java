@@ -1,0 +1,102 @@
+package com.tanvir.features.giftsummary.application.service;
+import com.tanvir.features.giftsummary.adapter.out.persistence.entity.GiftSummaryEntity;
+import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
+import com.tanvir.features.giftsummary.domain.GiftSummary;
+import com.tanvir.features.gifttransaction.domain.GiftTransaction;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.*;
+
+@Service
+@Slf4j
+public class GiftSummaryService implements GiftSummaryUseCase {
+
+    @Autowired
+    private ReactiveMongoTemplate reactiveMongoTemplate;
+
+
+    @Override
+    public Mono<GiftSummary> saveGiftSummary(GiftSummary giftSummary) {
+        return null;
+    }
+
+    @Override
+    public Mono<GiftTransaction> buildAndSaveGiftSummary(GiftTransaction transaction) {
+// Get the receiver's userId and the transactionDate
+        String receiverId = transaction.getReceiverId();
+        String transactionDateStr = transaction.getTransactionDate();
+
+        // Parse the transactionDate string to LocalDate
+        LocalDate transactionDate = transactionDateStr != null
+                ? LocalDate.parse(transactionDateStr)
+                : LocalDate.now(ZoneOffset.UTC);
+
+        // Query for existing GiftSummaryEntity by userId and transactionDate
+        Query query = new Query();
+        query.addCriteria(Criteria.where("userId").is(receiverId)
+                .and("transactionDate").is(transactionDate.toString()));
+
+        // Find the existing summary and update or create a new one reactively
+        return reactiveMongoTemplate.findOne(query, GiftSummaryEntity.class)
+                .flatMap(summary -> {
+                    // Update existing fields
+                    List<String> existingTxnIds = new ArrayList<>(summary.getGiftTransactionIds());
+                    existingTxnIds.add(transaction.getId());
+                    summary.setBeans(summary.getBeans() + transaction.getBeans());
+                    summary.setGiftTransactionIds(existingTxnIds);
+                    summary.setTransactionCount(summary.getTransactionCount() + 1);
+
+                    // Update sender amount map
+                    Map<String, Double> senderAmountMap = summary.getSenderAmountMap();
+                    senderAmountMap.put(transaction.getSenderId(),
+                            senderAmountMap.getOrDefault(transaction.getSenderId(), 0.0) + transaction.getBeans());
+
+                    summary.setSenderAmountMap(senderAmountMap);
+                    summary.setUpdatedOn(LocalDateTime.now(ZoneOffset.UTC));
+                    summary.setId(summary.getId());
+
+                    // Save the updated summary back to the database
+                    return reactiveMongoTemplate.save(summary)
+                            .then(Mono.just(transaction)); // Return the transaction wrapped in Mono
+                })
+                .switchIfEmpty(Mono.defer(() -> {
+                    // Create new GiftSummaryEntity if it does not exist
+                    GiftSummaryEntity newSummary = new GiftSummaryEntity();
+                    newSummary.setGiftTransactionIds(Collections.singletonList(transaction.getId()));
+                    newSummary.setId(UUID.randomUUID().toString());
+                    newSummary.setUserId(receiverId);
+                    newSummary.setTransactionDate(transactionDate.toString());
+                    newSummary.setBeans(transaction.getBeans());
+                    newSummary.setTransactionCount(1);
+                    newSummary.setSenderAmountMap(new HashMap<>());
+
+                    // Update sender amount map for the new summary
+                    Map<String, Double> senderAmountMap = newSummary.getSenderAmountMap();
+                    senderAmountMap.put(transaction.getSenderId(),
+                            senderAmountMap.getOrDefault(transaction.getSenderId(), 0.0) + transaction.getBeans());
+
+                    newSummary.setSenderAmountMap(senderAmountMap);
+                    newSummary.setUpdatedOn(LocalDateTime.now(ZoneOffset.UTC));
+                    newSummary.setCreatedOn(LocalDateTime.now(ZoneOffset.UTC));
+
+                    // Save the new summary back to the database
+                    return reactiveMongoTemplate.save(newSummary)
+                            .then(Mono.just(transaction)); // Return the transaction wrapped in Mono
+                }));
+    }
+
+    @Override
+    public Mono<GiftSummary> getGiftSummaryByUserId(String userId) {
+        return null;
+    }
+}

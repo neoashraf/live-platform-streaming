@@ -1,4 +1,4 @@
-package com.tanvir.features.gifttransaction.adapter.out.persistence.entity;
+package com.tanvir.features.giftsummary.adapter.out.persistence.entity;
 
 import com.tanvir.core.util.CommonFunctions;
 import lombok.AllArgsConstructor;
@@ -7,33 +7,32 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.domain.Persistable;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
+@Data
+@Builder
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
-@Data
-@Document(collection = "gift_transactions")
-public class GiftTransactionEntity implements Persistable<String> {
+@Document(collection = "gift_summary")
+public class GiftSummaryEntity implements Persistable<String> {
     @Id
     private String id;
-    private String senderId;
-    private String receiverId;
-    private String giftId;
-    private Integer quantity;
+    private List<String> giftTransactionIds;
+    private String userId;
     private Double beans;
-    private String liveSession;
-    private String liveRoomId;
-    private String transactionDateId;
+    private Double gems; // determine beans or gems
+    private String transactionDateId; // a unique id to represent a particular date
     private String transactionDate;
+    private Integer transactionCount;
     private LocalDateTime createdOn;
+    private LocalDateTime updatedOn;
+    private Map<String, Double> senderAmountMap;
 
     @Override
     public String toString() {
@@ -51,6 +50,4 @@ public class GiftTransactionEntity implements Persistable<String> {
         this.id = isNull ? UUID.randomUUID().toString() : this.id;
         return isNull;
     }
-
 }
-
