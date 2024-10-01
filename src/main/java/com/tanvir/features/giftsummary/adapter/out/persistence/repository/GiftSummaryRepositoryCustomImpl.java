@@ -112,4 +112,45 @@ public class GiftSummaryRepositoryCustomImpl implements GiftSummaryRepositoryCus
         // Perform the count operation using reactiveMongoTemplate
         return reactiveMongoTemplate.count(query, GiftTransactionEntity.class);
     }
+
+    @Override
+    public Mono<Double> getTotalBeansByUserIdAndDate(String userId, Instant createdAfter, Instant createdBefore) {
+        List<Criteria> criteriaList = new ArrayList<>();
+
+        // Criteria for sender/receiver Id and UserType with 'or' relationship
+        List<Criteria> senderReceiverCriteria = new ArrayList<>();
+
+        if (userId != null && !userId.isEmpty()) {
+            senderReceiverCriteria.add(Criteria.where("userId").is(userId));
+        }
+
+        // Add sender/receiver criteria only if we have any valid condition
+        if (!senderReceiverCriteria.isEmpty()) {
+            criteriaList.add(new Criteria().orOperator(senderReceiverCriteria.toArray(new Criteria[0])));
+        }
+
+        // Criteria for fromDate and toDate
+        if (createdAfter != null || createdBefore != null) {
+            if (createdAfter != null && createdBefore != null) {
+                criteriaList.add(Criteria.where("createdOn").gte(createdAfter).lt(createdBefore));
+            } else if (createdAfter != null) {
+                criteriaList.add(Criteria.where("createdOn").gte(createdAfter));
+            } else {
+                criteriaList.add(Criteria.where("createdOn").lt(createdBefore));
+            }
+        }
+
+        // Combine all criteria
+        Criteria criteria = new Criteria();
+        if (!criteriaList.isEmpty()) {
+            criteria.andOperator(criteriaList.toArray(new Criteria[0]));
+        }
+
+        // Query with pageable and sort by createdOn (descending)
+        Query query = new Query(criteria);
+
+        return reactiveMongoTemplate.find(query, GiftSummaryEntity.class)
+                .map(GiftSummaryEntity::getBeans)
+                .reduce(0.0, Double::sum);
+    }
 }

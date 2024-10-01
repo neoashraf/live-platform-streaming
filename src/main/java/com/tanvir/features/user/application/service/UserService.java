@@ -22,6 +22,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -180,6 +181,14 @@ public class UserService implements UserUseCase {
                                 .doOnError(throwable -> log.error("Error while updating host: {}", throwable.getMessage()))
                                 .thenReturn(user)
                 );
+    }
+
+    @Override
+    public Mono<Map<String, User>> getUsersByIds(List<String> userIdList) {
+        return userPort.getUsersByIds(userIdList)
+                .collectMap(User::getId)
+                .doOnRequest(l -> log.info("Request received to get users by ids: {}", userIdList))
+                .doOnNext(users -> log.info("Users fetched by ids: {}", users));
     }
 
     private Mono<UserInfoResponseDto> handleUserInfoResponseError(String logMessage, Throwable err) {

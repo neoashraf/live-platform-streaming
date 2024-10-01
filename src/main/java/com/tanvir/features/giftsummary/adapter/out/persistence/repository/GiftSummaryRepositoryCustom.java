@@ -12,4 +12,6 @@ public interface GiftSummaryRepositoryCustom {
     Flux<GiftSummaryEntity> findAllByFilters(String receiverId, String agencyId, Instant fromDate, Instant toDate);
 
     Mono<Long> getCountByFilters(String senderOid, String receiverOid, String searchKey, Instant fromDate, Instant toDate);
+
+    Mono<Double> getTotalBeansByUserIdAndDate(String userId, Instant createdAfter, Instant createdBefore);
 }

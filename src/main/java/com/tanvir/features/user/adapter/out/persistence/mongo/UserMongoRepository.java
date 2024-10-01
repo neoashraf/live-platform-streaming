@@ -5,9 +5,12 @@ import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 public interface UserMongoRepository extends ReactiveMongoRepository<UserEntity, String>, UserRepositoryCustom {
     Flux<UserEntity> findAllByOrderByCreatedOnDesc();
     Mono<UserEntity> getUserEntityByMaxId(String maxId);
     Mono<UserEntity> getUserEntityByKeycloakId(String keycloakId);
     Mono<UserEntity> getUserEntityByKeycloakIdOrEmail(String keycloakId, String email);
+    Flux<UserEntity> findAllByIdIn(List<String> userIdList);
 }

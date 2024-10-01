@@ -5,13 +5,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Leaderboard {
-   private double totalGiftAmount;
-   private List<GiftSummaryUser> topGiftSenders;
+public class GiftSummaryUser {
+    private String userId;
+    private String displayName;
+    private String profileImageUrl;
+    private int userLevel;
+    private double beansSent;
 }

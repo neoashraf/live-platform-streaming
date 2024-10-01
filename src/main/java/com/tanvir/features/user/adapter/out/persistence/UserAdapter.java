@@ -14,6 +14,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Component
@@ -102,6 +103,12 @@ public class UserAdapter implements DatabasePort {
     @Override
     public Mono<User> getUserByKeyCloakIdOrEmail(String keycloakId, String email) {
         return repository.getUserEntityByKeycloakIdOrEmail(keycloakId, email)
+                .map(userEntity -> modelMapper.map(userEntity, User.class));
+    }
+
+    @Override
+    public Flux<User> getUsersByIds(List<String> userIdList) {
+        return repository.findAllByIdIn(userIdList)
                 .map(userEntity -> modelMapper.map(userEntity, User.class));
     }
 

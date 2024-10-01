@@ -19,4 +19,5 @@ public class RouteNames {
 	public static String SEND = "/send";
 	public static String LEADERBOARD = "/leaderboard";
 	public static String FAN = "/fan";
+	public static String HOST = "/host";
 }

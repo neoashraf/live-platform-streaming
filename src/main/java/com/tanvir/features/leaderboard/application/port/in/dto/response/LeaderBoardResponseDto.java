@@ -14,7 +14,7 @@ import java.util.List;
 @NoArgsConstructor
 public class LeaderBoardResponseDto {
     private String message;
-    private List<Leaderboard> data;
+    private Leaderboard data;
     private Integer count;
     private boolean error;
 }

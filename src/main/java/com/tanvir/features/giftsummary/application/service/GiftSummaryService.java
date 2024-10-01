@@ -4,6 +4,7 @@ import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
 import com.tanvir.features.giftsummary.application.port.out.GiftSummaryPersistencePort;
 import com.tanvir.features.giftsummary.domain.GiftSummary;
 import com.tanvir.features.gifttransaction.domain.GiftTransaction;
+import com.tanvir.features.leaderboard.domain.UserBeanSummary;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
@@ -103,5 +104,15 @@ public class GiftSummaryService implements GiftSummaryUseCase {
     @Override
     public Mono<List<GiftSummary>> getGiftSummaryByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore) {
         return port.getGiftSummaryByUserIdAndDate(userId, createdAfter, createdBefore);
+    }
+
+    @Override
+    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore) {
+        return port.getHostGiftSummariesByDate(createdAfter, createdBefore);
+    }
+
+    @Override
+    public Mono<Double> getTotalGiftAmountByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore) {
+        return port.getTotalGiftAmountByUserIdAndDate(userId, createdAfter, createdBefore);
     }
 }

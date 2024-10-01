@@ -5,13 +5,11 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class Leaderboard {
-   private double totalGiftAmount;
-   private List<GiftSummaryUser> topGiftSenders;
+public class UserBeanSummary {
+    private String id;
+    private int totalBeans;
 }

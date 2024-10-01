@@ -5,7 +5,11 @@ import com.tanvir.features.giftsummary.domain.GiftSummary;
 import com.tanvir.features.leaderboard.application.port.in.LeaderboardUseCase;
 import com.tanvir.features.leaderboard.application.port.in.dto.request.LeaderboardRequestDto;
 import com.tanvir.features.leaderboard.application.port.in.dto.response.LeaderBoardResponseDto;
+import com.tanvir.features.leaderboard.domain.GiftSummaryUser;
 import com.tanvir.features.leaderboard.domain.Leaderboard;
+import com.tanvir.features.leaderboard.domain.UserBeanSummary;
+import com.tanvir.features.user.application.port.in.UserUseCase;
+import com.tanvir.features.user.domain.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -19,14 +23,17 @@ import java.util.stream.Collectors;
 public class LeaderboardService implements LeaderboardUseCase {
 
     private final GiftSummaryUseCase giftSummaryUseCase;
+    private final UserUseCase userUseCase;
 
-    public LeaderboardService(GiftSummaryUseCase giftSummaryUseCase) {
+    public LeaderboardService(GiftSummaryUseCase giftSummaryUseCase, UserUseCase userUseCase) {
         this.giftSummaryUseCase = giftSummaryUseCase;
+        this.userUseCase = userUseCase;
     }
 
     @Override
     public Mono<LeaderBoardResponseDto> getFanLeaderBoard(LeaderboardRequestDto requestDto) {
-        return giftSummaryUseCase.getGiftSummaryByUserIdAndDate(requestDto.getUserId(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore())
+        return giftSummaryUseCase.getGiftSummaryByUserIdAndDate(
+                        requestDto.getUserId(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore())
                 .flatMapMany(Flux::fromIterable)
                 .map(GiftSummary::getSenderAmountMap)
                 // Flatten the Flux of Maps to individual senderId and amount entries
@@ -35,7 +42,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                 .collect(HashMap<String, Double>::new, (accumulatedMap, entry) ->
                         accumulatedMap.merge(entry.getKey(), entry.getValue(), Double::sum))
                 // Once all amounts are accumulated, sort by the values (amount) in descending order
-                .map(totalAmountMap -> {
+                .flatMap(totalAmountMap -> {
                     // Step 1: Convert the map entries to a list
                     List<Map.Entry<String, Double>> entryList = new ArrayList<>(totalAmountMap.entrySet());
 
@@ -49,26 +56,57 @@ public class LeaderboardService implements LeaderboardUseCase {
                             .toList();
 
                     // Step 4: Transform the limited list of entries to Leaderboard objects
-                    List<Leaderboard> leaderboardList = limitedList.stream()
-                            .map(entry -> {
-                                Leaderboard leaderboard = new Leaderboard();
-                                leaderboard.setUserId(entry.getKey());
-                                leaderboard.setBeansSent(entry.getValue());
-                                return leaderboard;
-                            })
-                            .collect(Collectors.toList());
+                    List<String> userIdList = limitedList.stream()
+                            .map(Map.Entry::getKey)
+                            .toList();
 
-                    return leaderboardList;
+                    // Fetch user details using userUseCase.getUsersByIds(userIdList) and return combined result
+                    return userUseCase.getUsersByIds(userIdList)
+                            .doOnError(throwable -> log.error("Error while fetching users by ids: {}", throwable.getMessage()))
+                            .map(stringUserMap -> {
+                                List<GiftSummaryUser> summaryUserList = new ArrayList<>();
+
+                                limitedList.forEach(entry -> {
+                                    GiftSummaryUser giftSummaryUser = new GiftSummaryUser();
+
+                                    // Fetch user details from the stringUserMap using the entry's key (userId)
+                                    String userId = entry.getKey();
+                                    User user = stringUserMap.get(userId);
+
+                                    if (user != null) {
+                                        giftSummaryUser.setUserId(userId);
+                                        giftSummaryUser.setDisplayName(user.getDisplayName());
+                                        giftSummaryUser.setProfileImageUrl(user.getProfileImageUrl());
+                                        giftSummaryUser.setUserLevel(user.getUserLevel());
+                                        giftSummaryUser.setBeansSent(entry.getValue()); // Correctly set the beansSent value from the entry's value
+                                    }
+
+                                    summaryUserList.add(giftSummaryUser);
+                                });
+                                return summaryUserList;
+                            });
                 })
-                .map(leaderboardList -> {
-                    // Create and return the LeaderBoardResponseDto
+                .zipWith(giftSummaryUseCase
+                        .getTotalGiftAmountByUserIdAndDate(requestDto.getUserId(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore())
+                        .doOnNext(totalGiftAmount -> log.info("Total gift amount: {}", totalGiftAmount)))
+                .map(userListAndTotalGiftAmountTuple -> {
+                    List<GiftSummaryUser> giftSummaryUsers = userListAndTotalGiftAmountTuple.getT1();
+                    Double totalGiftAmount = userListAndTotalGiftAmountTuple.getT2();
                     LeaderBoardResponseDto responseDto = new LeaderBoardResponseDto();
+                    Leaderboard leaderboard = Leaderboard
+                            .builder()
+                            .topGiftSenders(giftSummaryUsers)
+                            .totalGiftAmount(totalGiftAmount)
+                            .build();
+                    responseDto.setData(leaderboard);
                     responseDto.setMessage("Fan Leaderboard fetched successfully");
-                    responseDto.setData(leaderboardList);
-                    responseDto.setCount(leaderboardList.size());
-                    responseDto.setError(false);
-
                     return responseDto;
                 });
+    }
+
+
+    @Override
+    public Mono<List<UserBeanSummary>> getHostLeaderBoard(LeaderboardRequestDto requestDto) {
+        return giftSummaryUseCase.getHostGiftSummariesByDate(requestDto.getCreatedAfter(), requestDto.getCreatedBefore());
     }
 }

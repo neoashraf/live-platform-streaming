@@ -5,6 +5,8 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 public interface DatabasePort {
 
     Mono<User> getById(String id);
@@ -17,4 +19,6 @@ public interface DatabasePort {
     Mono<User> getUserByKeyCloakId(String keycloakId);
 
     Mono<User> getUserByKeyCloakIdOrEmail(String keycloakId, String email);
+
+    Flux<User> getUsersByIds(List<String> userIdList);
 }

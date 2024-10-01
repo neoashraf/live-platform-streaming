@@ -4,6 +4,7 @@ import com.tanvir.features.giftsummary.adapter.out.persistence.repository.GiftSu
 import com.tanvir.features.giftsummary.adapter.out.persistence.repository.GiftSummaryRepositoryCustom;
 import com.tanvir.features.giftsummary.application.port.out.GiftSummaryPersistencePort;
 import com.tanvir.features.giftsummary.domain.GiftSummary;
+import com.tanvir.features.leaderboard.domain.UserBeanSummary;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
@@ -34,5 +35,17 @@ public class GiftSummaryPersistenceAdapter implements GiftSummaryPersistencePort
         return customRepository.findAllByFilters(userId, null, createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC))
                 .map(giftSummaryEntity -> modelMapper.map(giftSummaryEntity, GiftSummary.class))
                 .collectList();
+    }
+
+    @Override
+    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore) {
+        return repository.findTopUsersByBeansInDateRange(createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC), 10)
+//                .map(giftSummaryEntity -> modelMapper.map(giftSummaryEntity, GiftSummary.class))
+                .collectList();
+    }
+
+    @Override
+    public Mono<Double> getTotalGiftAmountByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore) {
+        return customRepository.getTotalBeansByUserIdAndDate(userId, createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC));
     }
 }

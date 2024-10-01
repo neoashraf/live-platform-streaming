@@ -6,6 +6,9 @@ import com.tanvir.features.user.application.port.in.dto.response.UserResponseDto
 import com.tanvir.features.user.domain.User;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+import java.util.Map;
+
 public interface UserUseCase {
 	Mono<UserInfoResponseDto> getUserInfoById(UserRequestDTO user);
 	Mono<UserInfoResponseDto> updateUser(UserRequestDTO requestDTO);
@@ -17,4 +20,5 @@ public interface UserUseCase {
 
 	Mono<User> getUserByKeycloakIdOrEmail(String keycloakId, String email);
 	Mono<User> updateUser(User user);
+	Mono<Map<String, User>> getUsersByIds(List<String> userIdList);
 }
