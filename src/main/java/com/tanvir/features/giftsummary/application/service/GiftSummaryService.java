@@ -1,6 +1,7 @@
 package com.tanvir.features.giftsummary.application.service;
 import com.tanvir.features.giftsummary.adapter.out.persistence.entity.GiftSummaryEntity;
 import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
+import com.tanvir.features.giftsummary.application.port.out.GiftSummaryPersistencePort;
 import com.tanvir.features.giftsummary.domain.GiftSummary;
 import com.tanvir.features.gifttransaction.domain.GiftTransaction;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,9 @@ public class GiftSummaryService implements GiftSummaryUseCase {
 
     @Autowired
     private ReactiveMongoTemplate reactiveMongoTemplate;
+
+    @Autowired
+    private GiftSummaryPersistencePort port;
 
 
     @Override
@@ -97,7 +101,7 @@ public class GiftSummaryService implements GiftSummaryUseCase {
     }
 
     @Override
-    public Mono<GiftSummary> getGiftSummaryByUserId(String userId) {
-        return null;
+    public Mono<List<GiftSummary>> getGiftSummaryByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore) {
+        return port.getGiftSummaryByUserIdAndDate(userId, createdAfter, createdBefore);
     }
 }
