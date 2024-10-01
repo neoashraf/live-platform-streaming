@@ -11,5 +11,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserBeanSummary {
     private String id;
-    private int totalBeans;
+    private double totalBeans;
 }

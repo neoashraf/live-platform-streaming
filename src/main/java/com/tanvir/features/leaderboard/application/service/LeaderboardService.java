@@ -32,6 +32,9 @@ public class LeaderboardService implements LeaderboardUseCase {
 
     @Override
     public Mono<LeaderBoardResponseDto> getFanLeaderBoard(LeaderboardRequestDto requestDto) {
+        if (requestDto.getLimit() == null || requestDto.getLimit() == 0) {
+            requestDto.setLimit(10);  // Set a default limit if not provided
+        }
         return giftSummaryUseCase.getGiftSummaryByUserIdAndDate(
                         requestDto.getUserId(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore())
                 .flatMapMany(Flux::fromIterable)
@@ -106,7 +109,64 @@ public class LeaderboardService implements LeaderboardUseCase {
 
 
     @Override
-    public Mono<List<UserBeanSummary>> getHostLeaderBoard(LeaderboardRequestDto requestDto) {
-        return giftSummaryUseCase.getHostGiftSummariesByDate(requestDto.getCreatedAfter(), requestDto.getCreatedBefore());
+    public Mono<LeaderBoardResponseDto> getHostLeaderBoard(LeaderboardRequestDto requestDto) {
+        if (requestDto.getLimit() == null || requestDto.getLimit() == 0) {
+            requestDto.setLimit(10);  // Set a default limit if not provided
+        }
+        return giftSummaryUseCase.getHostGiftSummariesByDate(requestDto.getCreatedAfter(), requestDto.getCreatedBefore(), requestDto.getLimit())
+                .flatMap(userBeanSummaries -> {
+                    // Map userId to total beans
+                    Map<String, Double> userIdToBeansMap = userBeanSummaries.stream()
+                            .collect(Collectors.toMap(UserBeanSummary::getId, UserBeanSummary::getTotalBeans));
+
+                    // Extract user IDs from the userBeanSummaries list
+                    List<String> userIdList = userBeanSummaries.stream()
+                            .map(UserBeanSummary::getId)
+                            .toList();
+
+                    // Fetch user details based on the extracted userIdList
+                    return userUseCase.getUsersByIds(userIdList)
+                            .doOnError(throwable -> log.error("Error while fetching users by ids: {}", throwable.getMessage()))
+                            .map(stringUserMap -> {
+                                // Create a list of GiftSummaryUser objects
+                                List<GiftSummaryUser> summaryUserList = new ArrayList<>();
+
+                                userIdList.forEach(userId -> {
+                                    GiftSummaryUser giftSummaryUser = new GiftSummaryUser();
+
+                                    // Fetch user details from the stringUserMap
+                                    User user = stringUserMap.get(userId);
+
+                                    if (user != null) {
+                                        giftSummaryUser.setUserId(userId);
+                                        giftSummaryUser.setDisplayName(user.getDisplayName());
+                                        giftSummaryUser.setProfileImageUrl(user.getProfileImageUrl());
+                                        giftSummaryUser.setUserLevel(user.getUserLevel());
+                                        giftSummaryUser.setBeansSent(userIdToBeansMap.get(userId));  // Set the total beans
+                                    }
+
+                                    summaryUserList.add(giftSummaryUser);
+                                });
+
+                                // Return the list of GiftSummaryUsers
+                                return summaryUserList;
+                            });
+                })
+                .map(summaryUserList -> {
+                    // Create the LeaderBoardResponseDto
+                    LeaderBoardResponseDto responseDto = new LeaderBoardResponseDto();
+
+                    Leaderboard leaderboard = Leaderboard
+                            .builder()
+                            .topHosts(summaryUserList)
+                            .build();
+                    responseDto.setMessage("Host Leaderboard fetched successfully");
+                    responseDto.setData(leaderboard); // Assuming you have a Leaderboard class
+                    responseDto.setCount(summaryUserList.size());
+                    responseDto.setError(false);
+
+                    return responseDto;
+                });
     }
+
 }

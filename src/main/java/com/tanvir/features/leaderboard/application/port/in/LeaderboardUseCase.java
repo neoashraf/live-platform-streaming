@@ -9,5 +9,5 @@ import java.util.List;
 
 public interface LeaderboardUseCase {
     Mono<LeaderBoardResponseDto> getFanLeaderBoard(LeaderboardRequestDto requestDto);
-    Mono<List<UserBeanSummary>> getHostLeaderBoard(LeaderboardRequestDto requestDto);
+    Mono<LeaderBoardResponseDto> getHostLeaderBoard(LeaderboardRequestDto requestDto);
 }

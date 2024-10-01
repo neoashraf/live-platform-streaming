@@ -38,8 +38,8 @@ public class GiftSummaryPersistenceAdapter implements GiftSummaryPersistencePort
     }
 
     @Override
-    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore) {
-        return repository.findTopUsersByBeansInDateRange(createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC), 10)
+    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit) {
+        return repository.findTopUsersByBeansInDateRange(createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC), limit)
 //                .map(giftSummaryEntity -> modelMapper.map(giftSummaryEntity, GiftSummary.class))
                 .collectList();
     }

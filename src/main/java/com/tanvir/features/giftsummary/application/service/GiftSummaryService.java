@@ -107,8 +107,8 @@ public class GiftSummaryService implements GiftSummaryUseCase {
     }
 
     @Override
-    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore) {
-        return port.getHostGiftSummariesByDate(createdAfter, createdBefore);
+    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit) {
+        return port.getHostGiftSummariesByDate(createdAfter, createdBefore, limit);
     }
 
     @Override

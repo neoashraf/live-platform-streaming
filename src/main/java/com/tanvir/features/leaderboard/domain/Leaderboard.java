@@ -12,6 +12,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Leaderboard {
-   private double totalGiftAmount;
+   private Double totalGiftAmount;
    private List<GiftSummaryUser> topGiftSenders;
+   private List<GiftSummaryUser> topHosts;
 }

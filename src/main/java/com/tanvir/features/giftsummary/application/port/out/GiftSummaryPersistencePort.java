@@ -10,7 +10,7 @@ import java.util.List;
 public interface GiftSummaryPersistencePort {
     Mono<List<GiftSummary>> getGiftSummaryByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore);
 
-    Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore);
+    Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit);
 
     Mono<Double> getTotalGiftAmountByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore);
 }
