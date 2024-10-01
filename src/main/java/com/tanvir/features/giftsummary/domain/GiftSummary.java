@@ -16,6 +16,7 @@ import java.util.Map;
 public class GiftSummary {
     private String id;
     private List<String> giftTransactionIds;
+    private String agencyId;
     private String userId;
     private Double beans;
     private Double gems; // determine beans or gems

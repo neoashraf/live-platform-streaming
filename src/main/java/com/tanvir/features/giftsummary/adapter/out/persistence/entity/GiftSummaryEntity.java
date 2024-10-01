@@ -25,6 +25,7 @@ public class GiftSummaryEntity implements Persistable<String> {
     private String id;
     private List<String> giftTransactionIds;
     private String userId;
+    private String agencyId;
     private Double beans;
     private Double gems; // determine beans or gems
     private String transactionDateId; // a unique id to represent a particular date

@@ -31,6 +31,7 @@ public class GiftTransaction {
     // dto
     private SenderReceiverDto senderReceiverDto;
     private Gift gift;
+    private String agencyId;
 
     @Override
     public String toString() {

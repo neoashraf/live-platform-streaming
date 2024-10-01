@@ -31,7 +31,7 @@ public class GiftSummaryService implements GiftSummaryUseCase {
     }
 
     @Override
-    public Mono<GiftTransaction> buildAndSaveGiftSummary(GiftTransaction transaction) {
+    public Mono<GiftTransaction> processGiftSummary(GiftTransaction transaction) {
 // Get the receiver's userId and the transactionDate
         String receiverId = transaction.getReceiverId();
         String transactionDateStr = transaction.getTransactionDate();
@@ -75,6 +75,7 @@ public class GiftSummaryService implements GiftSummaryUseCase {
                     newSummary.setGiftTransactionIds(Collections.singletonList(transaction.getId()));
                     newSummary.setId(UUID.randomUUID().toString());
                     newSummary.setUserId(receiverId);
+                    newSummary.setAgencyId(transaction.getAgencyId());
                     newSummary.setTransactionDate(transactionDate.toString());
                     newSummary.setBeans(transaction.getBeans());
                     newSummary.setTransactionCount(1);

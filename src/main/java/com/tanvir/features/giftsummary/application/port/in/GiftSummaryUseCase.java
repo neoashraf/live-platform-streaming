@@ -6,6 +6,6 @@ import reactor.core.publisher.Mono;
 
 public interface GiftSummaryUseCase {
     Mono<GiftSummary> saveGiftSummary(GiftSummary giftSummary);
-    Mono<GiftTransaction> buildAndSaveGiftSummary(GiftTransaction giftTransaction);
+    Mono<GiftTransaction> processGiftSummary(GiftTransaction giftTransaction);
     Mono<GiftSummary> getGiftSummaryByUserId(String userId);
 }

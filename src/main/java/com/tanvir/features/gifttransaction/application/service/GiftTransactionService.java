@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.tanvir.core.util.enums.AnnouncementEnum;
 import com.tanvir.core.util.enums.Constants;
 import com.tanvir.core.util.enums.TransactionTypeEnum;
+import com.tanvir.core.util.enums.UserTypeEnum;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.gift.application.port.in.GiftUseCase;
@@ -21,13 +22,9 @@ import com.tanvir.features.gifttransaction.domain.valueobjects.SenderReceiverDto
 import com.tanvir.features.host.application.port.out.HostPersistencePort;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
-import com.tanvir.features.liveroom.application.port.in.dto.response.StreamResponseDto;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
-import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.AnnouncementUser;
-import com.tanvir.features.liveroom.domain.valueobject.Resource;
-import com.tanvir.features.liveroom.domain.valueobject.RoomDataDto;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserMongoRepository;
 import com.tanvir.features.user.application.port.in.UserUseCase;
 import com.tanvir.features.user.domain.User;
@@ -39,12 +36,8 @@ import org.springframework.transaction.reactive.TransactionalOperator;
 import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -90,7 +83,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .doOnError(throwable -> log.error("Error while calculating gift amount"))
                 .flatMap(giftTransaction -> this.validateGiftAmount(giftTransaction, requestDto))
                 .doOnError(throwable -> log.error("Error while validating gift amount"))
-                .map(giftTransaction -> this.buildGiftTransaction(giftTransaction, requestDto))
+                .flatMap(giftTransaction -> this.buildGiftTransaction(giftTransaction, requestDto))
                 .doOnError(throwable -> log.error("Error while building gift transaction"))
                 .flatMap(giftTransaction -> port.saveTransaction(giftTransaction)
                         .map(savedTransaction -> {
@@ -101,7 +94,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .flatMap(this::announceToFirebaseIfLiveSession)
                 .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 .flatMap(this::updateUserForGiftTransaction)
-                .flatMap(giftTransaction -> giftSummaryUseCase.buildAndSaveGiftSummary(giftTransaction))
+                .flatMap(giftSummaryUseCase::processGiftSummary)
                 .doOnError(throwable -> log.error("Error while updating gift summary"))
                 .map(giftTransaction -> this.buildSendGiftResponseDto(giftTransaction, "Gift sent successfully"))
                 .as(transactionalOperator::transactional);
@@ -174,8 +167,32 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Insufficient Beans!")));
     }
 
-    private GiftTransaction buildGiftTransaction(GiftTransaction giftTransaction, SendGiftRequestDto requestDto) {
-        return GiftTransaction
+    private Mono<GiftTransaction> buildGiftTransaction(GiftTransaction giftTransaction, SendGiftRequestDto requestDto) {
+        if (giftTransaction.getSenderReceiverDto().getReceiver().getUserType().equals(UserTypeEnum.USER_TYPE_HOST.getValue())) {
+            return hostPersistencePort.getHostByUserId(giftTransaction.getSenderReceiverDto().getReceiver().getId())
+                    .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Host not found")))
+                    .map(host -> {
+                        giftTransaction.setAgencyId(host.getAgencyMaxId());
+                        return giftTransaction;
+                    })
+                    .map(giftTransaction1 -> GiftTransaction
+                            .builder()
+                            .senderId(giftTransaction.getSenderReceiverDto().getSender().getId())
+                            .receiverId(requestDto.getReceiverId())
+                            .giftId(requestDto.getGiftId())
+                            .quantity(requestDto.getQuantity())
+                            .beans(giftTransaction.getBeans())
+                            .liveSession(requestDto.getLiveSession())
+                            .liveRoomId(requestDto.getLiveRoomId())
+                            .transactionDate(LocalDateTime.now().toLocalDate().toString())
+                            .createdOn(LocalDateTime.now(ZoneOffset.UTC))
+                            .senderReceiverDto(giftTransaction.getSenderReceiverDto())
+                            .gift(giftTransaction.getGift())
+                            .agencyId(giftTransaction.getAgencyId())
+                            .build());
+        }
+
+        return Mono.just(GiftTransaction
                 .builder()
                 .senderId(giftTransaction.getSenderReceiverDto().getSender().getId())
                 .receiverId(requestDto.getReceiverId())
@@ -188,7 +205,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .createdOn(LocalDateTime.now(ZoneOffset.UTC))
                 .senderReceiverDto(giftTransaction.getSenderReceiverDto())
                 .gift(giftTransaction.getGift())
-                .build();
+                .build());
     }
 
     private Mono<GiftTransaction> announceToFirebaseIfLiveSession(GiftTransaction giftTransaction) {
