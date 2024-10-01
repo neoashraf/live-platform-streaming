@@ -19,4 +19,5 @@ public class RoomDataDto {
     private Instant endedOn;
     private Instant commentedOn;
     private Announcement announcement;
+    private String agoraToken;
 }

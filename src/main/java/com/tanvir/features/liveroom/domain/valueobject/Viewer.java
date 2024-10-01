@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class Viewer {
     private String userId;
+    private String maxId;
     private String displayName;
     private String gender;
     private String profilePictureUrl;

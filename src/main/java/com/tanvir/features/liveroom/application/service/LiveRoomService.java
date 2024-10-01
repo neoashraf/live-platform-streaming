@@ -2,6 +2,8 @@ package com.tanvir.features.liveroom.application.service;
 
 import com.tanvir.core.util.enums.*;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
+import com.tanvir.features.agora.service.AgoraService;
+import com.tanvir.features.agora.service.AgoraTokenRequestDto;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.content.application.port.in.ContentUseCase;
 import com.tanvir.features.gift.domain.valueobjects.ResourceFormat;
@@ -49,8 +51,9 @@ public class LiveRoomService implements LiveRoomUseCase {
     private final HostUseCase hostUseCase;
     private final ContentUseCase contentUseCase;
     private final LevelUseCase levelUseCase;
+    private final AgoraService agoraService;
 
-    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase) {
+    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService) {
         this.userUseCase = userUseCase;
         this.port = port;
         this.metaPropertyUseCase = metaPropertyUseCase;
@@ -60,6 +63,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         this.hostUseCase = hostUseCase;
         this.contentUseCase = contentUseCase;
         this.levelUseCase = levelUseCase;
+        this.agoraService = agoraService;
     }
 
     @Override
@@ -159,6 +163,11 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<StreamResponseDto> joinStream(LiveRoomViewerRequestDto liveRoomViewerRequestDto) {
+        List<String> validTokenTypes = List.of(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_UID_AND_PRIVILEGE.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT_AND_PRIVILEGE.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_RTM.getValue());
+        if (!validTokenTypes.contains(liveRoomViewerRequestDto.getTokenType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid token type"));
+        }
+
         return port.getLiveRoomById(liveRoomViewerRequestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomViewerRequestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
@@ -178,6 +187,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             Viewer viewer = Viewer
                                     .builder()
                                     .userId(user.getId())
+                                    .maxId(user.getMaxId())
                                     .displayName(user.getDisplayName())
                                     .gender(user.getGender())
                                     .profilePictureUrl(user.getProfileImageUrl())
@@ -209,22 +219,52 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnRequest(liveRoomEntity -> log.info("Requesting to update LiveRoom into firebase"))
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
-                .flatMap(liveRoom -> this.buildJoinStreamResponseDto(liveRoom, "User has successfully joined the room."))
+                .flatMap(liveRoom -> this.buildJoinStreamResponseDto(liveRoomViewerRequestDto, liveRoom, "User has successfully joined the room."))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
 
     }
 
-    private Mono<StreamResponseDto> buildJoinStreamResponseDto(LiveRoom liveRoom, String message) {
+    private Mono<StreamResponseDto> buildJoinStreamResponseDto(LiveRoomViewerRequestDto requestDto, LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
         roomDataDto.setJoinedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
         roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
-        return Mono.just(StreamResponseDto
-                .builder()
-                .message(message)
-                .data(roomDataDto)
-                .count(1)
-                .build());
+        AgoraTokenRequestDto agoraTokenRequestDto =
+                AgoraTokenRequestDto
+                        .builder()
+                        .channelName(liveRoom.getId())
+                        .role(AgoraTokenTypeEnum.ROLE_SUBSCRIBER.getValue())
+                        .uid(Integer.parseInt(liveRoom.getViewer().getMaxId()))
+                        .tokenExpirationInSeconds(3600)
+                        .tokenType(requestDto.getTokenType())
+                        .build();
+
+        return agoraService.generateToken(agoraTokenRequestDto)
+                .doOnError(throwable -> log.error("Error happened while generating Agora Token : {}", throwable.getMessage()))
+                .map(agoraTokenResponseDto -> {
+                    if (agoraTokenResponseDto.getData() != null && !agoraTokenResponseDto.getData().isEmpty()) {
+                       if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUid());
+                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUserAccount());
+                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID_AND_PRIVILEGE.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUidAndPrivilege());
+                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT_AND_PRIVILEGE.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithAccountAndPrivilege());
+                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_RTM.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithRtm());
+                       }
+                    }
+                    return roomDataDto;
+                })
+                .onErrorMap(throwable -> new ExceptionHandlerUtil(HttpStatus.INTERNAL_SERVER_ERROR, "Error happened while generating Agora Token!"))
+                .map(agoraTokenResponseDto -> StreamResponseDto
+                        .builder()
+                        .message(message)
+                        .data(roomDataDto)
+                        .count(1)
+                        .build());
+
     }
 
     private Mono<StreamResponseDto> buildLeaveStreamResponseDto(LiveRoom liveRoom, String message) {

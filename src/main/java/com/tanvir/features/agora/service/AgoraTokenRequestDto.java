@@ -10,8 +10,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class AgoraTokenRequestDto {
-    private String appId;
-    private String appCertificate;
+    /*private String appId;
+    private String appCertificate;*/
     private String channelName;
     private String role;
 

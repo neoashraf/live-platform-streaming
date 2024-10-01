@@ -42,10 +42,12 @@ public class LiveRoomHandler {
         log.info("Joining stream");
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
         String id = serverRequest.pathVariable("id");
+        String tokenType = serverRequest.queryParam(QueryParams.TOKEN_TYPE.getValue()).orElseThrow(() -> new IllegalArgumentException("Token type is required"));
         return liveRoomUseCase.joinStream(LiveRoomViewerRequestDto
                         .builder()
                         .liveRoomId(id)
                         .keycloakId(keycloakId)
+                        .tokenType(tokenType)
                         .build())
                 .flatMap(dto -> ServerResponse
                         .ok()

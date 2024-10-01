@@ -18,6 +18,8 @@ public class LiveRoomViewerRequestDto {
     private Viewer viewer;
     private String comment;
 
+    private String tokenType;
+
     @Override
     public String toString() {
         return CommonFunctions.buildGsonBuilder(this);
