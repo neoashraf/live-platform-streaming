@@ -792,8 +792,8 @@ public class LiveRoomService implements LiveRoomUseCase {
         return LiveRoom
                 .builder()
                 .id(UUID.randomUUID().toString())
-                .thumbnailId(requestDto.getThumbnailId())
-                .thumbnailUrl(requestDto.getThumbnailUrl())
+                .thumbnailId(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailId()) ? requestDto.getThumbnailId() : host.getProfileImageId())
+                .thumbnailUrl(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailUrl()) ? requestDto.getThumbnailUrl() : host.getProfileImageUrl())
                 .title(Strings.isNotNullAndNotEmpty(requestDto.getTitle())
                         ? requestDto.getTitle()
                         : host.getDisplayName())
