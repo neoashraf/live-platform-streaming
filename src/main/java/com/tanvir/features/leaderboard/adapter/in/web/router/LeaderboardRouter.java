@@ -25,7 +25,7 @@ public class LeaderboardRouter {
                         builder -> builder
                             .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                 nestedBuilder
-                                    .GET(LEADERBOARD.concat(FAN), handler::sendGifts)
+                                    .GET(LEADERBOARD.concat(FAN), handler::getFanLeaderboard)
                             )
                 )
                 .build();

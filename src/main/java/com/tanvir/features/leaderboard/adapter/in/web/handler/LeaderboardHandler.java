@@ -30,7 +30,7 @@ public class LeaderboardHandler {
         return this.buildBeanTransactionRequestDto(serverRequest)
                 .flatMap(leaderboardUseCase::getFanLeaderBoard)
                 .flatMap(dto -> ServerResponse
-                        .created(serverRequest.uri())
+                        .ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto))
                 ;
