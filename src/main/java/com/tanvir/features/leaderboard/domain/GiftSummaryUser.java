@@ -13,6 +13,8 @@ public class GiftSummaryUser {
     private String userId;
     private String displayName;
     private String profileImageUrl;
-    private int userLevel;
-    private double beansSent;
+    private Integer userLevel;
+    private Double beansSent;
+    private Double beansReceived;
+    private String agencyId;
 }

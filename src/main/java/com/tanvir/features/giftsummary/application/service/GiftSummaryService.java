@@ -112,6 +112,12 @@ public class GiftSummaryService implements GiftSummaryUseCase {
     }
 
     @Override
+    public Mono<List<UserBeanSummary>> getAgencyGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit) {
+        return port.getAgencyGiftSummariesByDate(createdAfter, createdBefore, limit)
+                .doOnNext(userBeanSummaries -> log.info("agencyList : {}", userBeanSummaries));
+    }
+
+    @Override
     public Mono<Double> getTotalGiftAmountByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore) {
         return port.getTotalGiftAmountByUserIdAndDate(userId, createdAfter, createdBefore);
     }

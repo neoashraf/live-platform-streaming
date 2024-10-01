@@ -18,4 +18,12 @@ public interface GiftSummaryRepository extends ReactiveMongoRepository<GiftSumma
     })
     Flux<UserBeanSummary> findTopUsersByBeansInDateRange(Instant startDate, Instant endDate, int limit);
 
+    @Aggregation(pipeline = {
+            "{ $match: { 'createdOn': { $gte: ?0, $lte: ?1 } } }", // Match documents within the date range
+            "{ $group: { _id: '$agencyId', totalBeans: { $sum: '$beans' } } }", // Group by userId and sum beans
+            "{ $sort: { 'totalBeans': -1 } }", // Sort by totalBeans in descending order
+            "{ $limit: ?2 }" // Limit to the top n users
+    })
+    Flux<UserBeanSummary> findTopAgenciesByBeansInDateRange(Instant startDate, Instant endDate, int limit);
+
 }

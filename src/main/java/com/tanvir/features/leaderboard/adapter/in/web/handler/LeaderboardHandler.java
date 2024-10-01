@@ -51,6 +51,18 @@ public class LeaderboardHandler {
                 .onErrorResume(Predicate.not(ExceptionHandlerUtil.class::isInstance), e -> ErrorHandler.buildErrorResponseForUncaught(e, serverRequest));*/
     }
 
+    public Mono<ServerResponse> getAgencyLeaderboard(ServerRequest serverRequest) {
+        return this.buildBeanTransactionRequestDto(serverRequest)
+                .flatMap(leaderboardUseCase::getAgencyLeaderBoard)
+                .flatMap(dto -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                ;
+                /*.onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest))
+                .onErrorResume(Predicate.not(ExceptionHandlerUtil.class::isInstance), e -> ErrorHandler.buildErrorResponseForUncaught(e, serverRequest));*/
+    }
+
     private Mono<LeaderboardRequestDto> buildBeanTransactionRequestDto(ServerRequest serverRequest) {
         int limit = Integer.parseInt(serverRequest.queryParam(QueryParams.LIMIT.getValue()).orElse("10"));
         String agencyMaxId = serverRequest.queryParam(QueryParams.AGENCY_MAX_ID.getValue()).orElse("");

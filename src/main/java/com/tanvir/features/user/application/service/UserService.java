@@ -188,7 +188,7 @@ public class UserService implements UserUseCase {
         return userPort.getUsersByIds(userIdList)
                 .collectMap(User::getId)
                 .doOnRequest(l -> log.info("Request received to get users by ids: {}", userIdList))
-                .doOnNext(users -> log.info("Users fetched by ids: {}", users));
+                .doOnNext(users -> log.info("Users fetched by ids"));
     }
 
     private Mono<UserInfoResponseDto> handleUserInfoResponseError(String logMessage, Throwable err) {

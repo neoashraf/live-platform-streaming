@@ -13,4 +13,6 @@ public interface GiftSummaryPersistencePort {
     Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit);
 
     Mono<Double> getTotalGiftAmountByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore);
+
+    Mono<List<UserBeanSummary>> getAgencyGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit);
 }

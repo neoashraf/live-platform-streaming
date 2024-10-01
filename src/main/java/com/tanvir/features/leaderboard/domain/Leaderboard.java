@@ -15,4 +15,5 @@ public class Leaderboard {
    private Double totalGiftAmount;
    private List<GiftSummaryUser> topGiftSenders;
    private List<GiftSummaryUser> topHosts;
+   private List<GiftSummaryUser> topAgencies;
 }

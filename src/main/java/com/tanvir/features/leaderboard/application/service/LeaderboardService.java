@@ -1,5 +1,7 @@
 package com.tanvir.features.leaderboard.application.service;
 
+import com.tanvir.features.agency.AgencyEntity;
+import com.tanvir.features.agency.AgencyService;
 import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
 import com.tanvir.features.giftsummary.domain.GiftSummary;
 import com.tanvir.features.leaderboard.application.port.in.LeaderboardUseCase;
@@ -24,10 +26,12 @@ public class LeaderboardService implements LeaderboardUseCase {
 
     private final GiftSummaryUseCase giftSummaryUseCase;
     private final UserUseCase userUseCase;
+    private final AgencyService agencyService;
 
-    public LeaderboardService(GiftSummaryUseCase giftSummaryUseCase, UserUseCase userUseCase) {
+    public LeaderboardService(GiftSummaryUseCase giftSummaryUseCase, UserUseCase userUseCase, AgencyService agencyService) {
         this.giftSummaryUseCase = giftSummaryUseCase;
         this.userUseCase = userUseCase;
+        this.agencyService = agencyService;
     }
 
     @Override
@@ -142,7 +146,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                                         giftSummaryUser.setDisplayName(user.getDisplayName());
                                         giftSummaryUser.setProfileImageUrl(user.getProfileImageUrl());
                                         giftSummaryUser.setUserLevel(user.getUserLevel());
-                                        giftSummaryUser.setBeansSent(userIdToBeansMap.get(userId));  // Set the total beans
+                                        giftSummaryUser.setBeansReceived(userIdToBeansMap.get(userId));  // Set the total beans
                                     }
 
                                     summaryUserList.add(giftSummaryUser);
@@ -161,6 +165,68 @@ public class LeaderboardService implements LeaderboardUseCase {
                             .topHosts(summaryUserList)
                             .build();
                     responseDto.setMessage("Host Leaderboard fetched successfully");
+                    responseDto.setData(leaderboard); // Assuming you have a Leaderboard class
+                    responseDto.setCount(summaryUserList.size());
+                    responseDto.setError(false);
+
+                    return responseDto;
+                });
+    }
+
+    @Override
+    public Mono<LeaderBoardResponseDto> getAgencyLeaderBoard(LeaderboardRequestDto requestDto) {
+        if (requestDto.getLimit() == null || requestDto.getLimit() == 0) {
+            requestDto.setLimit(10);  // Set a default limit if not provided
+        }
+
+        return giftSummaryUseCase.getAgencyGiftSummariesByDate(requestDto.getCreatedAfter(), requestDto.getCreatedBefore(), requestDto.getLimit())
+                .flatMap(userBeanSummaries -> {
+                    // Map userId to total beans
+                    Map<String, Double> agencyIdToBeansMap = userBeanSummaries.stream()
+                            .collect(Collectors.toMap(UserBeanSummary::getId, UserBeanSummary::getTotalBeans));
+
+                    // Extract user IDs from the userBeanSummaries list
+                    List<String> agencyIdList = userBeanSummaries.stream()
+                            .map(UserBeanSummary::getId)
+                            .toList();
+
+                    // Fetch user details based on the extracted userIdList
+                    return agencyService.getAgenciesByIds(agencyIdList)
+                            .doOnError(throwable -> log.error("Error while fetching agencies by ids: {}", throwable.getMessage()))
+                            .map(stringUserMap -> {
+                                // Create a list of GiftSummaryUser objects
+                                List<GiftSummaryUser> summaryUserList = new ArrayList<>();
+
+                                agencyIdList.forEach(agencyId -> {
+                                    GiftSummaryUser giftSummaryUser = new GiftSummaryUser();
+
+                                    // Fetch user details from the stringUserMap
+                                    AgencyEntity agency = stringUserMap.get(agencyId);
+
+                                    if (agency != null) {
+                                        giftSummaryUser.setAgencyId(agencyId);
+                                        giftSummaryUser.setDisplayName(agency.getHolderName());
+                                        giftSummaryUser.setProfileImageUrl(agency.getProfileImageUrl());
+//                                        giftSummaryUser.setUserLevel(agency.getUserLevel());
+                                        giftSummaryUser.setBeansReceived(agencyIdToBeansMap.get(agencyId));  // Set the total beans
+                                    }
+
+                                    summaryUserList.add(giftSummaryUser);
+                                });
+
+                                // Return the list of GiftSummaryUsers
+                                return summaryUserList;
+                            });
+                })
+                .map(summaryUserList -> {
+                    // Create the LeaderBoardResponseDto
+                    LeaderBoardResponseDto responseDto = new LeaderBoardResponseDto();
+
+                    Leaderboard leaderboard = Leaderboard
+                            .builder()
+                            .topAgencies(summaryUserList)
+                            .build();
+                    responseDto.setMessage("Agency Leaderboard fetched successfully");
                     responseDto.setData(leaderboard); // Assuming you have a Leaderboard class
                     responseDto.setCount(summaryUserList.size());
                     responseDto.setError(false);

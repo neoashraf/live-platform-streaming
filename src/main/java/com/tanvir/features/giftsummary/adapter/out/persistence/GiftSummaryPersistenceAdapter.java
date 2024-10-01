@@ -48,4 +48,10 @@ public class GiftSummaryPersistenceAdapter implements GiftSummaryPersistencePort
     public Mono<Double> getTotalGiftAmountByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore) {
         return customRepository.getTotalBeansByUserIdAndDate(userId, createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC));
     }
+
+    @Override
+    public Mono<List<UserBeanSummary>> getAgencyGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit) {
+        return repository.findTopAgenciesByBeansInDateRange(createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC), limit)
+                .collectList();
+    }
 }

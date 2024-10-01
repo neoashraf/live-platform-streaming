@@ -11,5 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UserBeanSummary {
     private String id;
+//    private String agencyId;
     private double totalBeans;
 }
