@@ -205,8 +205,8 @@ public class LeaderboardService implements LeaderboardUseCase {
 
                                     if (agency != null) {
                                         giftSummaryUser.setAgencyId(agencyId);
-                                        giftSummaryUser.setDisplayName(agency.getHolderName());
-                                        giftSummaryUser.setProfileImageUrl(agency.getProfileImageUrl());
+                                        giftSummaryUser.setDisplayName(agency.getAgencyName());
+//                                        giftSummaryUser.setProfileImageUrl(agency.getProfileImageUrl());
 //                                        giftSummaryUser.setUserLevel(agency.getUserLevel());
                                         giftSummaryUser.setBeansReceived(agencyIdToBeansMap.get(agencyId));  // Set the total beans
                                     }
