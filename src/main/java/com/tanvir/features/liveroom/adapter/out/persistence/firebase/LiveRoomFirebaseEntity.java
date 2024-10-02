@@ -1,6 +1,7 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.firebase;
 
 import com.tanvir.common.firebase.BaseFirebaseEntity;
+import com.tanvir.features.gifttransaction.domain.valueobjects.HostDailyStarProgress;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.Fan;
 import com.tanvir.features.liveroom.domain.valueobject.HostSummary;
@@ -32,6 +33,7 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private List<String> viewerIds;
     private long viewerCount;
     private List<Announcement> announcements;
+    private HostDailyStarProgress hostDailyStarProgress;
 //    private int elapsedSeconds;
 //    private String formattedTime;
 }

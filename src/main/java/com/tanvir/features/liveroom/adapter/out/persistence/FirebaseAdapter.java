@@ -179,7 +179,7 @@ public class FirebaseAdapter implements CachePort {
     public Mono<LiveRoom> updateForGift(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
-                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.info("Firebase entity received"))
                 .map(firebaseEntity -> {
 
                     // add announcement to announcements list
@@ -190,10 +190,10 @@ public class FirebaseAdapter implements CachePort {
                     currentAnnouncementsInFirebase.add(liveRoom.getAnnouncement());
                     firebaseEntity.setAnnouncements(currentAnnouncementsInFirebase);
 
-
+                    firebaseEntity.setHostDailyStarProgress(liveRoom.getHostDailyStarProgress());
                     return firebaseEntity;
                 })
-                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
+//                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }

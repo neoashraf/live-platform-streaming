@@ -18,4 +18,6 @@ public interface LiveRoomUseCase {
     Mono<LiveRoomResponseDto> sendGift(SendGiftRequestDto requestDto);
     Mono<StreamResponseDto> comment(LiveRoomViewerRequestDto requestDto);
     Mono<LiveRoom> getLiveRoomById(String id);
+
+    Mono<LiveRoom> updateLiveRoom(LiveRoom liveRoom);
 }

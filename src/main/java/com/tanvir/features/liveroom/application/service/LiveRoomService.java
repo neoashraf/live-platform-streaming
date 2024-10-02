@@ -19,6 +19,7 @@ import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort;
 import com.tanvir.features.liveroom.domain.valueobject.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
+import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
 import com.tanvir.features.metaproperty.application.port.in.MetaPropertyUseCase;
 import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.application.port.in.UserUseCase;
@@ -52,8 +53,9 @@ public class LiveRoomService implements LiveRoomUseCase {
     private final ContentUseCase contentUseCase;
     private final LevelUseCase levelUseCase;
     private final AgoraService agoraService;
+    private final LiveRoomActivityService liveRoomActivityService;
 
-    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService) {
+    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService) {
         this.userUseCase = userUseCase;
         this.port = port;
         this.metaPropertyUseCase = metaPropertyUseCase;
@@ -64,6 +66,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         this.contentUseCase = contentUseCase;
         this.levelUseCase = levelUseCase;
         this.agoraService = agoraService;
+        this.liveRoomActivityService = liveRoomActivityService;
     }
 
     @Override
@@ -88,7 +91,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     ? Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already has an active LiveRoom."))
                                     : Mono.just(liveRoom))
                         .thenReturn(host)))
-                .flatMap(host -> Mono.just(buildLiveRoomDomain(host, requestDto))
+                .flatMap(host -> this.buildLiveRoomDomain(host, requestDto)
                     .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
                     .flatMap(port::saveLiveRoom)
                     .doOnNext(liveRoom -> liveRoomId.set(liveRoom.getId()))
@@ -610,6 +613,11 @@ public class LiveRoomService implements LiveRoomUseCase {
         return port.getLiveRoomById(id);
     }
 
+    @Override
+    public Mono<LiveRoom> updateLiveRoom(LiveRoom liveRoom) {
+        return port.saveLiveRoom(liveRoom);
+    }
+
     private Mono<LiveRoomResponse> updateFanAndHostBeansCountGemsCountLevelPercentage(Tuple3<LiveRoom, User, MetaProperty> tuple, SendGiftRequestDto requestDto) {
         LiveRoom liveRoom = tuple.getT1();
         User fanUser = tuple.getT2();
@@ -833,40 +841,41 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
-    private LiveRoom buildLiveRoomDomain(Host host, LiveRoomRequestDto requestDto) {
-        return LiveRoom
-                .builder()
-                .id(UUID.randomUUID().toString())
-                .thumbnailId(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailId()) ? requestDto.getThumbnailId() : host.getProfileImageId())
-                .thumbnailUrl(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailUrl()) ? requestDto.getThumbnailUrl() : host.getProfileImageUrl())
-                .title(Strings.isNotNullAndNotEmpty(requestDto.getTitle())
-                        ? requestDto.getTitle()
-                        : host.getDisplayName())
-                .description(requestDto.getDescription())
-                .tags(requestDto.getTags())
-                .type(requestDto.getType())
-                .status(Constants.STATUS_LIVE.getValue())
-                .country(host.getCountry())
-                .hostId(host.getId())
-                .userId(host.getUserId())
-                .kickedOutUserIds(new ArrayList<>())
-                .viewerCount(0)
-                .hostDailyGems(0)
-                .createdOn(LocalDateTime.now())
-//                .userId(user.getId())
-//                .keycloakId(requestDto.getKeycloakId())
-//                .starCount(user.get)
-//                .gemsCount(user.getGems())
-//                .popularityLevel(user.getPopularityLevel())
-//                .userLevel(user.getUserLevel())
-                /*.profilePicture(Strings.isNullOrEmpty(requestDto.getProfilePicture())
-                        ? user.getProfileImageId()
-                        : requestDto.getProfilePicture())*/
-                /*.welcomeNote(Strings.isNullOrEmpty(requestDto.getWelcomeNote())
-                        ? null
-                        : requestDto.getWelcomeNote())*/
-//                .fans(new HashMap<>())
-//                .createdBy(requestDto.getUserId())
-                .build();
+    private Mono<LiveRoom> buildLiveRoomDomain(Host host, LiveRoomRequestDto requestDto) {
+        return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
+                    .map(dailyReceivedGems -> LiveRoom
+                        .builder()
+                        .id(UUID.randomUUID().toString())
+                        .thumbnailId(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailId()) ? requestDto.getThumbnailId() : host.getProfileImageId())
+                        .thumbnailUrl(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailUrl()) ? requestDto.getThumbnailUrl() : host.getProfileImageUrl())
+                        .title(Strings.isNotNullAndNotEmpty(requestDto.getTitle())
+                                ? requestDto.getTitle()
+                                : host.getDisplayName())
+                        .description(requestDto.getDescription())
+                        .tags(requestDto.getTags())
+                        .type(requestDto.getType())
+                        .status(Constants.STATUS_LIVE.getValue())
+                        .country(host.getCountry())
+                        .hostId(host.getId())
+                        .userId(host.getUserId())
+                        .kickedOutUserIds(new ArrayList<>())
+                        .viewerCount(0)
+                        .hostDailyGems(dailyReceivedGems)
+                        .createdOn(LocalDateTime.now())
+        //                .userId(user.getId())
+        //                .keycloakId(requestDto.getKeycloakId())
+        //                .starCount(user.get)
+        //                .gemsCount(user.getGems())
+        //                .popularityLevel(user.getPopularityLevel())
+        //                .userLevel(user.getUserLevel())
+                        /*.profilePicture(Strings.isNullOrEmpty(requestDto.getProfilePicture())
+                                ? user.getProfileImageId()
+                                : requestDto.getProfilePicture())*/
+                        /*.welcomeNote(Strings.isNullOrEmpty(requestDto.getWelcomeNote())
+                                ? null
+                                : requestDto.getWelcomeNote())*/
+        //                .fans(new HashMap<>())
+        //                .createdBy(requestDto.getUserId())
+                        .build());
     }
 }

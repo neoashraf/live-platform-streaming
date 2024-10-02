@@ -18,6 +18,7 @@ import com.tanvir.features.gifttransaction.application.port.in.dto.response.Send
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.application.port.out.MaxUserPersistencePort;
 import com.tanvir.features.gifttransaction.domain.GiftTransaction;
+import com.tanvir.features.gifttransaction.domain.valueobjects.HostDailyStarProgress;
 import com.tanvir.features.gifttransaction.domain.valueobjects.SenderReceiverDto;
 import com.tanvir.features.host.application.port.out.HostPersistencePort;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
@@ -25,6 +26,7 @@ import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.AnnouncementUser;
+import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserMongoRepository;
 import com.tanvir.features.user.application.port.in.UserUseCase;
 import com.tanvir.features.user.domain.User;
@@ -57,8 +59,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     private final LevelUseCase levelUseCase;
     private final CachePort cachePort;
     private final GiftSummaryUseCase giftSummaryUseCase;
+    private final LiveRoomActivityService liveRoomActivityService;
 
-    public GiftTransactionService(GiftTransactionPersistencePort port, UserUseCase userUseCase, Gson gson, HostPersistencePort hostPersistencePort, MaxUserPersistencePort maxUserPersistencePort, UserMongoRepository userRepository, TransactionalOperator transactionalOperator, ModelMapper modelMapper, GiftUseCase giftUseCase, LiveRoomUseCase liveRoomUseCase, LevelUseCase levelUseCase, CachePort cachePort, GiftSummaryUseCase giftSummaryUseCase) {
+    public GiftTransactionService(GiftTransactionPersistencePort port, UserUseCase userUseCase, Gson gson, HostPersistencePort hostPersistencePort, MaxUserPersistencePort maxUserPersistencePort, UserMongoRepository userRepository, TransactionalOperator transactionalOperator, ModelMapper modelMapper, GiftUseCase giftUseCase, LiveRoomUseCase liveRoomUseCase, LevelUseCase levelUseCase, CachePort cachePort, GiftSummaryUseCase giftSummaryUseCase, LiveRoomActivityService liveRoomActivityService) {
         this.port = port;
         this.userUseCase = userUseCase;
         this.gson = gson;
@@ -72,6 +75,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         this.levelUseCase = levelUseCase;
         this.cachePort = cachePort;
         this.giftSummaryUseCase = giftSummaryUseCase;
+        this.liveRoomActivityService = liveRoomActivityService;
     }
 
 
@@ -91,13 +95,72 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             return giftTransaction;
                         }))
                 .doOnError(throwable -> log.error("Error while saving gift transaction"))
-                .flatMap(this::announceToFirebaseIfLiveSession)
-                .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 .flatMap(this::updateUserForGiftTransaction)
                 .flatMap(giftSummaryUseCase::processGiftSummary)
                 .doOnError(throwable -> log.error("Error while updating gift summary"))
+                .flatMap(this::calculateHostDailyStarProgress)
+                .flatMap(this::announceToFirebaseIfLiveSession)
+                .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 .map(giftTransaction -> this.buildSendGiftResponseDto(giftTransaction, "Gift sent successfully"))
                 .as(transactionalOperator::transactional);
+    }
+
+    private Mono<GiftTransaction> calculateHostDailyStarProgress(GiftTransaction giftTransaction) {
+        return liveRoomActivityService.updateDailyReceivedGems(giftTransaction.getReceiverId(), giftTransaction.getBeans())
+                .flatMap(liveRoomActivityEntity -> {
+                    double currentGems = liveRoomActivityEntity.getDailyReceivedGems();
+                    HostDailyStarProgress starProgress = this.calculateStarProgress(currentGems);
+                    giftTransaction.setHostDailyStarProgress(starProgress);
+                    return giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
+                        ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
+                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
+                            .flatMap(liveRoom -> {
+                                liveRoom.setHostDailyGems(currentGems);
+                               return liveRoomUseCase.updateLiveRoom(liveRoom)
+                                       .thenReturn(giftTransaction);
+                            })
+                        : Mono.just(giftTransaction);
+                });
+    }
+
+    private HostDailyStarProgress calculateStarProgress(double currentGems) {
+        int currentStar = 0;
+        double nextStarGems = 0;
+        double gemsNeededForNextStar = 0;
+
+        if (currentGems >= 2000000) {
+            currentStar = 5;
+            nextStarGems = 2000000;
+            gemsNeededForNextStar = 0;
+        } else if (currentGems >= 1000000) {
+            currentStar = 4;
+            nextStarGems = 2000000;
+            gemsNeededForNextStar = 2000000 - currentGems;
+        } else if (currentGems >= 200000) {
+            currentStar = 3;
+            nextStarGems = 1000000;
+            gemsNeededForNextStar = 1000000 - currentGems;
+        } else if (currentGems >= 50000) {
+            currentStar = 2;
+            nextStarGems = 200000;
+            gemsNeededForNextStar = 200000 - currentGems;
+        } else if (currentGems >= 10000) {
+            currentStar = 1;
+            nextStarGems = 50000;
+            gemsNeededForNextStar = 50000 - currentGems;
+        } else {
+            currentStar = 0;
+            nextStarGems = 10000;
+            gemsNeededForNextStar = 10000 - currentGems;
+        }
+
+        return HostDailyStarProgress
+                .builder()
+                .currentGems(currentGems)
+                .currentStar(currentStar)
+                .nextStarGems(nextStarGems)
+                .gemsNeededForNextStar(gemsNeededForNextStar)
+                .build();
     }
 
     @Override
@@ -216,6 +279,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                     .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Live Room is not live")))
                     .flatMap(liveRoom -> this.buildGiftAnnouncement(giftTransaction)
                             .flatMap(announcement -> {
+                                liveRoom.setHostDailyStarProgress(giftTransaction.getHostDailyStarProgress());
                                 liveRoom.setAnnouncement(announcement);
                                 return cachePort.updateForGift(liveRoom)
                                         .thenReturn(giftTransaction);
