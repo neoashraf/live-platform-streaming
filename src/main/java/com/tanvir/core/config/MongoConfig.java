@@ -2,20 +2,27 @@ package com.tanvir.core.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.mongodb.ReactiveMongoDatabaseFactory;
-import org.springframework.data.mongodb.ReactiveMongoTransactionManager;
-import org.springframework.transaction.reactive.TransactionalOperator;
+import org.springframework.data.mongodb.MongoDatabaseFactory;
+import org.springframework.data.mongodb.MongoTransactionManager;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @Configuration
 public class MongoConfig {
 
     @Bean
-    public ReactiveMongoTransactionManager transactionManager(ReactiveMongoDatabaseFactory factory) {
-        return new ReactiveMongoTransactionManager(factory);
+    public MongoTemplate mongoTemplate(MongoDatabaseFactory mongoDbFactory) {
+        return new MongoTemplate(mongoDbFactory);
     }
 
     @Bean
-    public TransactionalOperator transactionalOperator(ReactiveMongoTransactionManager transactionManager) {
-        return TransactionalOperator.create(transactionManager);
+    public PlatformTransactionManager transactionManagerNonReactive(MongoDatabaseFactory mongoDbFactory) {
+        return new MongoTransactionManager(mongoDbFactory);
+    }
+
+    @Bean
+    public TransactionTemplate transactionTemplate(PlatformTransactionManager transactionManager) {
+        return new TransactionTemplate(transactionManager);
     }
 }
