@@ -28,4 +28,5 @@ public class LiveRoomResponse {
     private String country;
     private Viewer viewer;
     private Announcement announcement;
+    private double hostDailyGems;
 }

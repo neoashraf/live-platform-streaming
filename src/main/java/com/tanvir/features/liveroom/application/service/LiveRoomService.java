@@ -659,6 +659,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .builder()
                         .id(liveRoom.getId())
                         .endedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC))
+                        .durationInSeconds(liveRoom.getDurationInSeconds())
                         .build())
                 .build());
     }
