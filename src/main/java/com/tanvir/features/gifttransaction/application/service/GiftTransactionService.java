@@ -157,9 +157,12 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         return HostDailyStarProgress
                 .builder()
                 .currentGems(currentGems)
+                .currentGemsFormatted(CommonBusiness.convertToShortName(currentGems))
                 .currentStar(currentStar)
                 .nextStarGems(nextStarGems)
+                .nextStarGemsFormatted(CommonBusiness.convertToShortName(nextStarGems))
                 .gemsNeededForNextStar(gemsNeededForNextStar)
+                .gemsNeededForNextStarFormatted(CommonBusiness.convertToShortName(gemsNeededForNextStar))
                 .build();
     }
 
