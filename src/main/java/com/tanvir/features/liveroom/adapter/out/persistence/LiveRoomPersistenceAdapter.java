@@ -86,6 +86,15 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
     }
 
     @Override
+    public Flux<LiveRoom> getActiveVideoAndAudioLiveRooms(Pageable pageable, String country) {
+        return customRepository.findAllByFilters(null, Constants.STATUS_LIVE.getValue(), country, pageable)
+                .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class))
+                .doOnRequest(l -> log.info("Request received to get active video and audio live rooms"))
+                .doOnComplete(() -> log.info("Got active video and audio live rooms"))
+                .doOnError(throwable -> log.error("Error while getting active video and audio live rooms : {}", throwable.getMessage()));
+    }
+
+    @Override
     public Mono<Long> getActiveLiveRoomsCountByTypeAndCountry(String type, String country, String viewMode) {
         return /*repository.countByTypeAndStatusAndCountry(type, Constants.STATUS_LIVE.getValue(), country)*/
         customRepository.getCountByFilters(type, Constants.STATUS_LIVE.getValue(), country)

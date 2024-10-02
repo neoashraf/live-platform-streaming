@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -17,6 +16,7 @@ import java.util.List;
 @NoArgsConstructor
 public class LiveRoomResponse {
     private String id;
+    private String hostMaxId;
     private String thumbnailId;
     private String thumbnailUrl;
     private String title;

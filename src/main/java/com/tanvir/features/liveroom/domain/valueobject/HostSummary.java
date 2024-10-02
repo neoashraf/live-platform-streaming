@@ -12,6 +12,7 @@ import lombok.NoArgsConstructor;
 public class HostSummary {
     private String id;
     private String userId;
+    private String hostMaxId;
     private String displayName;
     private String gender;
     private String profileImageId;

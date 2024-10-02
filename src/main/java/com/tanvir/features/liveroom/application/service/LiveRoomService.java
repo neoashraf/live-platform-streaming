@@ -136,6 +136,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .builder()
                 .id(host.getId())
                 .userId(host.getUserId())
+                .hostMaxId(host.getMaxId())
                 .displayName(host.getDisplayName())
                 .gender(host.getGender())
                 .profileImageId(host.getProfileImageId())
@@ -230,6 +231,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     private Mono<StreamResponseDto> buildJoinStreamResponseDto(LiveRoomViewerRequestDto requestDto, LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
+        roomDataDto.setHostMaxId(liveRoom.getHostMaxId());
         roomDataDto.setJoinedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
         roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
         AgoraTokenRequestDto agoraTokenRequestDto =
@@ -531,8 +533,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
                                 .count(countAndDataTuple.getT1().intValue())
                                 .build())
-                    : port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_VIDEO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
-                        .zipWith(port.getActiveVideoLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
+                    : /*port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_VIDEO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
+                        .zipWith(port.getActiveVideoLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())*/
+                        port.getActiveLiveRoomsCountByTypeAndCountry(null, requestDto.getCountry(), requestDto.getViewMode())
+                        .zipWith(port.getActiveVideoAndAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
                         .map(countAndDataTuple -> LiveRoomGridViewResponseDto
                                 .builder()
                                 .userMessage("LiveRoom Grid View Fetched Successfully.")
@@ -773,6 +777,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     private LiveRoomResponse buildLiveRoomResponse(LiveRoom liveRoom) {
         LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
+        liveRoomResponse.setHostMaxId(liveRoom.getHostMaxId());
         liveRoomResponse.setAnnouncement(liveRoom.getAnnouncement());
         liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
         return liveRoomResponse;
@@ -859,6 +864,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .country(host.getCountry())
                         .hostId(host.getId())
                         .userId(host.getUserId())
+                        .hostMaxId(host.getMaxId())
                         .kickedOutUserIds(new ArrayList<>())
                         .viewerCount(0)
                         .hostDailyGems(dailyReceivedGems)

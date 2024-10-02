@@ -13,6 +13,7 @@ import java.time.Instant;
 @NoArgsConstructor
 public class RoomDataDto {
     private String id;
+    private String hostMaxId;
     private Instant joinedOn;
     private Instant leftOn;
     private Instant kickedOn;

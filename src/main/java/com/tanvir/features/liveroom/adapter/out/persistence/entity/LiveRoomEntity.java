@@ -34,6 +34,7 @@ public class LiveRoomEntity implements Persistable<String> {
     private String country;
     private String hostId;
     private String userId;
+    private String hostMaxId;
     private List<String> kickedOutUserIds;
     private List<String> viewerIds;
     private long viewerCount;
