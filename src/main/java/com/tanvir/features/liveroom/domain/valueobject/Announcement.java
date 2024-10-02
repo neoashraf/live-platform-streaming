@@ -14,6 +14,7 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Announcement {
+    private String announcementId;
     private String type;
     private String messageTemplate;
     private AnnouncementUser publisher;

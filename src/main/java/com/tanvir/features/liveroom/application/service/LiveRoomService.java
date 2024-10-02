@@ -311,6 +311,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                     if (Strings.isNotNullAndNotEmpty(user.getRideId())) {
                         return contentUseCase.getContentById(user.getRideId())
                                 .map(content -> {
+                                    announcement.setAnnouncementId(UUID.randomUUID().toString());
                                     announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue()));
                                     announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue());
                                     announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
@@ -330,6 +331,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                     } else if (Strings.isNotNullAndNotEmpty(user.getEntryCardId())) {
                         return contentUseCase.getContentById(user.getEntryCardId())
                                 .map(content -> {
+                                    announcement.setAnnouncementId(UUID.randomUUID().toString());
                                     announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue()));
                                     announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue());
                                     announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
@@ -347,6 +349,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     return Tuples.of(announcement, user);
                                 });
                     } else if (Strings.isNullOrEmpty(user.getEntryCardId()) && Strings.isNullOrEmpty(user.getRideId())) {
+                        announcement.setAnnouncementId(UUID.randomUUID().toString());
                         announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue()));
                         announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue());
                         announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
@@ -376,6 +379,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     private Mono<LiveRoom> buildKickOutAnnouncement(LiveRoom liveRoom, User host, User viewer) {
         Announcement announcement = new Announcement();
+        announcement.setAnnouncementId(UUID.randomUUID().toString());
         announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_KICK.getValue());
         announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
         announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_KICK.getValue()));
@@ -577,6 +581,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .map(level -> {
                                 Announcement announcement = Announcement
                                     .builder()
+                                    .announcementId(UUID.randomUUID().toString())
                                     .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue())
                                     .time(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString())
                                     .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue()) + requestDto.getComment())
