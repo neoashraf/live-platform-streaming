@@ -99,6 +99,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .flatMap(giftSummaryUseCase::processGiftSummary)
                 .doOnError(throwable -> log.error("Error while updating gift summary"))
                 .flatMap(this::calculateHostDailyStarProgress)
+                .doOnError(throwable -> log.error("Error while calculating host daily star progress"))
                 .flatMap(this::announceToFirebaseIfLiveSession)
                 .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 .map(giftTransaction -> this.buildSendGiftResponseDto(giftTransaction, "Gift sent successfully"))
@@ -111,7 +112,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                     double currentGems = liveRoomActivityEntity.getDailyReceivedGems();
                     HostDailyStarProgress starProgress = this.calculateStarProgress(currentGems);
                     giftTransaction.setHostDailyStarProgress(starProgress);
-                    return giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
+                    return Strings.isNotNullAndNotEmpty(giftTransaction.getLiveSession()) && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
                         ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
                             .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
                             .flatMap(liveRoom -> {
@@ -275,7 +276,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     }
 
     private Mono<GiftTransaction> announceToFirebaseIfLiveSession(GiftTransaction giftTransaction) {
-        return Strings.isNotNullAndNotEmpty(giftTransaction.getLiveSession()) && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
+        log.info("getLiveSession : {}", giftTransaction.getLiveSession());
+        return giftTransaction.getLiveSession() != null && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
                 ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
                     .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
                     .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))

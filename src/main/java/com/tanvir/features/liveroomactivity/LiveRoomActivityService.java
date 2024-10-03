@@ -17,18 +17,20 @@ public class LiveRoomActivityService {
 
     public Mono<LiveRoomActivityEntity> updateDailyReceivedGems(String userId, Double gemsReceived) {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-//        LocalDateTime now = LocalDateTime.of(2024, 10, 3, 1, 0, 1);
+//        LocalDateTime now = LocalDateTime.of(2024, 10, 5, 1,0, 1).atZone(ZoneOffset.UTC).toLocalDateTime(); // For testing
 
         return liveroomActivityRepository.findByUserId(userId)
                 .doOnRequest(l -> log.info("Request received to update daily received gems for user : {}", userId))
                 .doOnSuccess(activity -> log.info("Got activity for user : {}", activity))
                 .flatMap(activity -> {
-                    LocalDateTime activityEndTime = activity.getEndTime();now :
+                    LocalDateTime activityEndTime = activity.getEndTime().atZone(ZoneOffset.UTC).toLocalDateTime(); // Get the stored endTime
                     log.info("now : {}, activityEndTime : {}", now, activityEndTime);
 
+                    // Check if `now` is after the `activityEndTime` (meaning we should reset the gems)
                     if (now.isAfter(activityEndTime)) {
                         log.info("Resetting dailyReceivedGems for user : {}", userId);
-                        // Reset dailyReceivedGems if it's past 1 AM UTC
+
+                        // Reset `dailyReceivedGems` and update `endTime` to the next day's 1 AM UTC
                         activity.setDailyReceivedGems(gemsReceived); // Reset to the current gems received
                         activity.setEndTime(
                                 now.toLocalDate().plusDays(1)
@@ -36,18 +38,22 @@ public class LiveRoomActivityService {
                                         .atOffset(ZoneOffset.UTC)
                                         .toLocalDateTime()
                         );
+                        log.info("New endTime set for user: {} is {}", userId, activity.getEndTime());
+
                         activity.setUpdatedOn(now);
                         activity.setCreatedOn(now);
                     } else {
-                        // Update dailyReceivedGems for the same day
-                        log.info("Updating dailyReceivedGems for user : {}", userId);
+                        // If `now` is not after `endTime`, just update the existing gems
+                        log.info("Updating dailyReceivedGems for the same day for user : {}", userId);
                         activity.setDailyReceivedGems(activity.getDailyReceivedGems() + gemsReceived);
                         activity.setUpdatedOn(now);
                     }
+
                     return liveroomActivityRepository.save(activity);
                 })
                 .switchIfEmpty(Mono.defer(() -> {
                     // No entry for the user, create a new one
+                    log.info("Creating a new activity for user : {}", userId);
                     LiveRoomActivityEntity newActivity = new LiveRoomActivityEntity();
                     newActivity.setUserId(userId);
                     newActivity.setDailyReceivedGems(gemsReceived);
@@ -57,6 +63,8 @@ public class LiveRoomActivityService {
                                     .atOffset(ZoneOffset.UTC)
                                     .toLocalDateTime()
                     );
+                    log.info("New endTime set for new user: {} is {}", userId, newActivity.getEndTime());
+
                     newActivity.setCreatedOn(now);
                     return liveroomActivityRepository.save(newActivity);
                 }));
