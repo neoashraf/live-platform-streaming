@@ -716,6 +716,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .durationInSeconds(liveRoom.getDurationInSeconds())
                         .duration(CommonBusiness.formatTimeToString(liveRoom.getDurationInSeconds()))
                         .build())
+                .count(1)
                 .build());
     }
 
