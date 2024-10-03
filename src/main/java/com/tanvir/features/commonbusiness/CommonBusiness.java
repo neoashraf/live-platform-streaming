@@ -2,6 +2,7 @@ package com.tanvir.features.commonbusiness;
 
 import com.tanvir.core.util.enums.AnnouncementEnum;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 public class CommonBusiness {
@@ -53,6 +54,14 @@ public class CommonBusiness {
         int seconds = (int) durationInSeconds % 60;
 
         return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
+    public static BigDecimal convertToPlainBigDecimal(double value) {
+        // Convert the double to a string, then to BigDecimal to avoid precision issues
+        BigDecimal bigDecimalValue = new BigDecimal(Double.toString(value));
+
+        // Return the plain string format of the BigDecimal
+        return new BigDecimal(bigDecimalValue.toPlainString());
     }
 
 

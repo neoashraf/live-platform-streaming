@@ -183,6 +183,10 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
                     return port.getBeanTransactionsCount(requestDto)
                             .flatMap(aLong -> port.getBeanTransactions(requestDto)
+                                .map(giftTransaction -> {
+                                    giftTransaction.setBeansPlain(CommonBusiness.convertToPlainBigDecimal(giftTransaction.getBeans()));
+                                    return giftTransaction;
+                                })
                                 .collectList()
                                 .map(giftTransactions -> GiftTransactionResponseDto
                                         .builder()

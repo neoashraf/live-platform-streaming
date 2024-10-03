@@ -9,6 +9,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Data
@@ -22,6 +23,7 @@ public class GiftTransaction {
     private String giftId;
     private Integer quantity;
     private Double beans;
+    private BigDecimal beansPlain;
     private String liveSession;
     private String liveRoomId;
     private String transactionDateId;

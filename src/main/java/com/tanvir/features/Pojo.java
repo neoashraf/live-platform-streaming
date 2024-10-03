@@ -9,6 +9,7 @@ import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.domain.User;
 import org.modelmapper.ModelMapper;
 
+import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,8 +38,21 @@ public class Pojo {
         fruits.remove("Banana");
         System.out.println("fruits after remove : " + fruits);*/
 
+//        double value = 5.2E7;
+        double value = 5.2123445;
+        BigDecimal result = convertToPlainBigDecimal(value);
+        System.out.println("Converted value: " + result);  // Output: 52000000
 
 
+
+    }
+
+    public static BigDecimal convertToPlainBigDecimal(double value) {
+        // Convert the double to a string, then to BigDecimal to avoid precision issues
+        BigDecimal bigDecimalValue = new BigDecimal(Double.toString(value));
+
+        // Return the plain string format of the BigDecimal
+        return new BigDecimal(bigDecimalValue.toPlainString());
     }
 
     public static String formatToK(double value) {
