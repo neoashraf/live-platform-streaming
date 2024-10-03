@@ -24,6 +24,7 @@ public class LiveRoomHandler {
 
     public Mono<ServerResponse> createStream(ServerRequest serverRequest) {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
+//        String tokenType = serverRequest.queryParam(QueryParams.TOKEN_TYPE.getValue()).orElseThrow(() -> new IllegalArgumentException("Token type is required"));
         return serverRequest
                 .bodyToMono(LiveRoomRequestDto.class)
                 .map(requestDto -> {

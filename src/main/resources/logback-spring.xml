@@ -7,7 +7,7 @@
               class="ch.qos.logback.core.ConsoleAppender">
         <layout class="ch.qos.logback.classic.PatternLayout">
             <Pattern>
-                %d{yyyy-MM-dd HH:mm:ss.SSS} [ ${spring.application.name}, %X{spanId:-}, %X{traceId:-}, %X{Method} %X{Uri} ] [Request-Trace-Id: %X{Trace-Id}] %-5level %logger:%L %yellow(%class{0}) - %msg%n
+                %d{yyyy-MM-dd HH:mm:ss.SSS} [ ${spring.application.name}, %X{spanId:-}, %X{traceId:-}, %X{Method}, %X{Uri} ] [Request-Trace-Id: %X{Request-Trace-Id}] [%t] %highlight(%-5level) %yellow(%class{0}) %logger{36}:%L - %msg%n) - %msg%n%throwable
             </Pattern>
         </layout>
     </appender>

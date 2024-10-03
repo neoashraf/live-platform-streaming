@@ -23,6 +23,7 @@ public class LiveRoomRequestDto {
     private String description;
     private String thumbnailId;
     private String thumbnailUrl;
+    private String tokenType;
 
     @Override
     public String toString() {

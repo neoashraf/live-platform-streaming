@@ -70,7 +70,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<LiveRoomGridViewResponseDto> createStream(LiveRoomRequestDto requestDto) {
+    public Mono<StreamResponseDto> createStream(LiveRoomRequestDto requestDto) {
         AtomicReference<String> liveRoomId = new AtomicReference<>();
         return this.validateCreateStreamRequest(requestDto)
                 .flatMap(liveRoomRequestDto -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId()))
@@ -102,12 +102,14 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
                             .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
                             .thenReturn(liveRoom)))
-                .map(liveRoom -> LiveRoomGridViewResponseDto
+                /*.map(liveRoom -> LiveRoomGridViewResponseDto
                         .builder()
                         .userMessage("Live room created successfully.")
                         .data(List.of(this.buildLiveRoomResponse(liveRoom)))
                         .count(1)
-                        .build())
+                        .build())*/
+                .flatMap(liveRoom -> this.buildCreateStreamResponseDto(requestDto, liveRoom, "Live room created successfully."))
+                .doOnError(throwable -> log.error("Failed to Create stream response dto. Error : {}", throwable.getMessage()))
                 .as(rxtx::transactional)
                 .onErrorResume(throwable -> {
                     if (liveRoomId.get() != null) {
@@ -290,6 +292,63 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .channelName(liveRoom.getId())
                         .role(AgoraTokenTypeEnum.ROLE_SUBSCRIBER.getValue())
                         .uid(Integer.parseInt(liveRoom.getViewer().getMaxId()))
+                        .tokenExpirationInSeconds(3600)
+                        .tokenType(requestDto.getTokenType())
+                        .build();
+
+        return agoraService.generateToken(agoraTokenRequestDto)
+                .doOnError(throwable -> log.error("Error happened while generating Agora Token : {}", throwable.getMessage()))
+                .map(agoraTokenResponseDto -> {
+                    if (agoraTokenResponseDto.getData() != null && !agoraTokenResponseDto.getData().isEmpty()) {
+                       if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUid());
+                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUserAccount());
+                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID_AND_PRIVILEGE.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUidAndPrivilege());
+                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT_AND_PRIVILEGE.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithAccountAndPrivilege());
+                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_RTM.getValue())) {
+                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithRtm());
+                       }
+                    }
+                    return roomDataDto;
+                })
+                .onErrorMap(throwable -> new ExceptionHandlerUtil(HttpStatus.INTERNAL_SERVER_ERROR, "Error happened while generating Agora Token!"))
+                .map(agoraTokenResponseDto -> StreamResponseDto
+                        .builder()
+                        .message(message)
+                        .data(roomDataDto)
+                        .count(1)
+                        .build());
+
+    }
+
+    private Mono<StreamResponseDto> buildCreateStreamResponseDto(LiveRoomRequestDto requestDto, LiveRoom liveRoom, String message) {
+        RoomDataDto roomDataDto = new RoomDataDto();
+        roomDataDto.setId(liveRoom.getId());
+        roomDataDto.setHostMaxId(liveRoom.getHostMaxId());
+        roomDataDto.setUserId(liveRoom.getUserId());
+
+        roomDataDto.setThumbnailId(liveRoom.getThumbnailId());
+        roomDataDto.setThumbnailUrl(liveRoom.getThumbnailUrl());
+        roomDataDto.setTitle(liveRoom.getTitle());
+        roomDataDto.setType(liveRoom.getType());
+        roomDataDto.setTags(liveRoom.getTags());
+        roomDataDto.setStatus(liveRoom.getStatus());
+        roomDataDto.setViewerCount(liveRoom.getViewerCount());
+        roomDataDto.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
+        roomDataDto.setCountry(liveRoom.getCountry());
+        roomDataDto.setViewer(liveRoom.getViewer());
+        roomDataDto.setHostDailyGems(liveRoom.getHostDailyGems());
+
+        requestDto.setTokenType(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue());
+        AgoraTokenRequestDto agoraTokenRequestDto =
+                AgoraTokenRequestDto
+                        .builder()
+                        .channelName(liveRoom.getId())
+                        .role(AgoraTokenTypeEnum.ROLE_PUBLISHER.getValue())
+                        .uid(Integer.parseInt(liveRoom.getHostMaxId()))
                         .tokenExpirationInSeconds(3600)
                         .tokenType(requestDto.getTokenType())
                         .build();
@@ -832,6 +891,16 @@ public class LiveRoomService implements LiveRoomUseCase {
         liveRoomResponse.setHostMaxId(liveRoom.getHostMaxId());
         liveRoomResponse.setAnnouncement(liveRoom.getAnnouncement());
         liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
+
+        return liveRoomResponse;
+    }
+
+    private LiveRoomResponse buildLiveRoomCreateResponse(LiveRoom liveRoom) {
+        LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
+        liveRoomResponse.setHostMaxId(liveRoom.getHostMaxId());
+        liveRoomResponse.setAnnouncement(liveRoom.getAnnouncement());
+        liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
+
         return liveRoomResponse;
     }
 

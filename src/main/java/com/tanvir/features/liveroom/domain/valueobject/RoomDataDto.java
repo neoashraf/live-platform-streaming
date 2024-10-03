@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.Instant;
+import java.util.List;
 
 @Data
 @Builder
@@ -13,6 +14,7 @@ import java.time.Instant;
 @NoArgsConstructor
 public class RoomDataDto {
     private String id;
+    private String userId;
     private String hostMaxId;
     private Instant joinedOn;
     private Instant leftOn;
@@ -20,7 +22,20 @@ public class RoomDataDto {
     private Instant endedOn;
     private Instant commentedOn;
     private Announcement announcement;
-    private long durationInSeconds;
+    private Long durationInSeconds;
     private String duration;
     private String agoraToken;
+
+    // for create stream
+    private String thumbnailId;
+    private String thumbnailUrl;
+    private String title;
+    private String type;
+    private List<String> tags;
+    private String status;
+    private long viewerCount;
+    private Instant createdOn;
+    private String country;
+    private Viewer viewer;
+    private double hostDailyGems;
 }

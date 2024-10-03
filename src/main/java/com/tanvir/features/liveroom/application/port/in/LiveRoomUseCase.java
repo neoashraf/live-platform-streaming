@@ -8,7 +8,7 @@ import com.tanvir.features.liveroom.domain.LiveRoom;
 import reactor.core.publisher.Mono;
 
 public interface LiveRoomUseCase {
-    Mono<LiveRoomGridViewResponseDto> createStream(LiveRoomRequestDto requestDto);
+    Mono<StreamResponseDto> createStream(LiveRoomRequestDto requestDto);
     Mono<StreamResponseDto> joinStream(LiveRoomViewerRequestDto requestDto);
     Mono<StreamResponseDto> leaveStream(LiveRoomViewerRequestDto requestDto);
     Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId);
