@@ -22,4 +22,5 @@ public class LiveRoomActivityEntity {
     private LocalDateTime endTime;
     private LocalDateTime createdOn;
     private LocalDateTime updatedOn;
+    private LocalDateTime resetOn;
 }

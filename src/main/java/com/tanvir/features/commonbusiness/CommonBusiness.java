@@ -46,4 +46,14 @@ public class CommonBusiness {
         return announcementMessage.get(announcementType);
     }
 
+    public static String formatTimeToString(long durationInSeconds) {
+
+        int hours = (int) durationInSeconds / 3600;
+        int minutes = (int) (durationInSeconds % 3600) / 60;
+        int seconds = (int) durationInSeconds % 60;
+
+        return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+    }
+
+
 }

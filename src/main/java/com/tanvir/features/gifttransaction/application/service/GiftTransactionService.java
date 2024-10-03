@@ -18,7 +18,6 @@ import com.tanvir.features.gifttransaction.application.port.in.dto.response.Send
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.application.port.out.MaxUserPersistencePort;
 import com.tanvir.features.gifttransaction.domain.GiftTransaction;
-import com.tanvir.features.gifttransaction.domain.valueobjects.HostDailyStarProgress;
 import com.tanvir.features.gifttransaction.domain.valueobjects.SenderReceiverDto;
 import com.tanvir.features.host.application.port.out.HostPersistencePort;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
@@ -26,6 +25,7 @@ import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.AnnouncementUser;
+import com.tanvir.features.liveroom.domain.valueobject.DailyStarProgress;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserMongoRepository;
 import com.tanvir.features.user.application.port.in.UserUseCase;
@@ -110,8 +110,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         return liveRoomActivityService.updateDailyReceivedGems(giftTransaction.getReceiverId(), giftTransaction.getBeans())
                 .flatMap(liveRoomActivityEntity -> {
                     double currentGems = liveRoomActivityEntity.getDailyReceivedGems();
-                    HostDailyStarProgress starProgress = this.calculateStarProgress(currentGems);
-                    giftTransaction.setHostDailyStarProgress(starProgress);
+                    DailyStarProgress starProgress = this.calculateStarProgress(currentGems);
+                    giftTransaction.setDailyStarProgress(starProgress);
                     return Strings.isNotNullAndNotEmpty(giftTransaction.getLiveSession()) && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
                         ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
                             .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
@@ -124,7 +124,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 });
     }
 
-    private HostDailyStarProgress calculateStarProgress(double currentGems) {
+    private DailyStarProgress calculateStarProgress(double currentGems) {
         int currentStar = 0;
         double nextStarGems = 0;
         double gemsNeededForNextStar = 0;
@@ -155,15 +155,16 @@ public class GiftTransactionService implements GiftTransactionUseCase {
             gemsNeededForNextStar = 10000 - currentGems;
         }
 
-        return HostDailyStarProgress
+        return DailyStarProgress
                 .builder()
-                .currentGems(currentGems)
-                .currentGemsFormatted(CommonBusiness.convertToShortName(currentGems))
-                .currentStar(currentStar)
-                .nextStarGems(nextStarGems)
-                .nextStarGemsFormatted(CommonBusiness.convertToShortName(nextStarGems))
-                .gemsNeededForNextStar(gemsNeededForNextStar)
-                .gemsNeededForNextStarFormatted(CommonBusiness.convertToShortName(gemsNeededForNextStar))
+                .starLevel(currentStar)
+                .nextStarLevel(Math.min(currentStar + 1, 5))
+                .dailyReceivedGemsValue(currentGems)
+                .dailyReceivedGemsName(CommonBusiness.convertToShortName(currentGems))
+                .nextLevelGemsValue(nextStarGems)
+                .nextLevelGemsName(CommonBusiness.convertToShortName(nextStarGems))
+                .trailingByNextLevelGemsValue(gemsNeededForNextStar)
+                .trailingByNextLevelGemsName(CommonBusiness.convertToShortName(gemsNeededForNextStar))
                 .build();
     }
 
@@ -284,7 +285,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                     .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Live Room is not live")))
                     .flatMap(liveRoom -> this.buildGiftAnnouncement(giftTransaction)
                             .flatMap(announcement -> {
-                                liveRoom.setHostDailyStarProgress(giftTransaction.getHostDailyStarProgress());
+                                liveRoom.setDailyStarProgress(giftTransaction.getDailyStarProgress());
                                 liveRoom.setAnnouncement(announcement);
                                 return cachePort.updateForGift(liveRoom)
                                         .thenReturn(giftTransaction);

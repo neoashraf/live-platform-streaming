@@ -1,5 +1,6 @@
 package com.tanvir.features;
 
+import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.liveroom.application.port.in.dto.request.SendGiftRequestDto;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
@@ -36,9 +37,7 @@ public class Pojo {
         fruits.remove("Banana");
         System.out.println("fruits after remove : " + fruits);*/
 
-        System.out.println("dateTime : " + LocalDateTime.now());
-        System.out.println("date : " + LocalDate.now());
-        System.out.println("formatted : " + LocalDateTime.now().toLocalDate());
+
 
     }
 

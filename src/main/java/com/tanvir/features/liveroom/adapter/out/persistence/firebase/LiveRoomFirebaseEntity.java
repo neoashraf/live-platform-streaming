@@ -1,18 +1,13 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.firebase;
 
 import com.tanvir.common.firebase.BaseFirebaseEntity;
-import com.tanvir.features.gifttransaction.domain.valueobjects.HostDailyStarProgress;
-import com.tanvir.features.liveroom.domain.valueobject.Announcement;
-import com.tanvir.features.liveroom.domain.valueobject.Fan;
-import com.tanvir.features.liveroom.domain.valueobject.HostSummary;
-import com.tanvir.features.liveroom.domain.valueobject.Viewer;
+import com.tanvir.features.liveroom.domain.valueobject.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
-import java.util.Map;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -33,7 +28,7 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private List<String> viewerIds;
     private long viewerCount;
     private List<Announcement> announcements;
-    private HostDailyStarProgress hostDailyStarProgress;
+    private DailyStarProgress dailyStarProgress;
 //    private int elapsedSeconds;
 //    private String formattedTime;
 }

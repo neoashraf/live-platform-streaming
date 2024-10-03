@@ -41,7 +41,7 @@ public class LiveRoomActivityService {
                         log.info("New endTime set for user: {} is {}", userId, activity.getEndTime());
 
                         activity.setUpdatedOn(now);
-                        activity.setCreatedOn(now);
+                        activity.setResetOn(now);
                     } else {
                         // If `now` is not after `endTime`, just update the existing gems
                         log.info("Updating dailyReceivedGems for the same day for user : {}", userId);

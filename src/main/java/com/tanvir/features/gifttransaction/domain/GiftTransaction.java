@@ -2,14 +2,13 @@ package com.tanvir.features.gifttransaction.domain;
 
 import com.tanvir.core.util.CommonFunctions;
 import com.tanvir.features.gift.domain.Gift;
-import com.tanvir.features.gifttransaction.domain.valueobjects.HostDailyStarProgress;
 import com.tanvir.features.gifttransaction.domain.valueobjects.SenderReceiverDto;
+import com.tanvir.features.liveroom.domain.valueobject.DailyStarProgress;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -33,7 +32,7 @@ public class GiftTransaction {
     private SenderReceiverDto senderReceiverDto;
     private Gift gift;
     private String agencyId;
-    private HostDailyStarProgress hostDailyStarProgress;
+    private DailyStarProgress dailyStarProgress;
 
     @Override
     public String toString() {

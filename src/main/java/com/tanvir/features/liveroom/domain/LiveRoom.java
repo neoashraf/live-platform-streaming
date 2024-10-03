@@ -1,8 +1,8 @@
 package com.tanvir.features.liveroom.domain;
 
 import com.tanvir.core.util.CommonFunctions;
-import com.tanvir.features.gifttransaction.domain.valueobjects.HostDailyStarProgress;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
+import com.tanvir.features.liveroom.domain.valueobject.DailyStarProgress;
 import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -40,7 +40,7 @@ public class LiveRoom {
     private Viewer viewer;
     private Announcement announcement;
     private long durationInSeconds;
-    private HostDailyStarProgress hostDailyStarProgress;
+    private DailyStarProgress dailyStarProgress;
 
 
     @Override

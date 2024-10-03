@@ -190,7 +190,7 @@ public class FirebaseAdapter implements CachePort {
                     currentAnnouncementsInFirebase.add(liveRoom.getAnnouncement());
                     firebaseEntity.setAnnouncements(currentAnnouncementsInFirebase);
 
-                    firebaseEntity.setHostDailyStarProgress(liveRoom.getHostDailyStarProgress());
+                    firebaseEntity.setDailyStarProgress(liveRoom.getDailyStarProgress());
                     return firebaseEntity;
                 })
 //                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))

@@ -16,6 +16,6 @@ public class DailyStarProgress {
     private String dailyReceivedGemsName;
     private double nextLevelGemsValue;
     private String nextLevelGemsName;
-    private long trailingByNextLevelGemsValue;
+    private double trailingByNextLevelGemsValue;
     private String trailingByNextLevelGemsName;
 }

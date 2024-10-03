@@ -97,7 +97,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                     .doOnNext(liveRoom -> liveRoomId.set(liveRoom.getId()))
                     .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
                     .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
-                    .flatMap(liveRoom -> cachePort.create(this.buildFirebaseEntity(liveRoom, host))
+                    .flatMap(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
+                            .flatMap(cachePort::create)
                             .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
                             .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
                             .thenReturn(liveRoom)))
@@ -131,37 +132,86 @@ public class LiveRoomService implements LiveRoomUseCase {
         return Mono.just(requestDto);
     }
 
-    private LiveRoomFirebaseEntity buildFirebaseEntity(LiveRoom liveRoom, Host host) {
-        HostSummary hostSummary = HostSummary
-                .builder()
-                .id(host.getId())
-                .userId(host.getUserId())
-                .hostMaxId(host.getMaxId())
-                .displayName(host.getDisplayName())
-                .gender(host.getGender())
-                .profileImageId(host.getProfileImageId())
-                .profileImageUrl(host.getProfileImageUrl())
-                .userLevel(host.getUserLevel())
-                .gemsCount(liveRoom.getHostDailyGems())
-                .dailyStarProgress(DailyStarProgress.builder().build())
-                .build();
+    private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host) {
+        return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
+                .map(currentGems -> {
+                    DailyStarProgress starProgress = this.calculateStarProgress(currentGems);
+                    HostSummary hostSummary = HostSummary
+                            .builder()
+                            .id(host.getId())
+                            .userId(host.getUserId())
+                            .hostMaxId(host.getMaxId())
+                            .displayName(host.getDisplayName())
+                            .gender(host.getGender())
+                            .profileImageId(host.getProfileImageId())
+                            .profileImageUrl(host.getProfileImageUrl())
+                            .userLevel(host.getUserLevel())
+                            .gemsCount(liveRoom.getHostDailyGems())
+                            .dailyStarProgress(starProgress)
+                            .build();
 
-        return LiveRoomFirebaseEntity
+                    return LiveRoomFirebaseEntity
+                            .builder()
+                            .id(liveRoom.getId())
+                            .thumbnailId(liveRoom.getThumbnailId())
+                            .thumbnailUrl(liveRoom.getThumbnailUrl())
+                            .title(liveRoom.getTitle())
+                            .description(liveRoom.getDescription())
+                            .tags(liveRoom.getTags())
+                            .type(liveRoom.getType())
+                            .status(liveRoom.getStatus())
+                            .country(host.getCountry())
+                            .host(hostSummary)
+                            .viewers(new ArrayList<>())
+                            .viewerCount(0)
+                            .announcements(new ArrayList<>())
+                            .build();
+                });
+
+
+    }
+
+    private DailyStarProgress calculateStarProgress(double currentGems) {
+        int currentStar = 0;
+        double nextStarGems = 0;
+        double gemsNeededForNextStar = 0;
+
+        if (currentGems >= 2000000) {
+            currentStar = 5;
+            nextStarGems = 2000000;
+            gemsNeededForNextStar = 0;
+        } else if (currentGems >= 1000000) {
+            currentStar = 4;
+            nextStarGems = 2000000;
+            gemsNeededForNextStar = 2000000 - currentGems;
+        } else if (currentGems >= 200000) {
+            currentStar = 3;
+            nextStarGems = 1000000;
+            gemsNeededForNextStar = 1000000 - currentGems;
+        } else if (currentGems >= 50000) {
+            currentStar = 2;
+            nextStarGems = 200000;
+            gemsNeededForNextStar = 200000 - currentGems;
+        } else if (currentGems >= 10000) {
+            currentStar = 1;
+            nextStarGems = 50000;
+            gemsNeededForNextStar = 50000 - currentGems;
+        } else {
+            currentStar = 0;
+            nextStarGems = 10000;
+            gemsNeededForNextStar = 10000 - currentGems;
+        }
+
+        return DailyStarProgress
                 .builder()
-                .id(liveRoom.getId())
-                .thumbnailId(liveRoom.getThumbnailId())
-                .thumbnailUrl(liveRoom.getThumbnailUrl())
-                .title(liveRoom.getTitle())
-                .description(liveRoom.getDescription())
-                .tags(liveRoom.getTags())
-                .type(liveRoom.getType())
-                .status(liveRoom.getStatus())
-                .country(host.getCountry())
-                .host(hostSummary)
-                .viewers(new ArrayList<>())
-                .viewerCount(0)
-                .announcements(new ArrayList<>())
-//                .elapsedSeconds(0)
+                .starLevel(currentStar)
+                .nextStarLevel(Math.min(currentStar + 1, 5))
+                .dailyReceivedGemsValue(currentGems)
+                .dailyReceivedGemsName(CommonBusiness.convertToShortName(currentGems))
+                .nextLevelGemsValue(nextStarGems)
+                .nextLevelGemsName(CommonBusiness.convertToShortName(nextStarGems))
+                .trailingByNextLevelGemsValue(gemsNeededForNextStar)
+                .trailingByNextLevelGemsName(CommonBusiness.convertToShortName(gemsNeededForNextStar))
                 .build();
     }
 
@@ -664,6 +714,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .id(liveRoom.getId())
                         .endedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC))
                         .durationInSeconds(liveRoom.getDurationInSeconds())
+                        .duration(CommonBusiness.formatTimeToString(liveRoom.getDurationInSeconds()))
                         .build())
                 .build());
     }
