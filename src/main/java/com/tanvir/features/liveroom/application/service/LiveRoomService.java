@@ -292,7 +292,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .channelName(liveRoom.getId())
                         .role(AgoraTokenTypeEnum.ROLE_SUBSCRIBER.getValue())
                         .uid(Integer.parseInt(liveRoom.getViewer().getMaxId()))
-                        .tokenExpirationInSeconds(3600)
+                        .tokenExpirationInSeconds(86400)
                         .tokenType(requestDto.getTokenType())
                         .build();
 
@@ -349,7 +349,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .channelName(liveRoom.getId())
                         .role(AgoraTokenTypeEnum.ROLE_PUBLISHER.getValue())
                         .uid(Integer.parseInt(liveRoom.getHostMaxId()))
-                        .tokenExpirationInSeconds(3600)
+                        .tokenExpirationInSeconds(86400)
                         .tokenType(requestDto.getTokenType())
                         .build();
 
