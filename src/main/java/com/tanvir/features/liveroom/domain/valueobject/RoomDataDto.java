@@ -16,6 +16,7 @@ public class RoomDataDto {
     private String id;
     private String userId;
     private String hostMaxId;
+    private String viewerMaxId;
     private Instant joinedOn;
     private Instant leftOn;
     private Instant kickedOn;

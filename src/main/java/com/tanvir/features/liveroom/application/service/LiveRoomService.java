@@ -289,6 +289,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         roomDataDto.setHostMaxId(liveRoom.getHostMaxId());
         roomDataDto.setJoinedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
         roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
+        roomDataDto.setViewerMaxId(liveRoom.getViewer().getMaxId());
         AgoraTokenRequestDto agoraTokenRequestDto =
                 AgoraTokenRequestDto
                         .builder()
