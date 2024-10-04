@@ -94,7 +94,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(host -> this.buildLiveRoomDomain(host, requestDto)
                     .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
                     .flatMap(port::saveLiveRoom)
-                    .doOnNext(liveRoom -> liveRoomId.set(liveRoom.getId()))
+                    .map(liveRoom -> {
+                        liveRoomId.set(liveRoom.getId());
+                        return liveRoom;
+                    })
                     .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
                     .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
                     .flatMap(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
