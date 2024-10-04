@@ -101,11 +101,12 @@ public class LiveRoomService implements LiveRoomUseCase {
                     })
                     .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
                     .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
-                    .flatMap(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
+                    .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
                             .flatMap(cachePort::create)
                             .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
                             .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
-                            .thenReturn(liveRoom)))
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .subscribe()))
                 /*.map(liveRoom -> LiveRoomGridViewResponseDto
                         .builder()
                         .userMessage("Live room created successfully.")
@@ -261,6 +262,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     ? liveRoom.getViewerIds() : new ArrayList<>());
                             currentViewerIdsInLiveroom.add(viewer.getUserId());
                             liveRoom.setViewerIds(currentViewerIdsInLiveroom);
+                            liveRoom.setTotalViewerCount(liveRoom.getTotalViewerCount() + 1);
 
                             return Mono.just(liveRoom);
                         }))
@@ -272,10 +274,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                 })
                 .filter(liveRoom -> !liveRoom.getKickedOutUserIds().contains(liveRoom.getViewer().getUserId()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is kicked out from LiveRoom. Cannot join.")))
-                .flatMap(liveRoom -> port.saveLiveRoom(liveRoom)
-                        .thenReturn(liveRoom))
                 .flatMap(this::buildJoinAnnouncement)
-                .doOnNext(liveRoom -> cachePort.update(liveRoom)
+                .doOnNext(liveRoom -> port.saveLiveRoom(liveRoom)
+                        .flatMap(liveRoom1 -> cachePort.update(liveRoom))
                         .doOnRequest(liveRoomEntity -> log.info("Requesting to update LiveRoom into firebase"))
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
@@ -575,11 +576,12 @@ public class LiveRoomService implements LiveRoomUseCase {
                     return liveRoom;
                 })
                 .flatMap(port::saveLiveRoom)
-                .flatMap(liveRoom ->
+                .doOnNext(liveRoom ->
                         cachePort.delete(liveRoomId)
                         .doOnSuccess(liveRoomEntity -> log.info("LiveRoom deleted from firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while deleting LiveRoom from Firebase : {}", throwable.getMessage()))
-                        .thenReturn(liveRoom))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
                 .flatMap(this::buildEndStreamResponseDto);
     }
 
@@ -785,6 +787,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .endedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC))
                         .durationInSeconds(liveRoom.getDurationInSeconds())
                         .duration(CommonBusiness.formatTimeToString(liveRoom.getDurationInSeconds()))
+                        .totalViewerCount(liveRoom.getTotalViewerCount())
                         .build())
                 .count(1)
                 .build());

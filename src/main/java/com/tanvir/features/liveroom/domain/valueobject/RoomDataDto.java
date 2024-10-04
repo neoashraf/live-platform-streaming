@@ -39,4 +39,7 @@ public class RoomDataDto {
     private String country;
     private Viewer viewer;
     private double hostDailyGems;
+
+    // for end stream
+    private long totalViewerCount;
 }

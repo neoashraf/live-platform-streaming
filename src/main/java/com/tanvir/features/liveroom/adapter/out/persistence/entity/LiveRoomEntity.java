@@ -38,6 +38,7 @@ public class LiveRoomEntity implements Persistable<String> {
     private List<String> kickedOutUserIds;
     private List<String> viewerIds;
     private long viewerCount;
+    private long totalViewerCount;
     private double hostDailyGems;
     private long durationInSeconds;
 
