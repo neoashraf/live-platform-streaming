@@ -257,7 +257,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .liveSession(requestDto.getLiveSession())
                             .liveRoomId(requestDto.getLiveRoomId())
                             .transactionDate(LocalDateTime.now().toLocalDate().toString())
-                            .createdOn(LocalDateTime.now(ZoneOffset.UTC))
+                            .createdOn(LocalDateTime.now())
                             .senderReceiverDto(giftTransaction.getSenderReceiverDto())
                             .gift(giftTransaction.getGift())
                             .agencyId(giftTransaction.getAgencyId())
@@ -274,7 +274,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .liveSession(requestDto.getLiveSession())
                 .liveRoomId(requestDto.getLiveRoomId())
                 .transactionDate(LocalDateTime.now().toLocalDate().toString())
-                .createdOn(LocalDateTime.now(ZoneOffset.UTC))
+                .createdOn(LocalDateTime.now())
                 .senderReceiverDto(giftTransaction.getSenderReceiverDto())
                 .gift(giftTransaction.getGift())
                 .build());
@@ -338,6 +338,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         dataDto.setSenderId(giftTransaction.getSenderId());
         dataDto.setQuantity(giftTransaction.getQuantity());
         dataDto.setSentOn(giftTransaction.getCreatedOn().toInstant(ZoneOffset.UTC).toString());
+        dataDto.setSenderLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel());
 
         return SendGiftResponseDto
                 .builder()

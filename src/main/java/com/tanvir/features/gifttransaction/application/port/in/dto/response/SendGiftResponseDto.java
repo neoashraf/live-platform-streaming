@@ -23,6 +23,7 @@ public class SendGiftResponseDto {
         private String giftId;
         private String recipientId;
         private String senderId;
+        private int senderLevel;
         private int quantity;
         private String sentOn;
     }
