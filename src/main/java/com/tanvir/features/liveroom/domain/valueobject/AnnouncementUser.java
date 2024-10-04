@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class AnnouncementUser {
     private String userId;
+    private String maxId;
     private String name;
     private String levelUrl;
 }

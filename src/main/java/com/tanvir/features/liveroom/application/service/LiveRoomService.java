@@ -472,6 +472,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
                         return Mono.just(Tuples.of(announcement, user));
                     }
+
                     return Mono.just(Tuples.of(announcement, user));
                 })
                 .flatMap(announcementAndUserTuple -> {
@@ -482,6 +483,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 announcement.setMentionedUser(AnnouncementUser
                                         .builder()
                                         .userId(user.getId())
+                                        .maxId(user.getMaxId())
                                         .name(user.getDisplayName())
                                         .levelUrl(level.getLevelBadgeUrl())
                                         .build());
@@ -511,6 +513,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                     announcement.setPublisher(AnnouncementUser
                             .builder()
                             .userId(host.getId())
+                            .maxId(host.getMaxId())
                             .name(host.getDisplayName())
                             .levelUrl(hostAndViewerLevelUrl.getT1())
                             .build());
@@ -518,6 +521,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                     announcement.setMentionedUser(AnnouncementUser
                             .builder()
                             .userId(viewer.getId())
+                            .maxId(viewer.getMaxId())
                             .name(viewer.getDisplayName())
                             .levelUrl(hostAndViewerLevelUrl.getT2())
                             .build());

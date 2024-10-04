@@ -313,6 +313,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                     .builder()
                                     .userId(giftTransaction.getSenderReceiverDto().getSender().getId())
                                     .name(giftTransaction.getSenderReceiverDto().getSender().getDisplayName())
+                                    .maxId(giftTransaction.getSenderReceiverDto().getSender().getMaxId())
                                     .levelUrl(level.getLevelBadgeUrl())
                                     .build())
                             .gift(Announcement.Gift
