@@ -17,6 +17,7 @@ import java.util.List;
 public class LiveRoomResponse {
     private String id;
     private String hostMaxId;
+    private String userId;
     private String thumbnailId;
     private String thumbnailUrl;
     private String title;
