@@ -1,5 +1,6 @@
 package com.tanvir.features.liveroom.adapter.in.web.handler;
 
+import com.tanvir.core.util.enums.AgoraTokenTypeEnum;
 import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.GridViewRequestDto;
@@ -43,12 +44,12 @@ public class LiveRoomHandler {
         log.info("Joining stream");
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
         String id = serverRequest.pathVariable("id");
-        String tokenType = serverRequest.queryParam(QueryParams.TOKEN_TYPE.getValue()).orElseThrow(() -> new IllegalArgumentException("Token type is required"));
+//        String tokenType = serverRequest.queryParam(QueryParams.TOKEN_TYPE.getValue()).orElseThrow(() -> new IllegalArgumentException("Token type is required"));
         return liveRoomUseCase.joinStream(LiveRoomViewerRequestDto
                         .builder()
                         .liveRoomId(id)
                         .keycloakId(keycloakId)
-                        .tokenType(tokenType)
+                        .tokenType(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())
                         .build())
                 .flatMap(dto -> ServerResponse
                         .ok()

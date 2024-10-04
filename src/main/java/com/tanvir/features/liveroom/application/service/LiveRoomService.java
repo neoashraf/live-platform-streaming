@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
@@ -274,10 +275,12 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> port.saveLiveRoom(liveRoom)
                         .thenReturn(liveRoom))
                 .flatMap(this::buildJoinAnnouncement)
-                .flatMap(liveRoom -> cachePort.update(liveRoom)
+                .doOnNext(liveRoom -> cachePort.update(liveRoom)
                         .doOnRequest(liveRoomEntity -> log.info("Requesting to update LiveRoom into firebase"))
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
                 .flatMap(liveRoom -> this.buildJoinStreamResponseDto(liveRoomViewerRequestDto, liveRoom, "User has successfully joined the room."))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
 

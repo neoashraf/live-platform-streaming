@@ -58,7 +58,7 @@ public class FirebaseAdapter implements CachePort {
 
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
-                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
                     currentViewersInFirebase.add(liveRoom.getViewer());
@@ -81,7 +81,7 @@ public class FirebaseAdapter implements CachePort {
                     return firebaseEntity;
 
                 })
-                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
@@ -90,7 +90,7 @@ public class FirebaseAdapter implements CachePort {
     public Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
-                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
                     currentViewersInFirebase.remove(liveRoom.getViewer());
@@ -113,7 +113,7 @@ public class FirebaseAdapter implements CachePort {
                     return firebaseEntity;
 
                 })
-                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
@@ -122,7 +122,7 @@ public class FirebaseAdapter implements CachePort {
     public Mono<LiveRoom> updateForViewerKick(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
-                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     // remove viewer from viewers list
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
@@ -147,7 +147,7 @@ public class FirebaseAdapter implements CachePort {
                     return firebaseEntity;
 
                 })
-                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
@@ -156,7 +156,7 @@ public class FirebaseAdapter implements CachePort {
     public Mono<LiveRoom> updateForComment(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
-                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
 
                     // add announcement to announcements list
@@ -170,7 +170,7 @@ public class FirebaseAdapter implements CachePort {
 
                     return firebaseEntity;
                 })
-                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
@@ -179,7 +179,7 @@ public class FirebaseAdapter implements CachePort {
     public Mono<LiveRoom> updateForGift(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
-                .doOnNext(firebaseEntity -> log.info("Firebase entity received"))
+                .doOnNext(firebaseEntity -> log.debug("Firebase entity received"))
                 .map(firebaseEntity -> {
 
                     // add announcement to announcements list
