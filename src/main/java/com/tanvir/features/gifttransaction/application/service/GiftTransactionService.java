@@ -39,6 +39,7 @@ import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.List;
 
@@ -338,6 +339,11 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         dataDto.setSenderId(giftTransaction.getSenderId());
         dataDto.setQuantity(giftTransaction.getQuantity());
         dataDto.setSentOn(giftTransaction.getCreatedOn().toInstant(ZoneOffset.UTC).toString());
+//        dataDto.setSentOn(giftTransaction.getCreatedOn().toString());
+        /*dataDto.setSentOn(giftTransaction.getCreatedOn()
+                .atOffset(ZoneOffset.ofHours(6)) // Attach the UTC+6 offset without adjusting the actual time
+                .toString());*/
+
         dataDto.setSenderLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel());
 
         return SendGiftResponseDto
