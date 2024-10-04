@@ -7,6 +7,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Service
 @Slf4j
 public class LevelService implements LevelUseCase {
@@ -23,5 +25,11 @@ public class LevelService implements LevelUseCase {
                 .doOnRequest(l -> log.info("Fetching level from mongo for level: {}", level))
                 .doOnSuccess(level1 -> log.info("Successfully fetched level from mongo: {}", level1))
                 .doOnError(err -> log.error("Error while fetching level from mongo: {}", err.getMessage()));
+    }
+
+    @Override
+    public Mono<List<Level>> getAllLevels() {
+        return port.getAllLevels()
+                .collectList();
     }
 }

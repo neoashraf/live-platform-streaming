@@ -356,9 +356,15 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         sender.setBeansGifted(sender.getBeansGifted() + giftTransaction.getBeans());
         sender.setSender(true);
 
-        return userUseCase.updateUser(sender)
+        return levelUseCase.getAllLevels()
+                .flatMap(levels -> {
+                    double beansGifted = sender.getBeansGifted();
+                    int level = CommonBusiness.calculateLevel(beansGifted, levels);
+                    sender.setUserLevel(level);
+                    return userUseCase.updateUser(sender);
+                })
                 .doOnError(throwable -> log.error("Error while updating sender user"))
-                .then(userUseCase.updateUser(receiver))
+                .flatMap(user -> userUseCase.updateUser(receiver))
                 .doOnError(throwable -> log.error("Error while updating receiver user"))
                 .thenReturn(giftTransaction);
     }

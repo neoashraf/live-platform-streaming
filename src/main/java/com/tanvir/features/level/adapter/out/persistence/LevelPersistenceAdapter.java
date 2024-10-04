@@ -6,6 +6,7 @@ import com.tanvir.features.level.domain.Level;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Component
@@ -26,5 +27,14 @@ public class LevelPersistenceAdapter implements LevelPersistencePort {
                 .doOnRequest(l -> log.info("Fetching level from mongo for level: {}", level))
                 .doOnSuccess(level1 -> log.info("Successfully fetched level from mongo: {}", level1))
                 .doOnError(err -> log.error("Error while fetching level from mongo: {}", err.getMessage()));
+    }
+
+    @Override
+    public Flux<Level> getAllLevels() {
+        return repository.findAll()
+                .map(levelEntity -> modelMapper.map(levelEntity, Level.class))
+                .doOnRequest(l -> log.info("Fetching all levels from mongo"))
+                .doOnComplete(() -> log.info("Successfully fetched all levels from mongo"))
+                .doOnError(err -> log.error("Error while fetching all levels from mongo: {}", err.getMessage()));
     }
 }

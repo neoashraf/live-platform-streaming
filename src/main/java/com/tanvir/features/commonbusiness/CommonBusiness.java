@@ -1,8 +1,13 @@
 package com.tanvir.features.commonbusiness;
 
 import com.tanvir.core.util.enums.AnnouncementEnum;
+import com.tanvir.features.level.domain.Level;
+import org.bson.internal.BsonUtil;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 
 public class CommonBusiness {
@@ -62,6 +67,26 @@ public class CommonBusiness {
 
         // Return the plain string format of the BigDecimal
         return new BigDecimal(bigDecimalValue.toPlainString());
+    }
+
+    public static Integer calculateLevel(Double beans, List<Level> levelList) {
+        List<Level> sortedLevels = new ArrayList<>(levelList);
+        sortedLevels.sort(Comparator.comparing(Level::getNextLevelExpTargetValue));
+
+        int currentLevel = 0;
+
+        for (Level level : levelList) {
+            if (beans < level.getNextLevelExpTargetValue()) {
+                currentLevel = level.getLevel();
+                break;
+            }
+        }
+
+        if (beans >= sortedLevels.get(sortedLevels.size() - 1).getNextLevelExpTargetValue()) {
+            return sortedLevels.get(sortedLevels.size() - 1).getLevel();
+        }
+
+        return currentLevel;
     }
 
 
