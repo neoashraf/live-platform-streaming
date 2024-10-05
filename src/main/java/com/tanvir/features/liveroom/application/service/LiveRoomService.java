@@ -413,6 +413,18 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .build());
     }
 
+    private Mono<StreamResponseDto> buildEnableJoinResponseDTO(LiveRoom liveRoom, String message) {
+        RoomDataDto roomDataDto = new RoomDataDto();
+        roomDataDto.setId(liveRoom.getId());
+        roomDataDto.setEnableJoin(liveRoom.getEnableJoin());
+        return Mono.just(StreamResponseDto
+                .builder()
+                .message(message)
+                .data(roomDataDto)
+                .count(1)
+                .build());
+    }
+
     private Mono<StreamResponseDto> buildKickViewerStreamResponseDto(LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
@@ -751,6 +763,32 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<LiveRoom> updateLiveRoom(LiveRoom liveRoom) {
         return port.saveLiveRoom(liveRoom);
+    }
+
+    @Override
+    public Mono<StreamResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO) {
+        return port.getLiveRoomById(requestDTO.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,"LiveRoom does not exist by the given id")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDTO.getKeycloakId())
+                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                            .map(User::getId)
+                            .filter(userId -> liveRoom.getUserId().equals(userId))
+                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"User must be the host of the LiveRoom to set the permission")))
+                        .thenReturn(liveRoom))
+                .flatMap(liveRoom -> {
+                    List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
+
+                    if (!validTypes.contains(requestDTO.getEnableJoin())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
+                    }
+                    liveRoom.setEnableJoin(requestDTO.getEnableJoin());
+                    return port.saveLiveRoom(liveRoom);
+                })
+                .flatMap(cachePort::updateForJoinPermission)
+                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom,"Permission set successfully"))
+                .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
 
     private Mono<LiveRoomResponse> updateFanAndHostBeansCountGemsCountLevelPercentage(Tuple3<LiveRoom, User, MetaProperty> tuple, SendGiftRequestDto requestDto) {

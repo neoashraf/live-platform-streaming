@@ -3,10 +3,7 @@ package com.tanvir.features.liveroom.adapter.in.web.handler;
 import com.tanvir.core.util.enums.AgoraTokenTypeEnum;
 import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
-import com.tanvir.features.liveroom.application.port.in.dto.request.GridViewRequestDto;
-import com.tanvir.features.liveroom.application.port.in.dto.request.KickOutUserRequestDto;
-import com.tanvir.features.liveroom.application.port.in.dto.request.LiveRoomViewerRequestDto;
-import com.tanvir.features.liveroom.application.port.in.dto.request.LiveRoomRequestDto;
+import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -148,4 +145,24 @@ public class LiveRoomHandler {
                 .pageable(pageable)
                 .build();
     }
+
+    public Mono<ServerResponse> setJoinPermission(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
+        String liveRoomId = serverRequest.pathVariable("id");
+
+        return serverRequest
+                .bodyToMono(JoinPermissionRequestDTO.class)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    requestDto.setLiveRoomId(liveRoomId);
+                    return requestDto;
+                })
+                .flatMap(liveRoomUseCase::setJoinPermission)
+                .flatMap(dto -> ServerResponse
+                        .created(serverRequest.uri())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                ;
+    }
+
 }

@@ -20,4 +20,5 @@ public interface LiveRoomUseCase {
     Mono<LiveRoom> getLiveRoomById(String id);
 
     Mono<LiveRoom> updateLiveRoom(LiveRoom liveRoom);
+    Mono<StreamResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO);
 }

@@ -42,4 +42,6 @@ public class RoomDataDto {
 
     // for end stream
     private long totalViewerCount;
+
+    private String enableJoin;
 }
