@@ -702,9 +702,17 @@ public class LiveRoomService implements LiveRoomUseCase {
     public Mono<StreamResponseDto> comment(LiveRoomViewerRequestDto requestDto) {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
+                .map(liveRoom -> {
+                    List<String> viewerIdList = liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().isEmpty()
+                            ? liveRoom.getViewerIds()
+                            : new ArrayList<>();
+
+                    liveRoom.setViewerIds(viewerIdList);
+                    return liveRoom;
+                })
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User not found!")))
-                        .filter(user -> liveRoom.getViewerIds().contains(user.getId()))
+                        .filter(user -> liveRoom.getViewerIds().contains(user.getId()) || liveRoom.getUserId().equals(user.getId()))
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom. Cannot comment.")))
                         .flatMap(user -> levelUseCase.getLevelDomainByLevel(user.getUserLevel())
                             .map(level -> {
@@ -725,10 +733,11 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 liveRoom.setAnnouncement(announcement);
                                 return liveRoom;
                             })))
-                .flatMap(liveRoom1 -> cachePort.updateForComment(liveRoom1)
+                .doOnNext(liveRoom1 -> cachePort.updateForComment(liveRoom1)
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                        .thenReturn(liveRoom1))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
                 .flatMap(liveRoom1 -> this.buildCommentStreamResponseDto(liveRoom1, "Comment posted successfully."))
                 .as(rxtx::transactional);
 
