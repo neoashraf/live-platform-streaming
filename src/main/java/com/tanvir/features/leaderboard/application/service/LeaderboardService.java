@@ -153,8 +153,15 @@ public class LeaderboardService implements LeaderboardUseCase {
                     // Fetch user details based on the extracted userIdList
                     return userUseCase.getUsersByIds(userIdList)
                             .doOnError(throwable -> log.error("Error while fetching users by ids: {}", throwable.getMessage()))
-                            .map(stringUserMap -> {
-                                // Create a list of GiftSummaryUser objects
+                            .flatMap(stringUserMap -> {
+                                        List<Integer> levels = stringUserMap.values().stream().map(User::getUserLevel).toList();
+                                        return levelUseCase.getLevelDomains(levels)
+                                                .collect(Collectors.toMap(Level::getLevel, level -> level))
+                                                .map(integerLevelMap -> Tuples.of(stringUserMap, integerLevelMap));
+                                    })
+                            .map(tuple2 -> {
+                                Map<String, User> stringUserMap = tuple2.getT1();
+                                Map<Integer, Level> integerLevelMap = tuple2.getT2();
                                 List<GiftSummaryUser> summaryUserList = new ArrayList<>();
 
                                 userIdList.forEach(userId -> {
@@ -162,21 +169,25 @@ public class LeaderboardService implements LeaderboardUseCase {
 
                                     // Fetch user details from the stringUserMap
                                     User user = stringUserMap.get(userId);
+                                    Level userLevel = integerLevelMap.get(user.getUserLevel());
+                                    ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(
+                                            userLevel.getResourceFormats(),
+                                            ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
 
-                                    if (user != null) {
-                                        giftSummaryUser.setUserId(userId);
-                                        giftSummaryUser.setDisplayName(user.getDisplayName());
-                                        giftSummaryUser.setProfileImageUrl(user.getProfileImageUrl());
-                                        giftSummaryUser.setUserLevel(user.getUserLevel());
-                                        giftSummaryUser.setBeansReceived(userIdToBeansMap.get(userId));  // Set the total beans
-                                    }
+                                    giftSummaryUser.setUserId(userId);
+                                    giftSummaryUser.setDisplayName(user.getDisplayName());
+                                    giftSummaryUser.setProfileImageUrl(user.getProfileImageUrl());
+                                    giftSummaryUser.setUserLevel(user.getUserLevel());
+                                    giftSummaryUser.setLevelUrl(levelResource.getResourceUrl());
+                                    giftSummaryUser.setProfileFrameUrl(user.getProfileFrameUrl());
+                                    giftSummaryUser.setBeansReceived(userIdToBeansMap.get(userId));  // Set the total beans
 
                                     summaryUserList.add(giftSummaryUser);
                                 });
 
                                 // Return the list of GiftSummaryUsers
                                 return summaryUserList;
-                            });
+                                });
                 })
                 .map(summaryUserList -> {
                     // Create the LeaderBoardResponseDto
