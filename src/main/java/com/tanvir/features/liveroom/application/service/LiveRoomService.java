@@ -786,7 +786,11 @@ public class LiveRoomService implements LiveRoomUseCase {
                     liveRoom.setEnableJoin(requestDTO.getEnableJoin());
                     return port.saveLiveRoom(liveRoom);
                 })
-                .flatMap(cachePort::updateForJoinPermission)
+                .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
                 .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom,"Permission set successfully"))
                 .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
