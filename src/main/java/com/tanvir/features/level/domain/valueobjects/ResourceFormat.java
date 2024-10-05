@@ -1,6 +1,7 @@
-package com.tanvir.features.gift.domain.valueobjects;
+package com.tanvir.features.level.domain.valueobjects;
 
 import com.tanvir.core.util.CommonFunctions;
+import com.tanvir.features.gift.domain.valueobjects.MetaData;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

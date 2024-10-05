@@ -5,6 +5,7 @@ import com.tanvir.features.level.application.port.out.LevelPersistencePort;
 import com.tanvir.features.level.domain.Level;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -31,5 +32,13 @@ public class LevelService implements LevelUseCase {
     public Mono<List<Level>> getAllLevels() {
         return port.getAllLevels()
                 .collectList();
+    }
+
+    @Override
+    public Flux<Level> getLevelDomains(List<Integer> levels) {
+        return port.getLevelDomains(levels)
+                .doOnRequest(l -> log.info("Fetching levels from mongo for levels: {}", levels))
+                .doOnComplete(() -> log.info("Successfully fetched levels from mongo"))
+                .doOnError(err -> log.error("Error while fetching levels from mongo: {}", err.getMessage()));
     }
 }

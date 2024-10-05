@@ -2,6 +2,7 @@ package com.tanvir.features.commonbusiness;
 
 import com.tanvir.core.util.enums.AnnouncementEnum;
 import com.tanvir.features.level.domain.Level;
+import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import org.bson.internal.BsonUtil;
 
 import java.math.BigDecimal;
@@ -87,6 +88,16 @@ public class CommonBusiness {
         }
 
         return currentLevel;
+    }
+
+
+    public static ResourceFormat getResourceFormatByResourceType(List<ResourceFormat> resourceFormats, String resourceType) {
+        for (ResourceFormat resourceFormat : resourceFormats) {
+            if (resourceFormat.getResourceType().equals(resourceType)) {
+                return resourceFormat;
+            }
+        }
+        return ResourceFormat.builder().build();
     }
 
 

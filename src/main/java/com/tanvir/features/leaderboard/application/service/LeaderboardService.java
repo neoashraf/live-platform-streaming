@@ -1,7 +1,9 @@
 package com.tanvir.features.leaderboard.application.service;
 
+import com.tanvir.core.util.enums.ResourceTypeEnum;
 import com.tanvir.features.agency.AgencyEntity;
 import com.tanvir.features.agency.AgencyService;
+import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
 import com.tanvir.features.giftsummary.domain.GiftSummary;
 import com.tanvir.features.leaderboard.application.port.in.LeaderboardUseCase;
@@ -10,12 +12,16 @@ import com.tanvir.features.leaderboard.application.port.in.dto.response.LeaderBo
 import com.tanvir.features.leaderboard.domain.GiftSummaryUser;
 import com.tanvir.features.leaderboard.domain.Leaderboard;
 import com.tanvir.features.leaderboard.domain.UserBeanSummary;
+import com.tanvir.features.level.application.port.in.LevelUseCase;
+import com.tanvir.features.level.domain.Level;
+import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.user.application.port.in.UserUseCase;
 import com.tanvir.features.user.domain.User;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuples;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,11 +33,13 @@ public class LeaderboardService implements LeaderboardUseCase {
     private final GiftSummaryUseCase giftSummaryUseCase;
     private final UserUseCase userUseCase;
     private final AgencyService agencyService;
+    private final LevelUseCase levelUseCase;
 
-    public LeaderboardService(GiftSummaryUseCase giftSummaryUseCase, UserUseCase userUseCase, AgencyService agencyService) {
+    public LeaderboardService(GiftSummaryUseCase giftSummaryUseCase, UserUseCase userUseCase, AgencyService agencyService, LevelUseCase levelUseCase) {
         this.giftSummaryUseCase = giftSummaryUseCase;
         this.userUseCase = userUseCase;
         this.agencyService = agencyService;
+        this.levelUseCase = levelUseCase;
     }
 
     @Override
@@ -67,31 +75,45 @@ public class LeaderboardService implements LeaderboardUseCase {
                             .map(Map.Entry::getKey)
                             .toList();
 
+
                     // Fetch user details using userUseCase.getUsersByIds(userIdList) and return combined result
                     return userUseCase.getUsersByIds(userIdList)
                             .doOnError(throwable -> log.error("Error while fetching users by ids: {}", throwable.getMessage()))
-                            .map(stringUserMap -> {
-                                List<GiftSummaryUser> summaryUserList = new ArrayList<>();
+                            .flatMap(stringUserMap -> {
+                                List<Integer> levels = stringUserMap.values().stream().map(User::getUserLevel).toList();
+                                return levelUseCase.getLevelDomains(levels)
+                                        .collect(Collectors.toMap(Level::getLevel, level -> level))
+                                        .map(integerLevelMap -> Tuples.of(stringUserMap, integerLevelMap));
+                })
+                .map(tuple2 -> {
+                    Map<String, User> stringUserMap = tuple2.getT1();
+                    Map<Integer, Level> integerLevelMap = tuple2.getT2();
+                    List<GiftSummaryUser> summaryUserList = new ArrayList<>();
 
-                                limitedList.forEach(entry -> {
-                                    GiftSummaryUser giftSummaryUser = new GiftSummaryUser();
+                    limitedList.forEach(entry -> {
+                        GiftSummaryUser giftSummaryUser = new GiftSummaryUser();
 
-                                    // Fetch user details from the stringUserMap using the entry's key (userId)
-                                    String userId = entry.getKey();
-                                    User user = stringUserMap.get(userId);
+                        // Fetch user details from the stringUserMap using the entry's key (userId)
+                        String userId = entry.getKey();
+                        User user = stringUserMap.get(userId);
+                        Level userLevel = integerLevelMap.get(user.getUserLevel());
+                        log.info("User level: {}", userLevel);
+                        ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(
+                                userLevel.getResourceFormats(),
+                                ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
 
-                                    if (user != null) {
-                                        giftSummaryUser.setUserId(userId);
-                                        giftSummaryUser.setDisplayName(user.getDisplayName());
-                                        giftSummaryUser.setProfileImageUrl(user.getProfileImageUrl());
-                                        giftSummaryUser.setUserLevel(user.getUserLevel());
-                                        giftSummaryUser.setBeansSent(entry.getValue()); // Correctly set the beansSent value from the entry's value
-                                    }
+                        giftSummaryUser.setUserId(userId);
+                        giftSummaryUser.setDisplayName(user.getDisplayName());
+                        giftSummaryUser.setProfileImageUrl(user.getProfileImageUrl());
+                        giftSummaryUser.setUserLevel(user.getUserLevel());
+                        giftSummaryUser.setLevelUrl(levelResource.getResourceUrl());
+                        giftSummaryUser.setProfileFrameUrl(user.getProfileFrameUrl());
+                        giftSummaryUser.setBeansSent(entry.getValue()); // Correctly set the beansSent value from the entry's value
 
-                                    summaryUserList.add(giftSummaryUser);
-                                });
-                                return summaryUserList;
-                            });
+                        summaryUserList.add(giftSummaryUser);
+                    });
+                    return summaryUserList;
+                });
                 })
                 .zipWith(giftSummaryUseCase
                         .getTotalGiftAmountByUserIdAndDate(requestDto.getUserId(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore())

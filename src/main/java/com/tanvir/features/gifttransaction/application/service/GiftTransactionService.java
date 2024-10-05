@@ -1,14 +1,11 @@
 package com.tanvir.features.gifttransaction.application.service;
 
 import com.google.gson.Gson;
-import com.tanvir.core.util.enums.AnnouncementEnum;
-import com.tanvir.core.util.enums.Constants;
-import com.tanvir.core.util.enums.TransactionTypeEnum;
-import com.tanvir.core.util.enums.UserTypeEnum;
+import com.tanvir.core.util.enums.*;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.gift.application.port.in.GiftUseCase;
-import com.tanvir.features.gift.domain.valueobjects.ResourceFormat;
+import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
 import com.tanvir.features.gifttransaction.application.port.in.GiftTransactionUseCase;
 import com.tanvir.features.gifttransaction.application.port.in.dto.request.GiftTransactionRequestDto;
@@ -300,10 +297,13 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     private Mono<Announcement> buildGiftAnnouncement(GiftTransaction giftTransaction) {
         return levelUseCase.getLevelDomainByLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel())
                 .map(level -> {
-                    List<String> imageUrlList = giftTransaction.getGift().getResourceFormats()
+                   /* List<String> imageUrlList = giftTransaction.getGift().getResourceFormats()
                             .stream()
                             .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
-                            .map(ResourceFormat::getThumbnailUrl).toList();
+                            .map(ResourceFormat::getThumbnailUrl).toList();*/
+
+                    ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(giftTransaction.getGift().getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                    ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
                     Announcement announcement = Announcement
                             .builder()
                             .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue())
@@ -314,7 +314,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                     .userId(giftTransaction.getSenderReceiverDto().getSender().getId())
                                     .name(giftTransaction.getSenderReceiverDto().getSender().getDisplayName())
                                     .maxId(giftTransaction.getSenderReceiverDto().getSender().getMaxId())
-                                    .levelUrl(level.getLevelBadgeUrl())
+                                    .levelUrl(levelResource.getResourceUrl())
                                     .build())
                             .gift(Announcement.Gift
                                     .builder()
@@ -322,7 +322,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                     .resource(Announcement.Resource
                                             .builder()
                                             .name(giftTransaction.getGift().getName())
-                                            .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
+//                                            .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
+                                            .imageUrl(imageResource.getThumbnailUrl())
                                             .build())
                                     .build())
                             .build();

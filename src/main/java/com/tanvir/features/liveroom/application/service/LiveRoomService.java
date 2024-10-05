@@ -6,7 +6,7 @@ import com.tanvir.features.agora.service.AgoraService;
 import com.tanvir.features.agora.service.AgoraTokenRequestDto;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.content.application.port.in.ContentUseCase;
-import com.tanvir.features.gift.domain.valueobjects.ResourceFormat;
+import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
@@ -497,12 +497,14 @@ public class LiveRoomService implements LiveRoomUseCase {
                     User user = announcementAndUserTuple.getT2();
                     return levelUseCase.getLevelDomainByLevel(liveRoom.getViewer().getUserLevel())
                             .map(level -> {
+                                ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
                                 announcement.setMentionedUser(AnnouncementUser
                                         .builder()
                                         .userId(user.getId())
                                         .maxId(user.getMaxId())
                                         .name(user.getDisplayName())
-                                        .levelUrl(level.getLevelBadgeUrl())
+//                                        .levelUrl(level.getLevelBadgeUrl())
+                                        .levelUrl(imageResource.getResourceUrl())
                                         .build());
                                 return announcement;
                             });
@@ -523,9 +525,15 @@ public class LiveRoomService implements LiveRoomUseCase {
 
         return levelUseCase
                 .getLevelDomainByLevel(host.getUserLevel())
-                .map(Level::getLevelBadgeUrl)
+                .map(level -> {
+                    ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                    return imageResource.getResourceUrl();
+                })
                 .zipWith(levelUseCase.getLevelDomainByLevel(viewer.getUserLevel())
-                        .map(Level::getLevelBadgeUrl))
+                        .map(level -> {
+                            ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                            return imageResource.getResourceUrl();
+                        }))
                 .map(hostAndViewerLevelUrl -> {
                     announcement.setPublisher(AnnouncementUser
                             .builder()
@@ -728,6 +736,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom. Cannot comment.")))
                         .flatMap(user -> levelUseCase.getLevelDomainByLevel(user.getUserLevel())
                             .map(level -> {
+                                ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
                                 Announcement announcement = Announcement
                                     .builder()
                                     .announcementId(UUID.randomUUID().toString())
@@ -738,7 +747,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                             .builder()
                                             .userId(user.getId())
                                             .name(user.getDisplayName())
-                                            .levelUrl(level.getLevelBadgeUrl())
+//                                            .levelUrl(level.getLevelBadgeUrl())
+                                            .levelUrl(imageResource.getResourceUrl())
                                             .build())
                                     .build();
 

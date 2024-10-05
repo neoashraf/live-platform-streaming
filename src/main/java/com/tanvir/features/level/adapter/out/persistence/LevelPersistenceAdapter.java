@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 @Component
 @Slf4j
 public class LevelPersistenceAdapter implements LevelPersistencePort {
@@ -36,5 +38,11 @@ public class LevelPersistenceAdapter implements LevelPersistencePort {
                 .doOnRequest(l -> log.info("Fetching all levels from mongo"))
                 .doOnComplete(() -> log.info("Successfully fetched all levels from mongo"))
                 .doOnError(err -> log.error("Error while fetching all levels from mongo: {}", err.getMessage()));
+    }
+
+    @Override
+    public Flux<Level> getLevelDomains(List<Integer> levels) {
+        return repository.findByLevelIn(levels)
+                .map(levelEntity -> modelMapper.map(levelEntity, Level.class));
     }
 }
