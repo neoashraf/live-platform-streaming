@@ -42,7 +42,7 @@ public class LiveRoom {
     private Announcement announcement;
     private long durationInSeconds;
     private DailyStarProgress dailyStarProgress;
-
+    private String enableJoin;
 
     @Override
     public String toString() {

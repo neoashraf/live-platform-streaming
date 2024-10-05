@@ -41,7 +41,7 @@ public class LiveRoomEntity implements Persistable<String> {
     private long totalViewerCount;
     private double hostDailyGems;
     private long durationInSeconds;
-
+    private String enableJoin;
 
 
     @Override

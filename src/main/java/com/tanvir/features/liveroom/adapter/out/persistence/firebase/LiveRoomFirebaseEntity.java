@@ -29,6 +29,7 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private long viewerCount;
     private List<Announcement> announcements;
     private DailyStarProgress dailyStarProgress;
+    private String enableJoin;
 //    private int elapsedSeconds;
 //    private String formattedTime;
 }

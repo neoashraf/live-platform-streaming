@@ -50,6 +50,11 @@ public class LiveRoomRouter {
                                         nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(ID).concat(COMMENT), handler::comment)
                                 )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
+                                                .POST(LIVE_ROOMS.concat(ID).concat(SET_JOIN_PERMISSION), handler::setJoinPermission)
+                                )
+
                 )
                 .build();
     }
