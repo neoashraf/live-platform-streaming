@@ -367,7 +367,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         User receiver = giftTransaction.getSenderReceiverDto().getReceiver();
 
         sender.setBeans(sender.getBeans() - giftTransaction.getBeans());
-        receiver.setBeans(receiver.getBeans() + giftTransaction.getBeans());
+//        receiver.setBeans(receiver.getBeans() + giftTransaction.getBeans());
+        receiver.setGems(receiver.getGems() + giftTransaction.getBeans());
         sender.setBeansGifted(sender.getBeansGifted() + giftTransaction.getBeans());
         sender.setSender(true);
 

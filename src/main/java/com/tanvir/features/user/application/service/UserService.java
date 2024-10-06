@@ -143,7 +143,10 @@ public class UserService implements UserUseCase {
                     if (user.isSender()) {
                         user1.setBeansGifted(user.getBeansGifted());
                         user1.setUserLevel(user.getUserLevel());
+                    } else {
+                        user1.setGems(user.getGems());
                     }
+
                     user1.setUpdatedOn(LocalDateTime.now());
                     return user1;
                 })
@@ -160,7 +163,10 @@ public class UserService implements UserUseCase {
                                         if (user.isSender()) {
                                             maxUserEntity.setBeansGifted(user.getBeansGifted());
                                             maxUserEntity.setUserLevel(user.getUserLevel());
+                                        } else {
+                                            maxUserEntity.setGems(user.getGems());
                                         }
+
                                         maxUserEntity.setUpdatedOn(LocalDateTime.now());
                                         return maxUserPersistencePort.saveMaxUserEntity(maxUserEntity);
                                     })
@@ -175,6 +181,8 @@ public class UserService implements UserUseCase {
                                         if (user.isSender()) {
                                             host.setBeansGifted(user.getBeansGifted());
                                             host.setUserLevel(user.getUserLevel());
+                                        } else {
+                                            host.setGems(user.getGems());
                                         }
                                         host.setUpdatedOn(LocalDateTime.now());
                                         return hostPersistencePort.saveHost(host);
