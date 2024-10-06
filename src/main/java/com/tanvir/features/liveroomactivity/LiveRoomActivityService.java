@@ -16,14 +16,16 @@ public class LiveRoomActivityService {
     private LiveRomActivityRepository liveroomActivityRepository; // Assume this is a reactive MongoDB repository
 
     public Mono<LiveRoomActivityEntity> updateDailyReceivedGems(String userId, Double gemsReceived) {
-        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+//        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
+        LocalDateTime now = LocalDateTime.now();
 //        LocalDateTime now = LocalDateTime.of(2024, 10, 5, 1,0, 1).atZone(ZoneOffset.UTC).toLocalDateTime(); // For testing
 
         return liveroomActivityRepository.findByUserId(userId)
                 .doOnRequest(l -> log.info("Request received to update daily received gems for user : {}", userId))
                 .doOnSuccess(activity -> log.info("Got activity for user : {}", activity))
                 .flatMap(activity -> {
-                    LocalDateTime activityEndTime = activity.getEndTime().atZone(ZoneOffset.UTC).toLocalDateTime(); // Get the stored endTime
+//                    LocalDateTime activityEndTime = activity.getEndTime().atZone(ZoneOffset.UTC).toLocalDateTime(); // Get the stored endTime
+                    LocalDateTime activityEndTime = activity.getEndTime(); // Get the stored endTime
                     log.info("now : {}, activityEndTime : {}", now, activityEndTime);
 
                     // Check if `now` is after the `activityEndTime` (meaning we should reset the gems)
@@ -35,8 +37,8 @@ public class LiveRoomActivityService {
                         activity.setEndTime(
                                 now.toLocalDate().plusDays(1)
                                         .atTime(1, 0)
-                                        .atOffset(ZoneOffset.UTC)
-                                        .toLocalDateTime()
+//                                        .atOffset(ZoneOffset.UTC)
+//                                        .toLocalDateTime()
                         );
                         log.info("New endTime set for user: {} is {}", userId, activity.getEndTime());
 
@@ -57,11 +59,19 @@ public class LiveRoomActivityService {
                     LiveRoomActivityEntity newActivity = new LiveRoomActivityEntity();
                     newActivity.setUserId(userId);
                     newActivity.setDailyReceivedGems(gemsReceived);
-                    newActivity.setEndTime(
+                    /*newActivity.setEndTime(
                             now.toLocalDate().plusDays(1)
                                     .atTime(1, 0)
-                                    .atOffset(ZoneOffset.UTC)
-                                    .toLocalDateTime()
+//                                    .atOffset(ZoneOffset.UTC)
+//                                    .toLocalDateTime()
+                    );*/
+                    newActivity.setEndTime(
+                            now.plusDays(1)
+                                    .withHour(1)
+                                    .withMinute(0)
+                                    .withSecond(0)
+                                    .withNano(0)
+                                    .atOffset(ZoneOffset.ofHours(6)).toLocalDateTime()
                     );
                     log.info("New endTime set for new user: {} is {}", userId, newActivity.getEndTime());
 
