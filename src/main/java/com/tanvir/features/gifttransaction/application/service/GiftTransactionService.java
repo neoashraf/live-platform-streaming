@@ -34,6 +34,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -97,8 +98,15 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .doOnError(throwable -> log.error("Error while updating gift summary"))
                 .flatMap(this::calculateHostDailyStarProgress)
                 .doOnError(throwable -> log.error("Error while calculating host daily star progress"))
-                .flatMap(this::announceToFirebaseIfLiveSession)
+                .doOnNext(giftTransaction1 -> announceToFirebaseIfLiveSession(giftTransaction1)
+                        .subscribeOn(Schedulers.boundedElastic()).subscribe())
                 .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
+                .doOnNext(giftTransaction -> log.info("sender level : {}", giftTransaction.getSenderReceiverDto().getSender().getUserLevel()))
+                .flatMap(giftTransaction -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getSender())
+                            .doOnError(throwable -> log.error("Error while updating sender user"))
+                            .flatMap(user -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getReceiver()))
+                            .doOnError(throwable -> log.error("Error while updating receiver user"))
+                            .thenReturn(giftTransaction))
                 .map(giftTransaction -> this.buildSendGiftResponseDto(giftTransaction, "Gift sent successfully"))
                 .as(transactionalOperator::transactional);
     }
@@ -364,16 +372,17 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         sender.setSender(true);
 
         return levelUseCase.getAllLevels()
-                .flatMap(levels -> {
+                .map(levels -> {
                     double beansGifted = sender.getBeansGifted();
                     int level = CommonBusiness.calculateLevel(beansGifted, levels);
                     sender.setUserLevel(level);
-                    return userUseCase.updateUser(sender);
-                })
-                .doOnError(throwable -> log.error("Error while updating sender user"))
+                    /*return userUseCase.updateUser(sender);*/
+                    return giftTransaction;
+                });
+                /*.doOnError(throwable -> log.error("Error while updating sender user"))
                 .flatMap(user -> userUseCase.updateUser(receiver))
                 .doOnError(throwable -> log.error("Error while updating receiver user"))
-                .thenReturn(giftTransaction);
+                .thenReturn(giftTransaction);*/
     }
 
 
