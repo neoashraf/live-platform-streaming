@@ -564,16 +564,17 @@ public class LiveRoomService implements LiveRoomUseCase {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
-                .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot leave.")))
+                /*.filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot leave.")))*/
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
                         .flatMap(user -> this.updateLiveRoomForFanLeave(liveRoom, user)))
                 .doOnNext(liveRoom -> log.info("Updated LiveRoom with fan leave : {}", liveRoom))
                 .flatMap(liveRoom1 -> port.saveLiveRoom(liveRoom1)
                         .thenReturn(liveRoom1))
-                .flatMap(liveRoom -> cachePort.updateForViewerLeave(liveRoom)
+                .doOnNext(liveRoom -> cachePort.updateForViewerLeave(liveRoom)
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic()).subscribe())
                 .flatMap(liveRoom -> this.buildLeaveStreamResponseDto(liveRoom, "User successfully left the live room."))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Leave. Error : {}", throwable.getMessage()));
     }
