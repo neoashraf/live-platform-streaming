@@ -14,6 +14,8 @@ import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,9 +42,19 @@ public class Pojo {
         System.out.println("fruits after remove : " + fruits);*/
 
 //        double value = 5.2E7;
-        double value = 5.2123445;
-        BigDecimal result = convertToPlainBigDecimal(value);
-        System.out.println("Converted value: " + result);  // Output: 52000000
+//        double value = 5.2123445;
+//        BigDecimal result = convertToPlainBigDecimal(value);
+//        System.out.println("Converted value: " + result);  // Output: 52000000
+
+        // Get the current date and time in UTC
+        ZonedDateTime birthday = ZonedDateTime.now(ZoneOffset.UTC);
+
+        // Get the day of the month (UTC)
+        int date1 = birthday.getDayOfMonth();
+
+        // Print the full birthday and the day of the month
+        System.out.println("Birthday (UTC): " + birthday);
+        System.out.println("Day of the month (UTC): " + date1);
 
 
     }

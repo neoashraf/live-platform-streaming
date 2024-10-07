@@ -7,7 +7,9 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
 @Data
 @Builder
@@ -19,8 +21,9 @@ public class LiveRoomActivityEntity {
     private String id;
     private String userId;
     private Double dailyReceivedGems;
-    private LocalDateTime endTime;
+    private Instant endTime;
     private LocalDateTime createdOn;
     private LocalDateTime updatedOn;
     private LocalDateTime resetOn;
+//    private Instant endTimeZoned;
 }

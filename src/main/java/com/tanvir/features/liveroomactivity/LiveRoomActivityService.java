@@ -5,8 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
 
 @Service
 @Slf4j
@@ -16,39 +15,34 @@ public class LiveRoomActivityService {
     private LiveRomActivityRepository liveroomActivityRepository; // Assume this is a reactive MongoDB repository
 
     public Mono<LiveRoomActivityEntity> updateDailyReceivedGems(String userId, Double gemsReceived) {
-//        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
-        LocalDateTime now = LocalDateTime.now();
-//        LocalDateTime now = LocalDateTime.of(2024, 10, 5, 1,0, 1).atZone(ZoneOffset.UTC).toLocalDateTime(); // For testing
+        LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC); // Get current time in UTC
+//        LocalDateTime now = LocalDateTime.of(2024, 10, 7, 0, 59,59).atOffset(ZoneOffset.UTC).toLocalDateTime(); // Test
+        ZonedDateTime zonedDateTime = ZonedDateTime.now(ZoneOffset.UTC);
+        log.info("now : {}, zonedDateTime : {}", now, zonedDateTime);
 
         return liveroomActivityRepository.findByUserId(userId)
                 .doOnRequest(l -> log.info("Request received to update daily received gems for user : {}", userId))
                 .doOnSuccess(activity -> log.info("Got activity for user : {}", activity))
                 .flatMap(activity -> {
-//                    LocalDateTime activityEndTime = activity.getEndTime().atZone(ZoneOffset.UTC).toLocalDateTime(); // Get the stored endTime
-                    LocalDateTime activityEndTime = activity.getEndTime(); // Get the stored endTime
+                    Instant activityEndTime = activity.getEndTime(); // Get the stored endTime in UTC
                     log.info("now : {}, activityEndTime : {}", now, activityEndTime);
 
-                    // Check if `now` is after the `activityEndTime` (meaning we should reset the gems)
-                    if (now.isAfter(activityEndTime)) {
-                        log.info("Resetting dailyReceivedGems for user : {}", userId);
-
-                        // Reset `dailyReceivedGems` and update `endTime` to the next day's 1 AM UTC
-                        activity.setDailyReceivedGems(gemsReceived); // Reset to the current gems received
-                        activity.setEndTime(
-                                now.toLocalDate().plusDays(1)
-                                        .atTime(1, 0)
-//                                        .atOffset(ZoneOffset.UTC)
-//                                        .toLocalDateTime()
-                        );
-                        log.info("New endTime set for user: {} is {}", userId, activity.getEndTime());
-
-                        activity.setUpdatedOn(now);
-                        activity.setResetOn(now);
-                    } else {
-                        // If `now` is not after `endTime`, just update the existing gems
+                    // Check if `now` is before the `activityEndTime` (meaning it's the same day)
+                    if (now.isBefore(activityEndTime.atZone(ZoneOffset.UTC).toLocalDateTime())) {
                         log.info("Updating dailyReceivedGems for the same day for user : {}", userId);
                         activity.setDailyReceivedGems(activity.getDailyReceivedGems() + gemsReceived);
                         activity.setUpdatedOn(now);
+                    } else {
+                        // If `now` is after `endTime`, reset the gems
+                        log.info("Resetting dailyReceivedGems for user : {}", userId);
+                        activity.setDailyReceivedGems(gemsReceived); // Reset to the current gems received
+
+                        // Update `endTime` to the next day's 1 AM UTC
+                        ZonedDateTime nextEndTime = ZonedDateTime.now(ZoneOffset.UTC).plusDays(1).withHour(1).withMinute(0).withSecond(0).withNano(0);
+                        activity.setEndTime(nextEndTime.toInstant());
+                        log.info("New endTime set for user: {} is {}", userId, activity.getEndTime());
+
+                        activity.setResetOn(now);
                     }
 
                     return liveroomActivityRepository.save(activity);
@@ -59,26 +53,27 @@ public class LiveRoomActivityService {
                     LiveRoomActivityEntity newActivity = new LiveRoomActivityEntity();
                     newActivity.setUserId(userId);
                     newActivity.setDailyReceivedGems(gemsReceived);
-                    /*newActivity.setEndTime(
-                            now.toLocalDate().plusDays(1)
-                                    .atTime(1, 0)
-//                                    .atOffset(ZoneOffset.UTC)
-//                                    .toLocalDateTime()
-                    );*/
-                    newActivity.setEndTime(
-                            now.plusDays(1)
-                                    .withHour(1)
-                                    .withMinute(0)
-                                    .withSecond(0)
-                                    .withNano(0)
-                                    .atOffset(ZoneOffset.ofHours(6)).toLocalDateTime()
-                    );
+
+                    // Calculate the next day's 1 AM UTC based on whether the current time is after 12 AM
+                    ZonedDateTime currentUTC = ZonedDateTime.now(ZoneOffset.UTC);
+                    ZonedDateTime nextEndTime;
+
+                    if (currentUTC.getHour() >= 1) {
+                        // If it's after 1 AM UTC, don't add an extra day
+                        nextEndTime = currentUTC.withHour(1).withMinute(0).withSecond(0).withNano(0);
+                    } else {
+                        // If it's before 1 AM UTC, set the endTime to 1 AM the next day
+                        nextEndTime = currentUTC.plusDays(1).withHour(1).withMinute(0).withSecond(0).withNano(0);
+                    }
+
+                    newActivity.setEndTime(nextEndTime.toInstant());
                     log.info("New endTime set for new user: {} is {}", userId, newActivity.getEndTime());
 
                     newActivity.setCreatedOn(now);
                     return liveroomActivityRepository.save(newActivity);
                 }));
     }
+
 
     public Mono<Double> getDailyReceivedGems(String userId) {
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
@@ -87,10 +82,10 @@ public class LiveRoomActivityService {
                 .doOnRequest(l -> log.info("Request received to get daily received gems for user : {}", userId))
                 .doOnSuccess(activity -> log.info("Got activity for user : {}", activity))
                 .map(activity -> {
-                    LocalDateTime activityEndTime = activity.getEndTime();
+                    Instant activityEndTime = activity.getEndTime();
                     log.info("now : {}, activityEndTime : {}", now, activityEndTime);
 
-                    if (now.isAfter(activityEndTime)) {
+                    if (Instant.now().isAfter(activityEndTime)) {
                         log.info("Resetting dailyReceivedGems for user : {}", userId);
                         // If it's after 1 AM UTC, return 0 (since it should reset)
                         return 0.0;
