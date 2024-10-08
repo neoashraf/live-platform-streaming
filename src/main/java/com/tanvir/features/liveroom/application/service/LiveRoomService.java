@@ -20,6 +20,7 @@ import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort
 import com.tanvir.features.liveroom.domain.valueobject.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
+import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
 import com.tanvir.features.metaproperty.application.port.in.MetaPropertyUseCase;
 import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.application.port.in.UserUseCase;
@@ -56,8 +57,9 @@ public class LiveRoomService implements LiveRoomUseCase {
     private final AgoraService agoraService;
     private final LiveRoomActivityService liveRoomActivityService;
     private final CommonBusiness commonBusiness;
+    private final LiveRoomSummaryUseCase liveRoomSummaryUseCase;
 
-    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness) {
+    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness, LiveRoomSummaryUseCase liveRoomSummaryUseCase) {
         this.userUseCase = userUseCase;
         this.port = port;
         this.metaPropertyUseCase = metaPropertyUseCase;
@@ -70,6 +72,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         this.agoraService = agoraService;
         this.liveRoomActivityService = liveRoomActivityService;
         this.commonBusiness = commonBusiness;
+        this.liveRoomSummaryUseCase = liveRoomSummaryUseCase;
     }
 
     @Override
@@ -607,6 +610,13 @@ public class LiveRoomService implements LiveRoomUseCase {
                     return liveRoom;
                 })
                 .flatMap(port::saveLiveRoom)
+                .doOnNext(liveRoom -> {
+                    liveRoomSummaryUseCase.processLiveRoomSummary(liveRoom)
+                            .doOnNext(liveRoomSummary -> log.info("LiveRoom Summary processed successfully"))
+                            .doOnError(throwable -> log.error("Error Happened while processing LiveRoom Summary : {}", throwable.getMessage()))
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .subscribe();
+                })
                 .doOnNext(liveRoom ->
                         cachePort.delete(liveRoomId)
                         .doOnSuccess(liveRoomEntity -> log.info("LiveRoom deleted from firebase successfully"))
