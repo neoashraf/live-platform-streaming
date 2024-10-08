@@ -47,6 +47,7 @@ public class Host {
     private String referredBy;
 
     private int userLevel;
+    private String levelBadgeUrl;
     private double beans;
     private double gems;
     private double beansGifted;

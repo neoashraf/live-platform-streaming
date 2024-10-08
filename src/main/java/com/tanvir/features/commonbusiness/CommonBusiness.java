@@ -1,17 +1,30 @@
 package com.tanvir.features.commonbusiness;
 
 import com.tanvir.core.util.enums.AnnouncementEnum;
+import com.tanvir.core.util.enums.ResourceTypeEnum;
+import com.tanvir.features.level.application.port.in.LevelUseCase;
 import com.tanvir.features.level.domain.Level;
 import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
+import com.tanvir.features.user.domain.User;
+import lombok.extern.slf4j.Slf4j;
 import org.bson.internal.BsonUtil;
+import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-
+@Component
+@Slf4j
 public class CommonBusiness {
+
+    private final LevelUseCase levelUseCase;
+
+    public CommonBusiness(LevelUseCase levelUseCase) {
+        this.levelUseCase = levelUseCase;
+    }
 
     public static String formatToK(double value) {
         if (value >= 1000) {
@@ -98,6 +111,16 @@ public class CommonBusiness {
             }
         }
         return ResourceFormat.builder().build();
+    }
+
+    public Mono<User> setUserLevelUrl(User user) {
+        return levelUseCase.getLevelDomainByLevel(user.getUserLevel())
+                .map(level -> {
+                    ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                    user.setLevelBadgeUrl(levelResource.getResourceUrl());
+                    return user;
+                })
+                .doOnError(throwable -> log.error("Error while setting user level url: {}", throwable.getMessage()));
     }
 
 

@@ -55,8 +55,9 @@ public class LiveRoomService implements LiveRoomUseCase {
     private final LevelUseCase levelUseCase;
     private final AgoraService agoraService;
     private final LiveRoomActivityService liveRoomActivityService;
+    private final CommonBusiness commonBusiness;
 
-    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService) {
+    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness) {
         this.userUseCase = userUseCase;
         this.port = port;
         this.metaPropertyUseCase = metaPropertyUseCase;
@@ -68,6 +69,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         this.levelUseCase = levelUseCase;
         this.agoraService = agoraService;
         this.liveRoomActivityService = liveRoomActivityService;
+        this.commonBusiness = commonBusiness;
     }
 
     @Override
@@ -140,41 +142,47 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host) {
+
         return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
-                .map(currentGems -> {
-                    DailyStarProgress starProgress = this.calculateStarProgress(currentGems);
-                    HostSummary hostSummary = HostSummary
-                            .builder()
-                            .id(host.getId())
-                            .userId(host.getUserId())
-                            .hostMaxId(host.getMaxId())
-                            .displayName(host.getDisplayName())
-                            .gender(host.getGender())
-                            .profileImageId(host.getProfileImageId())
-                            .profileImageUrl(host.getProfileImageUrl())
-                            .userLevel(host.getUserLevel())
-                            .gemsCount(liveRoom.getHostDailyGems())
-                            .dailyStarProgress(starProgress)
-                            .build();
+                .flatMap(currentGems -> levelUseCase.getLevelDomainByLevel(host.getUserLevel())
+                        .map(level -> {
+                            ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                            host.setLevelBadgeUrl(levelResource.getResourceUrl());
+                            return host;
+                        })
+                        .doOnError(throwable -> log.error("Error happened while setting level url: {}", throwable.getMessage()))
+                        .map(host1 -> {
+                            DailyStarProgress starProgress = this.calculateStarProgress(currentGems);
+                            HostSummary hostSummary = HostSummary
+                                    .builder()
+                                    .userId(host.getUserId())
+                                    .hostMaxId(host.getMaxId())
+                                    .displayName(host.getDisplayName())
+                                    .gender(host.getGender())
+                                    .profileImageUrl(host.getProfileImageUrl())
+                                    .userLevel(host.getUserLevel())
+                                    .levelBadgeUrl(host.getLevelBadgeUrl())
+                                    .gemsCount(liveRoom.getHostDailyGems())
+                                    .dailyStarProgress(starProgress)
+                                    .build();
 
-                    return LiveRoomFirebaseEntity
-                            .builder()
-                            .id(liveRoom.getId())
-                            .thumbnailId(liveRoom.getThumbnailId())
-                            .thumbnailUrl(liveRoom.getThumbnailUrl())
-                            .title(liveRoom.getTitle())
-                            .description(liveRoom.getDescription())
-                            .tags(liveRoom.getTags())
-                            .type(liveRoom.getType())
-                            .status(liveRoom.getStatus())
-                            .country(host.getCountry())
-                            .host(hostSummary)
-                            .viewers(new ArrayList<>())
-                            .viewerCount(0)
-                            .announcements(new ArrayList<>())
-                            .build();
-                });
-
+                            return LiveRoomFirebaseEntity
+                                    .builder()
+                                    .id(liveRoom.getId())
+                                    .thumbnailId(liveRoom.getThumbnailId())
+                                    .thumbnailUrl(liveRoom.getThumbnailUrl())
+                                    .title(liveRoom.getTitle())
+                                    .description(liveRoom.getDescription())
+                                    .tags(liveRoom.getTags())
+                                    .type(liveRoom.getType())
+                                    .status(liveRoom.getStatus())
+                                    .country(host.getCountry())
+                                    .host(hostSummary)
+                                    .viewers(new ArrayList<>())
+                                    .viewerCount(0)
+                                    .announcements(new ArrayList<>())
+                                    .build();
+                        }));
 
     }
 
@@ -235,6 +243,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot join.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomViewerRequestDto.getKeycloakId())
+                        .flatMap(commonBusiness::setUserLevelUrl)
                         .flatMap(user -> {
 
                             if (liveRoom.getUserId().equals(user.getId())) {
@@ -254,6 +263,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .profilePictureUrl(user.getProfileImageUrl())
                                     .frameUrl(user.getProfileFrameUrl())
                                     .userLevel(user.getUserLevel())
+                                    .levelBadgeUrl(user.getLevelBadgeUrl())
                                     .build();
                             liveRoom.setViewer(viewer);
                             liveRoom.setViewerCount(liveRoom.getViewerCount() + 1);
@@ -639,6 +649,12 @@ public class LiveRoomService implements LiveRoomUseCase {
             updatedKickedOutUsers.add(kickedUser.getId());
             liveRoom.setKickedOutUserIds(updatedKickedOutUsers);
         }
+
+        if (liveRoom.getViewerIds() != null) {
+            liveRoom.getViewerIds().remove(kickedUser.getId());
+        }
+
+
         liveRoom.setViewerCount(liveRoom.getViewerCount() - 1);
 
         Viewer viewer = Viewer
@@ -649,6 +665,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .profilePictureUrl(kickedUser.getProfileImageUrl())
                 .frameUrl(kickedUser.getProfileFrameUrl())
                 .userLevel(kickedUser.getUserLevel())
+                .levelBadgeUrl(kickedUser.getLevelBadgeUrl())
                 .build();
         liveRoom.setViewer(viewer);
         return Mono.just(liveRoom);

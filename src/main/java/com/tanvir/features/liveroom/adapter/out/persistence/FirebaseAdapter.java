@@ -126,7 +126,7 @@ public class FirebaseAdapter implements CachePort {
                 .map(firebaseEntity -> {
                     // remove viewer from viewers list
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
-                    currentViewersInFirebase.remove(liveRoom.getViewer());
+                    currentViewersInFirebase.removeIf(viewer -> viewer.getUserId().equals(liveRoom.getViewer().getUserId()));
                     firebaseEntity.setViewers(currentViewersInFirebase);
 
                     // add announcement to announcements list
