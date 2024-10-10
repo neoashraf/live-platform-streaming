@@ -347,6 +347,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         dataDto.setSenderId(giftTransaction.getSenderId());
         dataDto.setQuantity(giftTransaction.getQuantity());
         dataDto.setSentOn(giftTransaction.getCreatedOn().toInstant(ZoneOffset.UTC).toString());
+        dataDto.setBeans(giftTransaction.getSenderReceiverDto().getSender().getBeans());
+        dataDto.setBeansValue(CommonBusiness.convertToShortName(giftTransaction.getSenderReceiverDto().getSender().getBeans()));
 //        dataDto.setSentOn(giftTransaction.getCreatedOn().toString());
         /*dataDto.setSentOn(giftTransaction.getCreatedOn()
                 .atOffset(ZoneOffset.ofHours(6)) // Attach the UTC+6 offset without adjusting the actual time

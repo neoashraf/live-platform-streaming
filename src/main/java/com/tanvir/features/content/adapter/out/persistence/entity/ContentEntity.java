@@ -26,7 +26,7 @@ public class ContentEntity implements Persistable<String> {
     private String name;
     private String description;
     private String type;
-//    private String category;
+    //    private String category;
     private double cost;
     private LocalDateTime createdOn;
     private String createdBy;
@@ -52,3 +52,6 @@ public class ContentEntity implements Persistable<String> {
         return isNull;
     }
 }
+
+
+

@@ -26,5 +26,7 @@ public class SendGiftResponseDto {
         private int senderLevel;
         private int quantity;
         private String sentOn;
+        private double beans;
+        private String beansValue;
     }
 }
