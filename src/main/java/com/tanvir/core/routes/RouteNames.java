@@ -13,7 +13,7 @@ public class RouteNames {
 	public static String COMMENT = "/comment";
 	public static String AGORA = "/agora";
 	public static String TOKEN = "/token";
-	public static String SET_JOIN_PERMISSION = "/set-join-permission";
+	public static String JOIN_REQUESTS = "/join-requests";
 
 	public static String GIFTS = "/gifts";
 	public static String GIFT_TRANSACTIONS = "/gift-transactions";
@@ -22,4 +22,6 @@ public class RouteNames {
 	public static String FAN = "/fan";
 	public static String HOST = "/host";
 	public static String AGENCY = "/agency";
+	public static String VIDEO = "/video";
+	public static String SET = "/set";
 }
