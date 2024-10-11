@@ -304,7 +304,8 @@ public class LiveRoomService implements LiveRoomUseCase {
         roomDataDto.setId(liveRoom.getId());
         roomDataDto.setHostMaxId(liveRoom.getHostMaxId());
         roomDataDto.setJoinedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
-        roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
+//        roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
+        roomDataDto.setWelcomeAnnouncement(liveRoom.getWelcomeAnnouncement());
         roomDataDto.setViewerMaxId(liveRoom.getViewer().getMaxId());
         AgoraTokenRequestDto agoraTokenRequestDto =
                 AgoraTokenRequestDto
@@ -515,11 +516,34 @@ public class LiveRoomService implements LiveRoomUseCase {
                                         .userId(user.getId())
                                         .maxId(user.getMaxId())
                                         .name(user.getDisplayName())
-//                                        .levelUrl(level.getLevelBadgeUrl())
                                         .levelUrl(imageResource.getResourceUrl())
                                         .build());
+
                                 return announcement;
                             });
+                })
+                .flatMap(announcement -> {
+                    return userUseCase.getUserById(liveRoom.getUserId())
+                        .flatMap(host -> levelUseCase
+                                .getLevelDomainByLevel(host.getUserLevel())
+                                .map(level -> {
+                                    ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                                    String levelUrl = imageResource.getResourceUrl();
+
+                                    Announcement welcomeAnnouncement = new Announcement();
+                                    welcomeAnnouncement.setPublisher(AnnouncementUser
+                                            .builder()
+                                            .userId(host.getId())
+                                            .maxId(host.getMaxId())
+                                            .name(host.getDisplayName())
+                                            .levelUrl(levelUrl)
+                                            .build());
+                                    welcomeAnnouncement.setMentionedUser(announcement.getMentionedUser());
+                                    welcomeAnnouncement.setMessageTemplate(AnnouncementEnum.ANNOUNCEMENT_MESSAGE_WELCOME.getValue().concat(liveRoom.getDescription()));
+                                    log.info("Welcome Announcement message template: {}", welcomeAnnouncement.getMessageTemplate());
+                                    liveRoom.setWelcomeAnnouncement(welcomeAnnouncement);
+                                    return announcement;
+                                }));
                 })
                 .map(announcement -> {
                     liveRoom.setAnnouncement(announcement);

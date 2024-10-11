@@ -10,6 +10,7 @@ public enum AnnouncementEnum {
     ANNOUNCEMENT_MESSAGE_KICK("{{publisher}} kicked {{mentionedUser}}"),
     ANNOUNCEMENT_MESSAGE_COMMENT("{{publisher}}: "),
     ANNOUNCEMENT_MESSAGE_GIFT("{{mentionedUser}} sent {{gift.quantity}} x {{gift.resource}}"),
+    ANNOUNCEMENT_MESSAGE_WELCOME("{{publisher}}: {{mentionedUser}} "),
 
     ANNOUNCEMENT_TYPE_JOIN_CASUAL("ENTRY"),
     ANNOUNCEMENT_TYPE_JOIN_RIDE("RIDE_ENTRY"),

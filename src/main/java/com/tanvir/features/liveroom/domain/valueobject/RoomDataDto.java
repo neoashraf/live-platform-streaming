@@ -23,6 +23,7 @@ public class RoomDataDto {
     private Instant endedOn;
     private Instant commentedOn;
     private Announcement announcement;
+    private Announcement welcomeAnnouncement;
     private Long durationInSeconds;
     private String duration;
     private String agoraToken;

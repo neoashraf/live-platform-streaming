@@ -45,6 +45,7 @@ public class LiveRoom {
     private DailyStarProgress dailyStarProgress;
     private String enableJoin;
     private List<JoinRequests> joinRequests;
+    private Announcement welcomeAnnouncement;
 
 
     @Override
