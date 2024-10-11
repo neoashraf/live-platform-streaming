@@ -58,6 +58,10 @@ public class LiveRoomRouter {
                                         nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(CREATE), handler::joinRequest)
                                 )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
+                                                .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(PERMIT), handler::processJoinRequest)
+                                )
 
                 )
                 .build();

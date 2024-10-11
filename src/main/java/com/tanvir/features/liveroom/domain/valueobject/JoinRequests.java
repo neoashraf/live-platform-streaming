@@ -20,6 +20,8 @@ public class JoinRequests {
     private String micOn;
     private String profileImageUrl;
     private String profileLevelUrl;
+    private String status;
+    private String reason;
 
 
     @Override

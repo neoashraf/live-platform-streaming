@@ -18,6 +18,7 @@ public class JoinCallRequestDto {
     private String micOn;
     private String action;
     private String reason;
+    private String requestId;
 
     @Override
     public String toString() {

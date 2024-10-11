@@ -14,7 +14,9 @@ public enum Constants {
 
     STATUS_LIVE("Live"),
     STATUS_OFFLINE("Offline"),
-    STATUS_PENDING("Pending")
+    STATUS_PENDING("Pending"),
+    STATUS_PERMIT("Permit"),
+    STATUS_DECLINE("Decline"),
     ;
     private final String value;
 
