@@ -14,6 +14,7 @@ public class RouteNames {
 	public static String AGORA = "/agora";
 	public static String TOKEN = "/token";
 	public static String JOIN_REQUESTS = "/join-requests";
+	public static String REQUEST_ID = "/{requestId}";
 
 	public static String GIFTS = "/gifts";
 	public static String GIFT_TRANSACTIONS = "/gift-transactions";
@@ -24,4 +25,6 @@ public class RouteNames {
 	public static String AGENCY = "/agency";
 	public static String VIDEO = "/video";
 	public static String SET = "/set";
+	public static String CREATE = "/create";
+	public static String PERMIT = "/permit";
 }

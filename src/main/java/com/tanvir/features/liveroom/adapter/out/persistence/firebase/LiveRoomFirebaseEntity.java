@@ -30,6 +30,7 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private List<Announcement> announcements;
     private DailyStarProgress dailyStarProgress;
     private String enableJoin;
+    private List<JoinRequests> joinRequests;
 //    private int elapsedSeconds;
 //    private String formattedTime;
 }

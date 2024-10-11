@@ -1,9 +1,7 @@
 package com.tanvir.features.liveroom.application.port.in;
 
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
-import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomGridViewResponseDto;
-import com.tanvir.features.liveroom.application.port.in.dto.response.LiveRoomResponseDto;
-import com.tanvir.features.liveroom.application.port.in.dto.response.StreamResponseDto;
+import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import reactor.core.publisher.Mono;
 
@@ -20,5 +18,7 @@ public interface LiveRoomUseCase {
     Mono<LiveRoom> getLiveRoomById(String id);
 
     Mono<LiveRoom> updateLiveRoom(LiveRoom liveRoom);
-    Mono<StreamResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO);
+    Mono<LiveRoomJoinPermissionResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO);
+    Mono<JoinCallResponseDto> requestJoinCall(JoinCallRequestDto requestDto);
+    Mono<JoinCallResponseDto> processJoinCall(JoinCallRequestDto requestDto);
 }

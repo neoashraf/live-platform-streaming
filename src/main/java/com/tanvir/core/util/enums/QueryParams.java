@@ -41,7 +41,8 @@ public enum QueryParams {
     TOKEN_TYPE("tokenType"),
 
     LIMIT("limit"),
-    OFFSET("offset")
+    OFFSET("offset"),
+    REQUEST_ID("requestId"),
 
     ;
     private final String value;

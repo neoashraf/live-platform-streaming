@@ -10,7 +10,6 @@ import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
-import com.tanvir.features.level.domain.Level;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
@@ -426,14 +425,14 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .build());
     }
 
-    private Mono<StreamResponseDto> buildEnableJoinResponseDTO(LiveRoom liveRoom, String message) {
-        RoomDataDto roomDataDto = new RoomDataDto();
-        roomDataDto.setId(liveRoom.getId());
-        roomDataDto.setEnableJoin(liveRoom.getEnableJoin());
-        return Mono.just(StreamResponseDto
+    private Mono<LiveRoomJoinPermissionResponseDto> buildEnableJoinResponseDTO(LiveRoom liveRoom, String message) {
+        EnableJoinPermission joinPermission = new EnableJoinPermission();
+        joinPermission.setJoinCallAvailable(liveRoom.getEnableJoin());
+        joinPermission.setRoomId(liveRoom.getId());
+        return Mono.just(LiveRoomJoinPermissionResponseDto
                 .builder()
                 .message(message)
-                .data(roomDataDto)
+                .data(joinPermission)
                 .count(1)
                 .build());
     }
@@ -804,7 +803,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<StreamResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO) {
+    public Mono<LiveRoomJoinPermissionResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO) {
         return port.getLiveRoomById(requestDTO.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,"LiveRoom does not exist by the given id")))
                 .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
@@ -829,8 +828,141 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
-                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom,"Permission set successfully"))
+                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom,"Join call setting updated successfully."))
                 .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
+    }
+
+    @Override
+    public Mono<JoinCallResponseDto> requestJoinCall(JoinCallRequestDto requestDto) {
+          return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,"LiveRoom does not found by the given id")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .filter(liveRoom -> liveRoom.getEnableJoin().equals(Constants.STATUS_YES.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .filter(user -> user.getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"User is not active")))
+                        .map(user -> Tuples.of(liveRoom, user)))
+                .flatMap(tupleOfLiveRoomAndUser ->
+                  {
+                      log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
+                      return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto)
+                              .flatMap(joinRequests -> {
+                                  LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
+                                  liveRoom.setJoinRequests(joinRequests);
+                                  return port.saveLiveRoom(liveRoom).zipWith(Mono.just(tupleOfLiveRoomAndUser.getT2()));
+
+                              });
+                  })
+                .doOnNext(liveRoomUserTuple2 -> cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
+                    .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                    .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .subscribe())
+               .flatMap(roomUserTuple2 -> buildJoinRequestResponse(roomUserTuple2.getT1(), roomUserTuple2.getT2(), requestDto))
+               .map(liveRoomJoinRequestInfo -> JoinCallResponseDto
+                       .builder()
+                       .message("Join call request placed successfully.")
+                       .data(liveRoomJoinRequestInfo)
+                       .count(1)
+                       .error(false)
+                       .build());
+    }
+
+    @Override
+    public Mono<JoinCallResponseDto> processJoinCall(JoinCallRequestDto requestDto) {
+        return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .filter(liveRoom -> liveRoom.getEnableJoin().equals(Constants.STATUS_YES.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .filter(user -> user.getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active")))
+                        .thenReturn(liveRoom))
+                .flatMap(liveRoom -> {
+                    List<String> validTypes = Arrays.asList(Constants.STATUS_PERMIT.getValue(), Constants.STATUS_DECLINE.getValue());
+
+                    if (!validTypes.contains(requestDto.getAction())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid Action Type!"));
+                    }
+
+                    Optional<JoinRequests> joinRequestOpt = liveRoom.getJoinRequests().stream()
+                            .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
+                            .findFirst();
+
+                    return joinRequestOpt.map(joinRequests -> {
+                        joinRequests.setStatus(requestDto.getAction());
+                        joinRequests.setReason(requestDto.getReason());
+                        return port.saveLiveRoom(liveRoom);
+                    }).orElseGet(() -> Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found")));
+                })
+                .doOnNext(liveRoom -> cachePort.updateForProcessingJoinCall(liveRoom, requestDto)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
+                .map(liveRoom -> buildJoinCallProcessData(liveRoom, requestDto))
+                .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
+                        .message("Join call request placed successfully.")
+                        .data(liveRoomJoinRequestInfo)
+                        .count(1)
+                        .error(false)
+                        .build());
+    }
+
+    private LiveRoomJoinRequestInfo buildJoinCallProcessData(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
+        return LiveRoomJoinRequestInfo.builder()
+                .roomId(requestDto.getLiveRoomId())
+                .status(requestDto.getAction())
+                .requestId(requestDto.getRequestId())
+                .reason(requestDto.getReason())
+                .build();
+    }
+
+    private Mono<LiveRoomJoinRequestInfo> buildJoinRequestResponse(LiveRoom liveRoom, User user, JoinCallRequestDto requestDto) {
+        return Mono.create(sink -> {
+            liveRoom.getJoinRequests().stream()
+                    .filter(joinRequests -> joinRequests.getUserId().equals(user.getId()))
+                    .findFirst()
+                    .ifPresentOrElse(
+                            joinRequest -> {
+                                LiveRoomJoinRequestInfo responseDto = LiveRoomJoinRequestInfo.builder()
+                                        .roomId(requestDto.getLiveRoomId())
+                                        .status(liveRoom.getStatus())
+                                        .requestId(joinRequest.getRequestId())
+                                        .micOn(requestDto.getMicOn())
+                                        .cameraOn(requestDto.getCameraOn())
+                                        .cameraView(requestDto.getCameraView())
+                                        .build();
+                                sink.success(responseDto);
+                            },
+                            () -> sink.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Join request not found"))
+                    );
+        });
+    }
+
+    private Mono<List<JoinRequests>> buildJoinRequest(User user, JoinCallRequestDto requestDto) {
+        return levelUseCase.getLevelDomainByLevel(user.getUserLevel())
+                .map(level -> {
+                    ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                    JoinRequests joinRequest = JoinRequests
+                            .builder()
+                            .profileLevelUrl(imageResource.getResourceUrl())
+                            .requestId(UUID.randomUUID().toString())
+                            .maxId(user.getMaxId())
+                            .userId(user.getId())
+                            .cameraOn(requestDto.getCameraOn())
+                            .cameraView(requestDto.getCameraView())
+                            .micOn(requestDto.getMicOn())
+                            .displayName(user.getDisplayName())
+                            .profileImageUrl(user.getProfileImageUrl())
+                            .status(Constants.STATUS_PENDING.getValue())
+                            .build();
+                    return List.of(joinRequest);
+                });
     }
 
     private Mono<LiveRoomResponse> updateFanAndHostBeansCountGemsCountLevelPercentage(Tuple3<LiveRoom, User, MetaProperty> tuple, SendGiftRequestDto requestDto) {

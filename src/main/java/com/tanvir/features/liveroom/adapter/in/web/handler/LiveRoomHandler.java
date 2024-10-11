@@ -165,4 +165,45 @@ public class LiveRoomHandler {
                 ;
     }
 
+    public Mono<ServerResponse> joinRequest(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
+        String liveRoomId = serverRequest.pathVariable("id");
+
+        return serverRequest
+                .bodyToMono(JoinCallRequestDto.class)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    requestDto.setLiveRoomId(liveRoomId);
+                    return requestDto;
+                })
+                .flatMap(liveRoomUseCase::requestJoinCall)
+                .flatMap(dto -> ServerResponse
+                        .created(serverRequest.uri())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                ;
+    }
+
+    public Mono<ServerResponse> processJoinRequest(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
+        String liveRoomId = serverRequest.pathVariable(QueryParams.ID.getValue());
+        String requestId = serverRequest.pathVariable(QueryParams.REQUEST_ID.getValue());
+
+        return serverRequest
+                .bodyToMono(JoinCallRequestDto.class)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    requestDto.setLiveRoomId(liveRoomId);
+                    requestDto.setRequestId(requestId);
+                    return requestDto;
+                })
+                .flatMap(liveRoomUseCase::processJoinCall)
+                .flatMap(dto -> ServerResponse
+                        .created(serverRequest.uri())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                ;
+    }
+
+
 }
