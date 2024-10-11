@@ -3,6 +3,7 @@ package com.tanvir.features.liveroom.domain;
 import com.tanvir.core.util.CommonFunctions;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.DailyStarProgress;
+import com.tanvir.features.liveroom.domain.valueobject.JoinRequests;
 import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -43,6 +44,7 @@ public class LiveRoom {
     private long durationInSeconds;
     private DailyStarProgress dailyStarProgress;
     private String enableJoin;
+    private List<JoinRequests> joinRequests;
 
     @Override
     public String toString() {

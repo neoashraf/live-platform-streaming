@@ -15,4 +15,5 @@ public interface CachePort {
     Mono<LiveRoom> updateForComment(LiveRoom liveRoom);
     Mono<LiveRoom> updateForGift(LiveRoom liveRoom);
     Mono<LiveRoom> updateForJoinPermission(LiveRoom liveRoom);
+    Mono<LiveRoom> updateForJoinRequest(LiveRoom liveRoom);
 }

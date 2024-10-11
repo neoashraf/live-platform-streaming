@@ -13,7 +13,8 @@ public enum Constants {
     TAB_PARTY("PARTY"),
 
     STATUS_LIVE("Live"),
-    STATUS_OFFLINE("Offline")
+    STATUS_OFFLINE("Offline"),
+    STATUS_PENDING("Pending")
     ;
     private final String value;
 

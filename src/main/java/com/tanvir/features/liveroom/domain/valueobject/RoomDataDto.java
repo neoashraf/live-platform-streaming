@@ -44,4 +44,5 @@ public class RoomDataDto {
     private long totalViewerCount;
 
     private String enableJoin;
+    private String roomId;
 }

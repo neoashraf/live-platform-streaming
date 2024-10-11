@@ -7,6 +7,7 @@ import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFir
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
+import com.tanvir.features.liveroom.domain.valueobject.JoinRequests;
 import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
@@ -15,6 +16,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Component
 @Slf4j
@@ -210,4 +212,21 @@ public class FirebaseAdapter implements CachePort {
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);    }
+
+    @Override
+    public Mono<LiveRoom> updateForJoinRequest(LiveRoom liveRoom) {
+        return firebaseRepository.read(liveRoom.getId())
+                .doOnRequest(l -> log.info("Request received to get  firebase entity with id: {}", liveRoom.getId()))
+                .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity with id: {}", firebaseEntity))
+                .map(firebaseEntity -> {
+                    List<JoinRequests> currentJoinRequestsInFirebase = Optional.ofNullable(firebaseEntity.getJoinRequests())
+                            .orElseGet(ArrayList::new);
+                    currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
+                    firebaseEntity.setJoinRequests(currentJoinRequestsInFirebase);
+                    return firebaseEntity;
+                })
+                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity: {}", firebaseEntity))
+                .flatMap(firebaseRepository::update)
+                .map(firebaseReturnedEntity -> liveRoom);
+    }
 }

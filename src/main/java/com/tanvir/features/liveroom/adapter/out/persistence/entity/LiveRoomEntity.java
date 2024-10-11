@@ -1,6 +1,7 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.entity;
 
 import com.tanvir.core.util.CommonFunctions;
+import com.tanvir.features.liveroom.domain.valueobject.JoinRequests;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -42,7 +43,7 @@ public class LiveRoomEntity implements Persistable<String> {
     private double hostDailyGems;
     private long durationInSeconds;
     private String enableJoin;
-
+    private List<JoinRequests> joinRequests;
 
     @Override
     public String toString() {
