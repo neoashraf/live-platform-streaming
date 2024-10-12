@@ -40,16 +40,28 @@ public class CommonBusiness {
 
     public static String convertToShortName(Double value) {
         if (value >= 1e9) {
-            return String.format("%.1fB", value / 1e9);
-        }
-        else if (value >= 1e6) {
-            return String.format("%.1fM", value / 1e6);
-        }
-        else if (value >= 1e3) {
-            return String.format("%.1fK", value / 1e3);
-        }
-        else {
+            // For billions
+            return formatValue(value / 1e9, "B");
+        } else if (value >= 1e6) {
+            // For millions
+            return formatValue(value / 1e6, "M");
+        } else if (value >= 1e3) {
+            // For thousands
+            return formatValue(value / 1e3, "K");
+        } else if (value == 0.0) {
+            return "0";
+        } else {
+            // For values less than a thousand
             return String.format("%.1f", value);
+        }
+    }
+
+    private static String formatValue(double value, String suffix) {
+        // Check if the value is a whole number
+        if (value == Math.floor(value)) {
+            return String.format("%.0f%s", value, suffix); // No decimal if it's a whole number
+        } else {
+            return String.format("%.1f%s", value, suffix); // One decimal place otherwise
         }
     }
 

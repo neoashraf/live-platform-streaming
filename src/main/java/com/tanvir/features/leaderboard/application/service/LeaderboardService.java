@@ -181,6 +181,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                                     giftSummaryUser.setLevelUrl(levelResource.getResourceUrl());
                                     giftSummaryUser.setProfileFrameUrl(user.getProfileFrameUrl());
                                     giftSummaryUser.setBeansReceived(userIdToBeansMap.get(userId));  // Set the total beans
+                                    giftSummaryUser.setBeansReceivedValue(CommonBusiness.convertToShortName(giftSummaryUser.getBeansReceived()));
 
                                     summaryUserList.add(giftSummaryUser);
                                 });
@@ -242,6 +243,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                                         giftSummaryUser.setProfileImageUrl(agency.getProfileImageUrl());
 //                                        giftSummaryUser.setUserLevel(agency.getUserLevel());
                                         giftSummaryUser.setBeansReceived(agencyIdToBeansMap.get(agencyId));  // Set the total beans
+                                        giftSummaryUser.setBeansReceivedValue(CommonBusiness.convertToShortName(giftSummaryUser.getBeansReceived()));
                                     }
 
                                     summaryUserList.add(giftSummaryUser);
