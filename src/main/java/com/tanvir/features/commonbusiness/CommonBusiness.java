@@ -48,11 +48,9 @@ public class CommonBusiness {
         } else if (value >= 1e3) {
             // For thousands
             return formatValue(value / 1e3, "K");
-        } else if (value == 0.0) {
-            return "0";
         } else {
-            // For values less than a thousand
-            return String.format("%.1f", value);
+            // For values below 1,000, avoid decimal if whole number
+            return formatValue(value, "");
         }
     }
 
