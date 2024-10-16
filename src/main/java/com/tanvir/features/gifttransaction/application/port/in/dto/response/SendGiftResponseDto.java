@@ -24,6 +24,7 @@ public class SendGiftResponseDto {
         private String recipientId;
         private String senderId;
         private int senderLevel;
+        private String levelBadgeUrl;
         private int quantity;
         private String sentOn;
         private double beans;
