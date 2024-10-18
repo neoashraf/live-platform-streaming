@@ -298,6 +298,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .flatMap(announcement -> {
                                 liveRoom.setDailyStarProgress(giftTransaction.getDailyStarProgress());
                                 liveRoom.setAnnouncement(announcement);
+                                liveRoom.setHostTotalGems(giftTransaction.getSenderReceiverDto().getReceiver().getGems());
+                                liveRoom.setHostGemsValue(CommonBusiness.convertToShortName(giftTransaction.getSenderReceiverDto().getReceiver().getGems()));
                                 return cachePort.updateForGift(liveRoom)
                                         .thenReturn(giftTransaction);
                             }))
