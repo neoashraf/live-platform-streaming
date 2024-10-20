@@ -835,6 +835,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDTO.getKeycloakId())
                             .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
                             .map(User::getId)
+                            .doOnSuccess(userId -> log.info("User Id : {}", userId))
                             .filter(userId -> liveRoom.getUserId().equals(userId))
                             .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"User must be the host of the LiveRoom to set the permission")))
                         .thenReturn(liveRoom))
@@ -858,40 +859,51 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<JoinCallResponseDto> requestJoinCall(JoinCallRequestDto requestDto) {
-          return port.getLiveRoomById(requestDto.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,"LiveRoom does not found by the given id")))
-                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
-                .filter(liveRoom -> liveRoom.getEnableJoin().equals(Constants.STATUS_YES.getValue()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
-                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
-                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
-                        .filter(user -> user.getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
-                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"User is not active")))
-                        .map(user -> Tuples.of(liveRoom, user)))
-                .flatMap(tupleOfLiveRoomAndUser ->
-                  {
-                      log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
-                      return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto)
-                              .flatMap(joinRequests -> {
-                                  LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
-                                  liveRoom.setJoinRequests(joinRequests);
-                                  return port.saveLiveRoom(liveRoom).zipWith(Mono.just(tupleOfLiveRoomAndUser.getT2()));
+         return port.getLiveRoomById(requestDto.getLiveRoomId()).zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId()))
+                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom or User not found")))
+                 .filter(tupleOfLiveRoomAndUser -> tupleOfLiveRoomAndUser.getT2().getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user is the host of the LiveRoom and cannot join as a participant.")))
+                    .flatMap(tupleOfLiveRoomAndUser -> {
+                        LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
+                        User user = tupleOfLiveRoomAndUser.getT2();
+                        boolean isUserKickedOut = liveRoom.getKickedOutUserIds().stream()
+                                .anyMatch(s -> s.equalsIgnoreCase(user.getId()));
+                        if (isUserKickedOut) {
+                            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user has been kicked out of the LiveRoom and cannot rejoin as a participant."));
+                        }
+                        else return Mono.just(tupleOfLiveRoomAndUser); // Allows the liveRoom to pass through the filter if the user is not kicked out
+                    })
+                 .filter(liveRoomUserTuple2 -> Objects.nonNull(liveRoomUserTuple2.getT1().getEnableJoin()) && Constants.STATUS_YES.getValue().equalsIgnoreCase(liveRoomUserTuple2.getT1().getEnableJoin()))
+                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"Join call is not enabled for the LiveRoom")))
+                 .filter(liveRoomUserTuple2 -> liveRoomUserTuple2.getT1().getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
+                 .filter(liveRoomUserTuple2 ->  liveRoomUserTuple2.getT1().getViewerIds().stream().anyMatch(s -> s.equalsIgnoreCase(liveRoomUserTuple2.getT2().getId())))
+                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant.")))
+                 .flatMap(tupleOfLiveRoomAndUser ->
+                 {
+                     log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
+                     return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto)
+                             .flatMap(joinRequests -> {
+                                 LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
+                                 liveRoom.setJoinRequests(joinRequests);
+                                 return port.saveLiveRoom(liveRoom).zipWith(Mono.just(tupleOfLiveRoomAndUser.getT2()));
 
-                              });
-                  })
-                .doOnNext(liveRoomUserTuple2 -> cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
-                    .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                    .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .subscribe())
-               .flatMap(roomUserTuple2 -> buildJoinRequestResponse(roomUserTuple2.getT1(), roomUserTuple2.getT2(), requestDto))
-               .map(liveRoomJoinRequestInfo -> JoinCallResponseDto
-                       .builder()
-                       .message("Join call request placed successfully.")
-                       .data(liveRoomJoinRequestInfo)
-                       .count(1)
-                       .error(false)
-                       .build());
+                             });
+                 })
+                 .doOnNext(liveRoomUserTuple2 -> cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
+                         .doOnNext(liveRoomEntity -> log.info("LiveRoom  updated into firebase successfully"))
+                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                         .subscribeOn(Schedulers.boundedElastic())
+                         .subscribe())
+                 .flatMap(roomUserTuple2 -> buildJoinRequestResponse(roomUserTuple2.getT1(), roomUserTuple2.getT2(), requestDto))
+                 .map(liveRoomJoinRequestInfo -> JoinCallResponseDto
+                         .builder()
+                         .message("Join call request placed successfully.")
+                         .data(liveRoomJoinRequestInfo)
+                         .count(1)
+                         .error(false)
+                         .build());
+
     }
 
     @Override
@@ -907,7 +919,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active")))
                         .thenReturn(liveRoom))
                 .flatMap(liveRoom -> {
-                    List<String> validTypes = Arrays.asList(Constants.STATUS_PERMIT.getValue(), Constants.STATUS_DECLINE.getValue());
+                    List<String> validTypes = Arrays.asList(Constants.STATUS_APPROVED.getValue(), Constants.STATUS_DECLINE.getValue());
 
                     if (!validTypes.contains(requestDto.getAction())) {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid Action Type!"));
