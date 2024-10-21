@@ -19,6 +19,7 @@ public class HostSummary {
     private String profileImageUrl;
     private int userLevel;
     private String levelBadgeUrl;
-    private double gemsCount;
+    private double gems;
+    private String gemsValue;
     private DailyStarProgress dailyStarProgress;
 }

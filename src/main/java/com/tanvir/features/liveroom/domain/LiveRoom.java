@@ -47,6 +47,9 @@ public class LiveRoom {
     private List<JoinRequests> joinRequests;
     private Announcement welcomeAnnouncement;
 
+    private double hostTotalGems;
+    private String hostGemsValue;
+
 
     @Override
     public String toString() {

@@ -164,7 +164,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .profileImageUrl(host.getProfileImageUrl())
                                     .userLevel(host.getUserLevel())
                                     .levelBadgeUrl(host.getLevelBadgeUrl())
-                                    .gemsCount(liveRoom.getHostDailyGems())
+                                    .gems(host.getGems())
+                                    .gemsValue(CommonBusiness.convertToShortName(host.getGems()))
                                     .dailyStarProgress(starProgress)
                                     .build();
 

@@ -49,6 +49,7 @@ public class UserEntity {
     private String active;
 
     private int userLevel;
+    private String levelBadgeUrl;
     private double beans;
     private double beansGifted;
     private double gems;

@@ -58,8 +58,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     private final CachePort cachePort;
     private final GiftSummaryUseCase giftSummaryUseCase;
     private final LiveRoomActivityService liveRoomActivityService;
+    private final CommonBusiness commonBusiness;
 
-    public GiftTransactionService(GiftTransactionPersistencePort port, UserUseCase userUseCase, Gson gson, HostPersistencePort hostPersistencePort, MaxUserPersistencePort maxUserPersistencePort, UserMongoRepository userRepository, TransactionalOperator transactionalOperator, ModelMapper modelMapper, GiftUseCase giftUseCase, LiveRoomUseCase liveRoomUseCase, LevelUseCase levelUseCase, CachePort cachePort, GiftSummaryUseCase giftSummaryUseCase, LiveRoomActivityService liveRoomActivityService) {
+    public GiftTransactionService(GiftTransactionPersistencePort port, UserUseCase userUseCase, Gson gson, HostPersistencePort hostPersistencePort, MaxUserPersistencePort maxUserPersistencePort, UserMongoRepository userRepository, TransactionalOperator transactionalOperator, ModelMapper modelMapper, GiftUseCase giftUseCase, LiveRoomUseCase liveRoomUseCase, LevelUseCase levelUseCase, CachePort cachePort, GiftSummaryUseCase giftSummaryUseCase, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness) {
         this.port = port;
         this.userUseCase = userUseCase;
         this.gson = gson;
@@ -74,6 +75,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         this.cachePort = cachePort;
         this.giftSummaryUseCase = giftSummaryUseCase;
         this.liveRoomActivityService = liveRoomActivityService;
+        this.commonBusiness = commonBusiness;
     }
 
 
@@ -296,6 +298,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .flatMap(announcement -> {
                                 liveRoom.setDailyStarProgress(giftTransaction.getDailyStarProgress());
                                 liveRoom.setAnnouncement(announcement);
+                                liveRoom.setHostTotalGems(giftTransaction.getSenderReceiverDto().getReceiver().getGems());
+                                liveRoom.setHostGemsValue(CommonBusiness.convertToShortName(giftTransaction.getSenderReceiverDto().getReceiver().getGems()));
                                 return cachePort.updateForGift(liveRoom)
                                         .thenReturn(giftTransaction);
                             }))
@@ -355,6 +359,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .toString());*/
 
         dataDto.setSenderLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel());
+        dataDto.setLevelBadgeUrl(giftTransaction.getSenderReceiverDto().getSender().getLevelBadgeUrl());
 
         return SendGiftResponseDto
                 .builder()
@@ -375,17 +380,18 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         sender.setSender(true);
 
         return levelUseCase.getAllLevels()
-                .map(levels -> {
+                .flatMap(levels -> {
                     double beansGifted = sender.getBeansGifted();
                     int level = CommonBusiness.calculateLevel(beansGifted, levels);
                     sender.setUserLevel(level);
-                    /*return userUseCase.updateUser(sender);*/
-                    return giftTransaction;
-                });
-                /*.doOnError(throwable -> log.error("Error while updating sender user"))
-                .flatMap(user -> userUseCase.updateUser(receiver))
-                .doOnError(throwable -> log.error("Error while updating receiver user"))
-                .thenReturn(giftTransaction);*/
+                    return commonBusiness.setUserLevelUrl(sender)
+                            .map(user -> {
+                                giftTransaction.getSenderReceiverDto().getSender().setLevelBadgeUrl(user.getLevelBadgeUrl());
+                                return user;
+                            });
+                            })
+                .map(userMono -> giftTransaction)
+                .doOnError(throwable -> log.error("Error while updating user for gift transaction : {}", throwable.getMessage()));
     }
 
 
