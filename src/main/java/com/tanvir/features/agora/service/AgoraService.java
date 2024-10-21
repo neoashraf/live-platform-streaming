@@ -36,7 +36,7 @@ public class AgoraService {
 
 
         RtcTokenBuilder2 token = new RtcTokenBuilder2();
-        AgoraToken agoraToken = new AgoraToken();
+        String agoraToken = "";
 
         RtcTokenBuilder2.Role role;
         if (requestDto.getRole().equals(AgoraTokenTypeEnum.ROLE_PUBLISHER.getValue())) {
@@ -54,29 +54,31 @@ public class AgoraService {
 
 
         if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())) {
-            agoraToken.setTokenWithUid(token.buildTokenWithUid(appId, appCertificate, requestDto.getChannelName(), requestDto.getUid(), role, requestDto.getTokenExpirationInSeconds(), requestDto.getPrivilegeExpirationInSeconds()));
+            agoraToken = token.buildTokenWithUid(appId, appCertificate, requestDto.getChannelName(), requestDto.getUid(), role, requestDto.getTokenExpirationInSeconds(), requestDto.getPrivilegeExpirationInSeconds());
         }
 
         if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT.getValue())) {
-            agoraToken.setTokenWithUserAccount(token.buildTokenWithUserAccount(appId, appCertificate, requestDto.getChannelName(), requestDto.getAccount(), role, requestDto.getTokenExpirationInSeconds(),
-                    requestDto.getPrivilegeExpirationInSeconds()));
+            agoraToken = token.buildTokenWithUserAccount(appId, appCertificate, requestDto.getChannelName(), requestDto.getAccount(), role, requestDto.getTokenExpirationInSeconds(),
+                    requestDto.getPrivilegeExpirationInSeconds());
         }
         if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID_AND_PRIVILEGE.getValue())) {
-            agoraToken.setTokenWithUidAndPrivilege(token.buildTokenWithUid(appId, appCertificate, requestDto.getChannelName(), requestDto.getUid(),requestDto.getTokenExpirationInSeconds(), requestDto.getJoinChannelPrivilegeExpireInSeconds(), requestDto.getPubAudioPrivilegeExpireInSeconds(), requestDto.getPubVideoPrivilegeExpireInSeconds(), requestDto.getPubDataStreamPrivilegeExpireInSeconds()));
+            agoraToken = token.buildTokenWithUid(appId, appCertificate, requestDto.getChannelName(), requestDto.getUid(),requestDto.getTokenExpirationInSeconds(), requestDto.getJoinChannelPrivilegeExpireInSeconds(), requestDto.getPubAudioPrivilegeExpireInSeconds(), requestDto.getPubVideoPrivilegeExpireInSeconds(), requestDto.getPubDataStreamPrivilegeExpireInSeconds());
         }
 
         if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT_AND_PRIVILEGE.getValue())) {
-            agoraToken.setTokenWithAccountAndPrivilege(token.buildTokenWithUserAccount(appId, appCertificate, requestDto.getChannelName(), requestDto.getAccount(), requestDto.getTokenExpirationInSeconds(), requestDto.getJoinChannelPrivilegeExpireInSeconds(), requestDto.getPubAudioPrivilegeExpireInSeconds(), requestDto.getPubVideoPrivilegeExpireInSeconds(), requestDto.getPubDataStreamPrivilegeExpireInSeconds()));
+            agoraToken = token.buildTokenWithUserAccount(appId, appCertificate, requestDto.getChannelName(), requestDto.getAccount(), requestDto.getTokenExpirationInSeconds(), requestDto.getJoinChannelPrivilegeExpireInSeconds(), requestDto.getPubAudioPrivilegeExpireInSeconds(), requestDto.getPubVideoPrivilegeExpireInSeconds(), requestDto.getPubDataStreamPrivilegeExpireInSeconds());
         }
 
         if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_RTM.getValue())) {
-            agoraToken.setTokenWithRtm(token.buildTokenWithRtm(appId, appCertificate, requestDto.getChannelName(), requestDto.getAccount(), role, requestDto.getTokenExpirationInSeconds(),
-                    requestDto.getPrivilegeExpirationInSeconds()));
+            agoraToken= token.buildTokenWithRtm(appId, appCertificate, requestDto.getChannelName(), requestDto.getAccount(), role, requestDto.getTokenExpirationInSeconds(),
+                    requestDto.getPrivilegeExpirationInSeconds());
         }
 
         return Mono.just(AgoraTokenResponseDto.builder()
                 .message("Token generated successfully")
-                .data(List.of(agoraToken))
+                .data(List.of(AgoraToken.builder()
+                        .agoraToken(agoraToken)
+                        .build()))
                 .count(1)
                 .build());
     }

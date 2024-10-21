@@ -15,4 +15,6 @@ public class AgoraToken {
     private String tokenWithUidAndPrivilege;
     private String tokenWithAccountAndPrivilege;
     private String tokenWithRtm;
+
+    private String agoraToken;
 }
