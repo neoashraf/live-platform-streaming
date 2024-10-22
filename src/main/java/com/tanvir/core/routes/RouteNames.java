@@ -27,4 +27,5 @@ public class RouteNames {
 	public static String SET = "/set";
 	public static String CREATE = "/create";
 	public static String PERMIT = "/permit";
+	public static String CLOSE = "/close";
 }

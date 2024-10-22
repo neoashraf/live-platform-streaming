@@ -19,6 +19,8 @@ public class LiveRoomJoinRequestInfo {
     private String micOn;
     private String reason;
 
+    private String agoraToken;
+
     @Override
     public String toString() {
         return CommonFunctions.buildGsonBuilder(this);

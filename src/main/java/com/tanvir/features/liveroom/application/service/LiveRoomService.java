@@ -10,6 +10,7 @@ import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
+import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
@@ -246,6 +247,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot join.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(liveRoomViewerRequestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User not found!")))
                         .flatMap(commonBusiness::setUserLevelUrl)
                         .flatMap(user -> {
 
@@ -948,7 +950,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe())
-                .map(liveRoom -> buildJoinCallProcessData(liveRoom, requestDto))
+                .map(liveRoom -> buildJoinCallProcessData(liveRoom, requestDto, requestDto.getAction()))
                 .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
                         .message("Join call request processed successfully.")
                         .data(liveRoomJoinRequestInfo)
@@ -957,10 +959,107 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .build());
     }
 
-    private LiveRoomJoinRequestInfo buildJoinCallProcessData(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
+    @Override
+    public Mono<JoinCallResponseDto> closeJoinedCall(JoinCallRequestDto requestDto) {
+        AtomicReference<String> userMaxId = new AtomicReference<>();
+        return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .filter(user -> user.getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active")))
+                        .map(user -> Tuples.of(liveRoom, user)))
+                .flatMap(liveRoomAndUserTuple -> {
+                    LiveRoom liveRoom = liveRoomAndUserTuple.getT1();
+                    User user = liveRoomAndUserTuple.getT2();
+                    userMaxId.set(user.getMaxId());
+                    return cachePort.getLiveRoomById(liveRoom.getId())
+                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
+                            .flatMap(liveRoomEntity -> this.validateCloseJoinedCallRequest(liveRoomEntity, requestDto, user))
+                            .map(liveRoomEntity -> liveRoom);
+                })
+                .doOnError(throwable -> log.error("Error happened while fetching & validating request: {}", throwable.getMessage()))
+                .doOnNext(liveRoom -> cachePort.updateForClosingJoinedCall(liveRoom, requestDto)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
+                .flatMap(liveRoom -> {
+                    LiveRoomJoinRequestInfo closeJoinRequestDto = buildJoinCallProcessData(liveRoom, requestDto, Status.STATUS_CLOSED.getValue());
+                    return this.getAgoraToken(liveRoom.getId(), AgoraTokenTypeEnum.ROLE_SUBSCRIBER.getValue(), userMaxId.get(), AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())
+                           .map(agoraToken -> {
+                               closeJoinRequestDto.setAgoraToken(agoraToken);
+                               return closeJoinRequestDto;
+                           });
+                })
+                .doOnError(throwable -> log.error("Error happened while generating Agora Token: {}", throwable.getMessage()))
+                .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
+                        .message("Joined call closed successfully.")
+                        .data(liveRoomJoinRequestInfo)
+                        .count(1)
+                        .error(false)
+                        .build())
+                .doOnError(throwable -> log.error("Error happened while closing joined call: {}", throwable.getMessage()));
+    }
+
+    private Mono<LiveRoomFirebaseEntity> validateCloseJoinedCallRequest(LiveRoomFirebaseEntity liveRoomEntity, JoinCallRequestDto requestDto, User user) {
+        if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No Join Requests found for the LiveRoom"));
+        } else if (liveRoomEntity.getJoinRequests().stream().noneMatch(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join Request not found for the LiveRoom"));
+        }
+
+        List<String> validPersonRequested = liveRoomEntity.getJoinRequests().stream()
+                .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
+                .map(JoinRequests::getUserId)
+                .filter(joinRequestUserId -> user.getId().equals(joinRequestUserId))
+                .toList();
+
+        List<String> validStatus = liveRoomEntity.getJoinRequests().stream()
+                .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
+                .map(JoinRequests::getStatus)
+                .filter(joinRequestStatus -> joinRequestStatus.equals(Status.STATUS_APPROVED.getValue()))
+                .toList();
+
+        if (validPersonRequested.isEmpty()) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Request Id & User mismatch!"));
+        }
+
+        if (validStatus.isEmpty()) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join Request is not Approved !"));
+        }
+
+        return Mono.just(liveRoomEntity);
+    }
+
+    private Mono<String> getAgoraToken(String channelName, String role, String uid, String tokenType) {
+        AgoraTokenRequestDto agoraTokenRequestDto =
+                AgoraTokenRequestDto
+                        .builder()
+                        .channelName(channelName)
+                        .role(role)
+                        .uid(Integer.parseInt(uid))
+                        .tokenExpirationInSeconds(86400)
+                        .tokenType(tokenType)
+                        .build();
+
+        return agoraService.generateToken(agoraTokenRequestDto)
+                .doOnError(throwable -> log.error("Error happened while generating Agora Token : {}", throwable.getMessage()))
+                .map(agoraTokenResponseDto -> {
+                    if (agoraTokenResponseDto.getData() != null && !agoraTokenResponseDto.getData().isEmpty()) {
+                        return agoraTokenResponseDto.getData().get(0).getAgoraToken();
+                    }
+                    return null;
+                })
+                .onErrorMap(throwable -> new ExceptionHandlerUtil(HttpStatus.INTERNAL_SERVER_ERROR, "Error happened while generating Agora Token!"));
+    }
+
+    private LiveRoomJoinRequestInfo buildJoinCallProcessData(LiveRoom liveRoom, JoinCallRequestDto requestDto, String status) {
         return LiveRoomJoinRequestInfo.builder()
                 .roomId(requestDto.getLiveRoomId())
-                .status(requestDto.getAction())
+                .status(status)
                 .requestId(requestDto.getRequestId())
                 .reason(requestDto.getReason())
                 .build();

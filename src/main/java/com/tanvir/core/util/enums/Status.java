@@ -16,6 +16,7 @@ public enum Status {
     STATUS_CANCELLED("Canceled"),
     STATUS_RESCHEDULED("Rescheduled"),
     STATUS_FAILED("Failed"),
+    STATUS_CLOSED("Closed"),
     STATUS_EXCEPTION("Exception");
 
 
