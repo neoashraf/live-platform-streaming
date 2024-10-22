@@ -322,17 +322,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnError(throwable -> log.error("Error happened while generating Agora Token : {}", throwable.getMessage()))
                 .map(agoraTokenResponseDto -> {
                     if (agoraTokenResponseDto.getData() != null && !agoraTokenResponseDto.getData().isEmpty()) {
-                       if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUid());
-                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUserAccount());
-                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID_AND_PRIVILEGE.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUidAndPrivilege());
-                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT_AND_PRIVILEGE.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithAccountAndPrivilege());
-                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_RTM.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithRtm());
-                       }
+                        roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getAgoraToken());
                     }
                     return roomDataDto;
                 })
@@ -379,17 +369,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnError(throwable -> log.error("Error happened while generating Agora Token : {}", throwable.getMessage()))
                 .map(agoraTokenResponseDto -> {
                     if (agoraTokenResponseDto.getData() != null && !agoraTokenResponseDto.getData().isEmpty()) {
-                       if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUid());
-                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUserAccount());
-                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_UID_AND_PRIVILEGE.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithUidAndPrivilege());
-                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT_AND_PRIVILEGE.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithAccountAndPrivilege());
-                       } else if (requestDto.getTokenType().equals(AgoraTokenTypeEnum.TOKEN_WITH_RTM.getValue())) {
-                           roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getTokenWithRtm());
-                       }
+                      roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getAgoraToken());
                     }
                     return roomDataDto;
                 })
