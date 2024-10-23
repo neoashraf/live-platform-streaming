@@ -22,6 +22,7 @@ public class JoinRequests {
     private String profileLevelUrl;
     private String status;
     private String reason;
+    private String gender;
 
 
     @Override
