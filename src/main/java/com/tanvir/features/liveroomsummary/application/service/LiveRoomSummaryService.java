@@ -1,5 +1,6 @@
 package com.tanvir.features.liveroomsummary.application.service;
 
+import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.giftsummary.application.port.out.GiftSummaryPersistencePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomsummary.adapter.out.persistence.entity.LiveRoomSummaryEntity;
@@ -92,6 +93,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             newSummary.setUserId(userId);
             newSummary.setDate(finalCurrentUTC.toLocalDate().toString());
             newSummary.setTotalDuration(durationInSeconds);
+            newSummary.setTotalDurationString(CommonBusiness.formatTimeToString(durationInSeconds));
             newSummary.setTotalSessions(1);
             newSummary.setDayTime(durationInSeconds >= 3600 ? "Yes" : "No");
             newSummary.setMonth(finalCurrentUTC.getMonthValue());
@@ -114,6 +116,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
     private Mono<LiveRoomSummary> updateSummary(LiveRoomSummaryEntity summary, long durationInSeconds, LiveRoom liveRoom) {
         summary.setTotalDuration(summary.getTotalDuration() + durationInSeconds);
+        summary.setTotalDurationString(CommonBusiness.formatTimeToString(summary.getTotalDuration()));
         summary.setTotalSessions(summary.getTotalSessions() + 1);
 
         // Add new session details
