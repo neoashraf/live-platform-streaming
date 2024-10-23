@@ -1103,6 +1103,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .displayName(user.getDisplayName())
                             .profileImageUrl(user.getProfileImageUrl())
                             .status(Constants.STATUS_PENDING.getValue())
+                            .gender(user.getGender())
                             .build();
                     return List.of(joinRequest);
                 });

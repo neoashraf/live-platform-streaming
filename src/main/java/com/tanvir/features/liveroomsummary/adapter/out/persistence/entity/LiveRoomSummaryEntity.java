@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -28,10 +29,12 @@ public class LiveRoomSummaryEntity {
     private int totalSessions;
     private String dayTime;
     private double totalBonus;
+    private int month;
+    private int year;
     private List<SessionDetail> sessionDetails;
 
-    private LocalDateTime createdOn;
-    private LocalDateTime updatedOn;
+    private Instant createdOn;
+    private Instant updatedOn;
 
     @Data
     @Builder
@@ -40,5 +43,6 @@ public class LiveRoomSummaryEntity {
     public static class SessionDetail {
         private String liveRoomId;
         private long duration;
+        private double bonus;
     }
 }
