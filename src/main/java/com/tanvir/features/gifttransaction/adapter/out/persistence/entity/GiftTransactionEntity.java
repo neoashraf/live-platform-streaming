@@ -10,9 +10,7 @@ import org.springframework.data.domain.Persistable;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -33,7 +31,7 @@ public class GiftTransactionEntity implements Persistable<String> {
     private String liveRoomId;
     private String transactionDateId;
     private String transactionDate;
-    private LocalDateTime createdOn;
+    private Instant createdOn;
 
     @Override
     public String toString() {

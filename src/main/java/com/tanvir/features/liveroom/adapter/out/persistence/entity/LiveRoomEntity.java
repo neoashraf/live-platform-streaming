@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.domain.Persistable;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -22,8 +23,8 @@ import java.util.UUID;
 public class LiveRoomEntity implements Persistable<String> {
 
     private String id;
-    private LocalDateTime createdOn;
-    private LocalDateTime endedOn;
+    private Instant createdOn;
+    private Instant endedOn;
     private String thumbnailId;
     private String thumbnailUrl;
 

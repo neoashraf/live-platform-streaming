@@ -9,7 +9,9 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.domain.Persistable;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -31,8 +33,8 @@ public class GiftSummaryEntity implements Persistable<String> {
     private String transactionDateId; // a unique id to represent a particular date
     private String transactionDate;
     private Integer transactionCount;
-    private LocalDateTime createdOn;
-    private LocalDateTime updatedOn;
+    private Instant createdOn;
+    private Instant updatedOn;
     private Map<String, Double> senderAmountMap;
 
     @Override

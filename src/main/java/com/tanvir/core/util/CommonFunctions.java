@@ -17,7 +17,7 @@ import java.time.format.DateTimeFormatter;
 @Slf4j
 public class CommonFunctions {
 	public String buildGsonBuilder(Object object) {
-		return buildGson(object).toJson(object);
+		return buildGsonWithInstant(object).toJson(object);
 	}
 	
 	public Gson buildGson(Object object) {
@@ -37,7 +37,7 @@ public class CommonFunctions {
 				.setPrettyPrinting().create();
 	}
 
-	/*public Gson buildGson(Object object) {
+	public Gson buildGsonWithInstant(Object object) {
 		return new GsonBuilder()
 				.registerTypeAdapter(LocalDateTime.class,
 						(JsonDeserializer<LocalDateTime>) (json, typeOfT, context) ->
@@ -51,48 +51,14 @@ public class CommonFunctions {
 				.registerTypeAdapter(LocalDate.class,
 						(JsonSerializer<LocalDate>) (localDateTime, type, jsonSerializationContext) ->
 								new JsonPrimitive(localDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))))
-				.registerTypeAdapter(Instant.class, new JsonSerializer<Instant>() {
-					@Override
-					public JsonElement serialize(Instant instant, Type typeOfSrc, JsonSerializationContext context) {
-						return new JsonPrimitive(instant.toString()); // Serialize Instant to ISO-8601 format
-					}
-				})
-				.registerTypeAdapter(Instant.class, new JsonDeserializer<Instant>() {
-					@Override
-					public Instant deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-						return Instant.parse(json.getAsString()); // Deserialize ISO-8601 format back to Instant
-					}
-				})
+				.registerTypeAdapter(Instant.class,
+						(JsonDeserializer<Instant>) (json, typeOfT, context) ->
+								Instant.parse(json.getAsString()))
+				.registerTypeAdapter(Instant.class,
+						(JsonSerializer<Instant>) (instant, type, jsonSerializationContext) ->
+								new JsonPrimitive(instant.toString()))
 				.setPrettyPrinting()
 				.create();
-	}*/
-	
-	public double round(int scale, double amount, RoundingMode roundingMode) {
-		return new BigDecimal(amount).setScale(scale, roundingMode).doubleValue();
 	}
 
-	public static <T> String getFieldValueByObjectAndFieldName(T object, String fieldName) {
-		String fieldValue = null;
-		try {
-			Class<?> passbookClass = object.getClass();
-			Field field = passbookClass.getDeclaredField(fieldName);
-			field.setAccessible(true);
-			fieldValue = field.get(object) == null ? null : field.get(object).toString();
-			log.info("field Name : {}, value of field : {}",fieldName, fieldValue);
-		} catch (NoSuchFieldException | IllegalAccessException e) {
-			log.error("Error : Field : {} not found or inaccessible", fieldName);
-		}
-		return fieldValue;
-	}
-
-	public RoundingMode getRoundingMode(String roundingLogic) {
-		RoundingMode roundingMode = null;
-		switch (roundingLogic.toUpperCase()) {
-			case "HALFUP" -> roundingMode = RoundingMode.HALF_UP;
-			case "HALFDOWN" -> roundingMode = RoundingMode.HALF_DOWN;
-			case "UP" -> roundingMode = RoundingMode.UP;
-			case "DOWN" -> roundingMode = RoundingMode.DOWN;
-		}
-		return roundingMode;
-	}
 }

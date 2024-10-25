@@ -38,6 +38,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.List;
 
 @Service
@@ -263,8 +264,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .beans(giftTransaction.getBeans())
                             .liveSession(requestDto.getLiveSession())
                             .liveRoomId(requestDto.getLiveRoomId())
-                            .transactionDate(LocalDateTime.now().toLocalDate().toString())
-                            .createdOn(LocalDateTime.now())
+                            .transactionDate(ZonedDateTime.now(ZoneOffset.UTC).toLocalDate().toString())
+                            .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                             .senderReceiverDto(giftTransaction.getSenderReceiverDto())
                             .gift(giftTransaction.getGift())
                             .agencyId(giftTransaction.getAgencyId())
@@ -280,8 +281,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .beans(giftTransaction.getBeans())
                 .liveSession(requestDto.getLiveSession())
                 .liveRoomId(requestDto.getLiveRoomId())
-                .transactionDate(LocalDateTime.now().toLocalDate().toString())
-                .createdOn(LocalDateTime.now())
+                .transactionDate(ZonedDateTime.now(ZoneOffset.UTC).toLocalDate().toString())
+                .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                 .senderReceiverDto(giftTransaction.getSenderReceiverDto())
                 .gift(giftTransaction.getGift())
                 .build());
@@ -350,7 +351,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         dataDto.setRecipientId(giftTransaction.getReceiverId());
         dataDto.setSenderId(giftTransaction.getSenderId());
         dataDto.setQuantity(giftTransaction.getQuantity());
-        dataDto.setSentOn(giftTransaction.getCreatedOn().toInstant(ZoneOffset.UTC).toString());
+        dataDto.setSentOn(giftTransaction.getCreatedOn().toString());
         dataDto.setBeans(giftTransaction.getSenderReceiverDto().getSender().getBeans());
         dataDto.setBeansValue(CommonBusiness.convertToShortName(giftTransaction.getSenderReceiverDto().getSender().getBeans()));
 //        dataDto.setSentOn(giftTransaction.getCreatedOn().toString());

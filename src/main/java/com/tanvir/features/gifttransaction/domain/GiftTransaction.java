@@ -10,7 +10,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 
 @Data
 @Builder
@@ -28,7 +30,7 @@ public class GiftTransaction {
     private String liveRoomId;
     private String transactionDateId;
     private String transactionDate;
-    private LocalDateTime createdOn;
+    private Instant createdOn;
 
     // dto
     private SenderReceiverDto senderReceiverDto;

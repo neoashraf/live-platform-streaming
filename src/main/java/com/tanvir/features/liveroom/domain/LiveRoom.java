@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -19,8 +20,8 @@ import java.util.List;
 @NoArgsConstructor
 public class LiveRoom {
     private String id;
-    private LocalDateTime createdOn;
-    private LocalDateTime endedOn;
+    private Instant createdOn;
+    private Instant endedOn;
     private String thumbnailId;
     private String thumbnailUrl;
 

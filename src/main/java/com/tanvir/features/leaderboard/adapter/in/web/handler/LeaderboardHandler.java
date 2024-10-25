@@ -1,15 +1,10 @@
 package com.tanvir.features.leaderboard.adapter.in.web.handler;
 
 import com.tanvir.core.util.enums.QueryParams;
-import com.tanvir.features.gifttransaction.application.port.in.GiftTransactionUseCase;
-import com.tanvir.features.gifttransaction.application.port.in.dto.request.GiftTransactionRequestDto;
-import com.tanvir.features.gifttransaction.application.port.in.dto.request.SendGiftRequestDto;
 import com.tanvir.features.leaderboard.application.port.in.LeaderboardUseCase;
 import com.tanvir.features.leaderboard.application.port.in.dto.request.LeaderboardRequestDto;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
