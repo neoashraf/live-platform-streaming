@@ -1153,6 +1153,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .durationInSeconds(liveRoom.getDurationInSeconds())
                         .duration(CommonBusiness.formatTimeToString(liveRoom.getDurationInSeconds()))
                         .totalViewerCount(liveRoom.getTotalViewerCount())
+                        .hostDailyGems(liveRoom.getHostDailyGems())
                         .build())
                 .count(1)
                 .build());

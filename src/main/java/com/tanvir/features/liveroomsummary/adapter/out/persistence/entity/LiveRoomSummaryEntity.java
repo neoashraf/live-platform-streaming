@@ -29,6 +29,7 @@ public class LiveRoomSummaryEntity {
     private int totalSessions;
     private String dayTime;
     private double totalBonus;
+    private double hostDailyGems;
     private int month;
     private int year;
     private List<SessionDetail> sessionDetails;
@@ -44,5 +45,6 @@ public class LiveRoomSummaryEntity {
         private String liveRoomId;
         private long duration;
         private double bonus;
+        private double hostDailyGems;
     }
 }

@@ -7,10 +7,17 @@ import com.tanvir.features.liveroomsummary.adapter.out.persistence.entity.LiveRo
 import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
 import com.tanvir.features.liveroomsummary.application.port.out.LiveRoomSummaryPersistencePort;
 import com.tanvir.features.liveroomsummary.domain.LiveRoomSummary;
+import com.tanvir.features.liveroomsummary.domain.dto.HostEarning;
+import com.tanvir.features.liveroomsummary.domain.dto.HostEarningRequestDto;
+import com.tanvir.features.liveroomsummary.domain.dto.HostEarningResponseDto;
+import com.tanvir.features.liveroomsummary.domain.dto.HostEarningSummaryDto;
+import com.tanvir.features.user.application.port.in.UserUseCase;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
@@ -38,10 +45,11 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
     private LiveRoomSummaryPersistencePort port;
 
     private final ModelMapper modelMapper;
-    private CurrentSecurityContextArgumentResolver reactiveCurrentSecurityContextArgumentResolver;
+    private final UserUseCase userUseCase;
 
-    public LiveRoomSummaryService(ModelMapper modelMapper) {
+    public LiveRoomSummaryService(ModelMapper modelMapper, UserUseCase userUseCase) {
         this.modelMapper = modelMapper;
+        this.userUseCase = userUseCase;
     }
 
 
@@ -95,6 +103,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             newSummary.setTotalDuration(durationInSeconds);
             newSummary.setTotalDurationString(CommonBusiness.formatTimeToString(durationInSeconds));
             newSummary.setTotalSessions(1);
+            newSummary.setHostDailyGems(liveRoom.getHostDailyGems());
             newSummary.setDayTime(durationInSeconds >= 3600 ? "Yes" : "No");
             newSummary.setMonth(finalCurrentUTC.getMonthValue());
             newSummary.setYear(finalCurrentUTC.getYear());
@@ -103,6 +112,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             LiveRoomSummaryEntity.SessionDetail newSessionDetail = new LiveRoomSummaryEntity.SessionDetail();
             newSessionDetail.setLiveRoomId(liveRoom.getId());
             newSessionDetail.setDuration(durationInSeconds);
+            newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems());
             newSummary.setSessionDetails(Collections.singletonList(newSessionDetail));
 
             newSummary.setCreatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
@@ -114,9 +124,50 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         }));
     }
 
+    @Override
+    public Mono<HostEarningResponseDto> getHostEarnings(HostEarningRequestDto requestDto) {
+       return userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+               .flatMap(user -> this.findTotalHostDailyGemsWithDuration(user.getId(), requestDto.getMonth(), requestDto.getYear()))
+                .map(hostEarningSummaryDto -> {
+                    log.info("Host earning summary: {}", hostEarningSummaryDto);
+                    return HostEarning.builder()
+                            .totalGems(hostEarningSummaryDto.getTotalHostDailyGems())
+                            .totalGemsValue(CommonBusiness.convertToShortName((double) hostEarningSummaryDto.getTotalHostDailyGems()))
+                            .totalDuration(hostEarningSummaryDto.getTotalDuration())
+                            .totalDurationString(CommonBusiness.formatTimeToString(hostEarningSummaryDto.getTotalDuration()))
+                            .totalDayTimeCount(hostEarningSummaryDto.getDayTimeCount())
+                            .build();
+                })
+               .map(hostEarning -> HostEarningResponseDto.builder()
+                       .message("Host earning details fetched successfully")
+                       .data(hostEarning)
+                       .count(1)
+                       .build());
+    }
+
+    public Mono<HostEarningSummaryDto> findTotalHostDailyGemsWithDuration(String userId, int month, int year) {
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(
+                        Criteria.where("userId").is(userId)
+                                .and("month").is(month)
+                                .and("year").is(year)
+                ),
+                Aggregation.group()
+                        .sum("hostDailyGems").as("totalHostDailyGems")
+                        .sum("totalDuration").as("totalDuration")
+                        .sum(ConditionalOperators.when(Criteria.where("dayTime").is("Yes")).then(1).otherwise(0)).as("dayTimeCount") // Counts dayTime = "Yes"
+        );
+
+        return reactiveMongoTemplate.aggregate(aggregation, "liveroom_summary", HostEarningSummaryDto.class)
+                .next()
+                .defaultIfEmpty(new HostEarningSummaryDto(0L, 0L, 0)); // Default DTO if no matching records
+    }
+
+
     private Mono<LiveRoomSummary> updateSummary(LiveRoomSummaryEntity summary, long durationInSeconds, LiveRoom liveRoom) {
         summary.setTotalDuration(summary.getTotalDuration() + durationInSeconds);
         summary.setTotalDurationString(CommonBusiness.formatTimeToString(summary.getTotalDuration()));
+        summary.setHostDailyGems(liveRoom.getHostDailyGems());
         summary.setTotalSessions(summary.getTotalSessions() + 1);
 
         // Add new session details
@@ -124,6 +175,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         LiveRoomSummaryEntity.SessionDetail newSessionDetail = new LiveRoomSummaryEntity.SessionDetail();
         newSessionDetail.setLiveRoomId(liveRoom.getId());
         newSessionDetail.setDuration(durationInSeconds);
+        newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems());
         sessionDetails.add(newSessionDetail);
         summary.setSessionDetails(sessionDetails);
 

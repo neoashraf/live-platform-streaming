@@ -44,6 +44,9 @@ public enum QueryParams {
     OFFSET("offset"),
     REQUEST_ID("requestId"),
 
+    MONTH("month"),
+    YEAR("year"),
+
     ;
     private final String value;
 

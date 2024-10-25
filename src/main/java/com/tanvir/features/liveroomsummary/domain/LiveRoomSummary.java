@@ -22,11 +22,8 @@ public class LiveRoomSummary {
     private String totalDurationString;
     private int totalSessions;
     private String dayTime;
-    private int totalBonus;
+    private double totalBonus;
+    private double hostDailyGems;
     private List<LiveRoomSummaryEntity.SessionDetail> sessionDetails;
 
-    public static class SessionDetail {
-        private String liveRoomId;
-        private int duration;
-    }
 }
