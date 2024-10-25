@@ -39,6 +39,7 @@ import reactor.util.function.Tuples;
 import java.text.DecimalFormat;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -112,12 +113,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe()))
-                /*.map(liveRoom -> LiveRoomGridViewResponseDto
-                        .builder()
-                        .userMessage("Live room created successfully.")
-                        .data(List.of(this.buildLiveRoomResponse(liveRoom)))
-                        .count(1)
-                        .build())*/
                 .flatMap(liveRoom -> this.buildCreateStreamResponseDto(requestDto, liveRoom, "Live room created successfully."))
                 .doOnError(throwable -> log.error("Failed to Create stream response dto. Error : {}", throwable.getMessage()))
                 .as(rxtx::transactional)
@@ -306,7 +301,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
         roomDataDto.setHostMaxId(liveRoom.getHostMaxId());
-        roomDataDto.setJoinedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+        roomDataDto.setJoinedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
 //        roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
         roomDataDto.setWelcomeAnnouncement(liveRoom.getWelcomeAnnouncement());
         roomDataDto.setViewerMaxId(liveRoom.getViewer().getMaxId());
@@ -351,7 +346,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         roomDataDto.setTags(liveRoom.getTags());
         roomDataDto.setStatus(liveRoom.getStatus());
         roomDataDto.setViewerCount(liveRoom.getViewerCount());
-        roomDataDto.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
+        roomDataDto.setCreatedOn(liveRoom.getCreatedOn());
         roomDataDto.setCountry(liveRoom.getCountry());
         roomDataDto.setViewer(liveRoom.getViewer());
         roomDataDto.setHostDailyGems(liveRoom.getHostDailyGems());
@@ -388,7 +383,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     private Mono<StreamResponseDto> buildLeaveStreamResponseDto(LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
-        roomDataDto.setLeftOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+        roomDataDto.setLeftOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
         return Mono.just(StreamResponseDto
                 .builder()
                 .message(message)
@@ -400,7 +395,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     private Mono<StreamResponseDto> buildCommentStreamResponseDto(LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
-        roomDataDto.setCommentedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC));
+        roomDataDto.setCommentedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
         return Mono.just(StreamResponseDto
                 .builder()
                 .message(message)
@@ -611,8 +606,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .map(user -> liveRoom))
                 .map(liveRoom -> {
                     liveRoom.setStatus(Constants.STATUS_OFFLINE.getValue());
-                    liveRoom.setEndedOn(LocalDateTime.now());
-                    liveRoom.setDurationInSeconds((liveRoom.getEndedOn().toEpochSecond(ZoneOffset.UTC) - liveRoom.getCreatedOn().toEpochSecond(ZoneOffset.UTC)));
+                    liveRoom.setEndedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
+                    liveRoom.setDurationInSeconds((liveRoom.getEndedOn().getEpochSecond() - liveRoom.getCreatedOn().getEpochSecond()));
                     return liveRoom;
                 })
                 .flatMap(port::saveLiveRoom)
@@ -775,7 +770,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .builder()
                                     .announcementId(UUID.randomUUID().toString())
                                     .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue())
-                                    .time(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString())
+                                    .time(ZonedDateTime.now(ZoneOffset.UTC).toInstant().toString())
                                     .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue()) + requestDto.getComment())
                                     .publisher(AnnouncementUser
                                             .builder()
@@ -1149,7 +1144,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .data(RoomDataDto
                         .builder()
                         .id(liveRoom.getId())
-                        .endedOn(LocalDateTime.now().toInstant(ZoneOffset.UTC))
+                        .endedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .durationInSeconds(liveRoom.getDurationInSeconds())
                         .duration(CommonBusiness.formatTimeToString(liveRoom.getDurationInSeconds()))
                         .totalViewerCount(liveRoom.getTotalViewerCount())
@@ -1270,7 +1265,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
         liveRoomResponse.setHostMaxId(liveRoom.getHostMaxId());
         liveRoomResponse.setAnnouncement(liveRoom.getAnnouncement());
-        liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
+        liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn());
 
         return liveRoomResponse;
     }
@@ -1279,7 +1274,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
         liveRoomResponse.setHostMaxId(liveRoom.getHostMaxId());
         liveRoomResponse.setAnnouncement(liveRoom.getAnnouncement());
-        liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
+        liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn());
 
         return liveRoomResponse;
     }
@@ -1290,7 +1285,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         for (LiveRoom liveRoom : liveRoomList) {
 //            Map<String, Fan> fanMap = liveRoom.getFans();
             LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
-            liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn().toInstant(ZoneOffset.UTC));
+            liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn());
 //            liveRoomResponse.setFans(fanMap.values().stream().toList());
             liveRoomResponseList.add(liveRoomResponse);
         }
@@ -1369,21 +1364,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .kickedOutUserIds(new ArrayList<>())
                         .viewerCount(0)
                         .hostDailyGems(dailyReceivedGems)
-                        .createdOn(LocalDateTime.now())
-        //                .userId(user.getId())
-        //                .keycloakId(requestDto.getKeycloakId())
-        //                .starCount(user.get)
-        //                .gemsCount(user.getGems())
-        //                .popularityLevel(user.getPopularityLevel())
-        //                .userLevel(user.getUserLevel())
-                        /*.profilePicture(Strings.isNullOrEmpty(requestDto.getProfilePicture())
-                                ? user.getProfileImageId()
-                                : requestDto.getProfilePicture())*/
-                        /*.welcomeNote(Strings.isNullOrEmpty(requestDto.getWelcomeNote())
-                                ? null
-                                : requestDto.getWelcomeNote())*/
-        //                .fans(new HashMap<>())
-        //                .createdBy(requestDto.getUserId())
+                        .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .build());
     }
 }

@@ -17,6 +17,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.*;
 
 @Service
@@ -67,7 +68,7 @@ public class GiftSummaryService implements GiftSummaryUseCase {
                             senderAmountMap.getOrDefault(transaction.getSenderId(), 0.0) + transaction.getBeans());
 
                     summary.setSenderAmountMap(senderAmountMap);
-                    summary.setUpdatedOn(LocalDateTime.now(ZoneOffset.UTC));
+                    summary.setUpdatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
                     summary.setId(summary.getId());
 
                     // Save the updated summary back to the database
@@ -92,8 +93,8 @@ public class GiftSummaryService implements GiftSummaryUseCase {
                             senderAmountMap.getOrDefault(transaction.getSenderId(), 0.0) + transaction.getBeans());
 
                     newSummary.setSenderAmountMap(senderAmountMap);
-                    newSummary.setUpdatedOn(LocalDateTime.now(ZoneOffset.UTC));
-                    newSummary.setCreatedOn(LocalDateTime.now(ZoneOffset.UTC));
+                    newSummary.setUpdatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
+                    newSummary.setCreatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
 
                     // Save the new summary back to the database
                     return reactiveMongoTemplate.save(newSummary)
