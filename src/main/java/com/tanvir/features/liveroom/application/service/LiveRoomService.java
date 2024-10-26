@@ -1009,7 +1009,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         List<String> validPersonRequested = liveRoomEntity.getJoinRequests().stream()
                 .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
                 .map(JoinRequests::getUserId)
-                .filter(joinRequestUserId -> user.getId().equals(joinRequestUserId))
+                .filter(joinRequestUserId -> user.getId().equals(joinRequestUserId) || liveRoomEntity.getHost().getUserId().equals(joinRequestUserId))
                 .toList();
 
         List<String> validStatus = liveRoomEntity.getJoinRequests().stream()
@@ -1018,8 +1018,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .filter(joinRequestStatus -> joinRequestStatus.equals(Status.STATUS_APPROVED.getValue()))
                 .toList();
 
-        if (validPersonRequested.isEmpty()) {
-            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Request Id & User mismatch!"));
+        if (validPersonRequested.isEmpty() && !liveRoomEntity.getHost().getUserId().equals(user.getId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Request cannot be processed!"));
         }
 
         if (validStatus.isEmpty()) {
