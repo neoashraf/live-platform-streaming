@@ -1,6 +1,5 @@
 package com.tanvir.features.leaderboard.adapter.in.web.router;
 
-import com.tanvir.features.gifttransaction.adapter.in.handler.GiftTransactionHandler;
 import com.tanvir.features.leaderboard.adapter.in.web.handler.LeaderboardHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -25,7 +24,11 @@ public class LeaderboardRouter {
                         builder -> builder
                             .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                 nestedBuilder
-                                    .GET(LEADERBOARD.concat(FAN), handler::getFanLeaderboard)
+                                    .GET(LEADERBOARD.concat(GLOBAL).concat(FANS), handler::getGlobalFanLeaderboard)
+                            )
+                            .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                nestedBuilder
+                                    .GET(LEADERBOARD.concat(HOST).concat(FANS), handler::getHostFanLeaderboard)
                             )
                             .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                 nestedBuilder

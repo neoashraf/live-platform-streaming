@@ -5,7 +5,8 @@ import com.tanvir.features.leaderboard.application.port.in.dto.response.LeaderBo
 import reactor.core.publisher.Mono;
 
 public interface LeaderboardUseCase {
-    Mono<LeaderBoardResponseDto> getFanLeaderBoard(LeaderboardRequestDto requestDto);
+    Mono<LeaderBoardResponseDto> getGlobalFanLeaderBoard(LeaderboardRequestDto requestDto);
+    Mono<LeaderBoardResponseDto> getHostFanLeaderBoard(LeaderboardRequestDto requestDto);
     Mono<LeaderBoardResponseDto> getHostLeaderBoard(LeaderboardRequestDto requestDto);
     Mono<LeaderBoardResponseDto> getAgencyLeaderBoard(LeaderboardRequestDto requestDto);
 }

@@ -21,14 +21,34 @@ public class LeaderboardHandler {
 
     private final LeaderboardUseCase leaderboardUseCase;
 
-    public Mono<ServerResponse> getFanLeaderboard(ServerRequest serverRequest) {
+    public Mono<ServerResponse> getGlobalFanLeaderboard(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("keycloakId is required"));
         return this.buildBeanTransactionRequestDto(serverRequest)
-                .flatMap(leaderboardUseCase::getFanLeaderBoard)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    return requestDto;
+                })
+                .flatMap(leaderboardUseCase::getGlobalFanLeaderBoard)
                 .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(dto))
-                ;
+                        .bodyValue(dto));
+                /*.onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest))
+                .onErrorResume(Predicate.not(ExceptionHandlerUtil.class::isInstance), e -> ErrorHandler.buildErrorResponseForUncaught(e, serverRequest));*/
+    }
+
+    public Mono<ServerResponse> getHostFanLeaderboard(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("keycloakId is required"));
+        return this.buildBeanTransactionRequestDto(serverRequest)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    return requestDto;
+                })
+                .flatMap(leaderboardUseCase::getHostFanLeaderBoard)
+                .flatMap(dto -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto));
                 /*.onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest))
                 .onErrorResume(Predicate.not(ExceptionHandlerUtil.class::isInstance), e -> ErrorHandler.buildErrorResponseForUncaught(e, serverRequest));*/
     }

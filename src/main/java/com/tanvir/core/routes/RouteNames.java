@@ -21,7 +21,9 @@ public class RouteNames {
 	public static String SEND = "/send";
 	public static String LEADERBOARD = "/leaderboard";
 	public static String FAN = "/fan";
+	public static String FANS = "/fans";
 	public static String HOST = "/host";
+	public static String GLOBAL = "/global";
 	public static String AGENCY = "/agency";
 	public static String VIDEO = "/video";
 	public static String SET = "/set";

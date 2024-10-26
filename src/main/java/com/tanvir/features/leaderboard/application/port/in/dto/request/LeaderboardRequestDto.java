@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class LeaderboardRequestDto {
+    private String keycloakId;
     private String userId;
     private String agencyMaxId;
     private LocalDateTime createdAfter;

@@ -3,7 +3,6 @@ package com.tanvir.features.giftsummary.adapter.out.persistence.repository;
 import com.tanvir.features.giftsummary.adapter.out.persistence.entity.GiftSummaryEntity;
 import com.tanvir.features.gifttransaction.adapter.out.persistence.entity.GiftTransactionEntity;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
