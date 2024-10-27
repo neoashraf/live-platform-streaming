@@ -84,6 +84,8 @@ public class FirebaseAdapter implements CachePort {
                     firebaseEntity.setViewerIds(currentViewersIdsInFirebase);
                     firebaseEntity.setViewerCount(firebaseEntity.getViewerIds().size());
 
+                    firebaseEntity.setAudioParticipants(liveRoom.getAudioParticipants());
+
                     return firebaseEntity;
 
                 })
@@ -99,16 +101,8 @@ public class FirebaseAdapter implements CachePort {
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
-//                    currentViewersInFirebase.remove(liveRoom.getViewer());
                     currentViewersInFirebase.removeIf(viewer -> viewer.getUserId().equals(liveRoom.getViewer().getUserId()));
                     firebaseEntity.setViewers(currentViewersInFirebase);
-
-                    /*List<Announcement> currentAnnouncementsInFirebase = new ArrayList<>(firebaseEntity.getAnnouncements() != null ? firebaseEntity.getAnnouncements() : new ArrayList<>());
-                    if (currentAnnouncementsInFirebase.size() >= 10) {
-                        currentAnnouncementsInFirebase = currentAnnouncementsInFirebase.subList(currentAnnouncementsInFirebase.size() - 9, currentAnnouncementsInFirebase.size());
-                    }
-                    currentAnnouncementsInFirebase.add(liveRoom.getAnnouncement());
-                    firebaseEntity.setAnnouncements(currentAnnouncementsInFirebase);*/
 
                     List<String> currentViewersIdsInFirebase = new ArrayList<>(firebaseEntity.getViewerIds() != null && !firebaseEntity.getViewerIds().isEmpty()
                             ? firebaseEntity.getViewerIds() : new ArrayList<>());
@@ -116,6 +110,11 @@ public class FirebaseAdapter implements CachePort {
 
                     firebaseEntity.setViewerIds(currentViewersIdsInFirebase);
                     firebaseEntity.setViewerCount(firebaseEntity.getViewerIds().size());
+
+                    List<Viewer> currentAudioParticipantsInFirebase = new ArrayList<>(firebaseEntity.getAudioParticipants() != null ? firebaseEntity.getAudioParticipants() : new ArrayList<>());
+                    currentAudioParticipantsInFirebase.removeIf(viewer -> viewer.getUserId().equals(liveRoom.getViewer().getUserId()));
+                    firebaseEntity.setAudioParticipants(currentAudioParticipantsInFirebase);
+
                     return firebaseEntity;
 
                 })
