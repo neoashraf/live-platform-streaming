@@ -17,6 +17,7 @@ import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort;
+import com.tanvir.features.liveroom.domain.LiveRoomConfigEnums;
 import com.tanvir.features.liveroom.domain.valueobject.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
@@ -139,6 +140,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         return Mono.just(requestDto);
     }
 
+
     private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host) {
 
         return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
@@ -180,6 +182,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .viewers(new ArrayList<>())
                                     .viewerCount(0)
                                     .announcements(new ArrayList<>())
+                                    .maxAudioParticipants(liveRoom.getMaxAudioParticipants())
+                                    .audioParticipants(liveRoom.getAudioParticipants())
                                     .build();
                         }));
 
@@ -350,6 +354,8 @@ public class LiveRoomService implements LiveRoomUseCase {
         roomDataDto.setCountry(liveRoom.getCountry());
         roomDataDto.setViewer(liveRoom.getViewer());
         roomDataDto.setHostDailyGems(liveRoom.getHostDailyGems());
+        roomDataDto.setMaxAudioParticipants(liveRoom.getMaxAudioParticipants());
+        roomDataDto.setAudioParticipants(liveRoom.getAudioParticipants());
 
         requestDto.setTokenType(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue());
         AgoraTokenRequestDto agoraTokenRequestDto =
@@ -999,6 +1005,57 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnError(throwable -> log.error("Error happened while closing joined call: {}", throwable.getMessage()));
     }
 
+    @Override
+    public Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto) {
+        AtomicReference<String> liveRoomId = new AtomicReference<>();
+        return userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                .doOnNext(user -> log.info("User received : {}", user))
+                .doOnError(throwable -> log.error("Error happened while retrieving user : {}", throwable.getMessage()))
+                .filter(user -> user.getUserType().equals(UserTypeEnum.USER_TYPE_HOST.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
+                .flatMap(user -> hostUseCase.getHostByUserId(user.getId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
+                        .filter(host -> host.getActive().equals(Constants.STATUS_YES.getValue()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host is Banned. Cannot create LiveRoom.")))
+                        .flatMap(host -> port.getActiveLiveRoomByHostId(host.getId())
+                                .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
+                                .switchIfEmpty(Mono.just(LiveRoom.builder().build()))
+                                .flatMap(liveRoom ->
+                                        liveRoom.getId() != null
+                                                ? Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already has an active LiveRoom."))
+                                                : Mono.just(liveRoom))
+                                .thenReturn(host)))
+                .flatMap(host -> this.buildAudioLiveRoomDomain(host, requestDto)
+                        .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
+                        .flatMap(port::saveLiveRoom)
+                        .map(liveRoom -> {
+                            liveRoomId.set(liveRoom.getId());
+                            return liveRoom;
+                        })
+                        .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
+                        .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
+                        .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
+                                .flatMap(cachePort::create)
+                                .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
+                                .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .subscribe()))
+                .flatMap(liveRoom -> this.buildCreateStreamResponseDto(requestDto, liveRoom, "Audio Live room created successfully."))
+                .doOnError(throwable -> log.error("Failed to Create stream response dto. Error : {}", throwable.getMessage()))
+                .as(rxtx::transactional)
+                .onErrorResume(throwable -> {
+                    if (liveRoomId.get() != null) {
+                        log.error("deleting firebase LiveRoom : {}", liveRoomId.get());
+                        return Mono.defer(() -> cachePort.delete(liveRoomId.get()))
+                                .doOnNext(s -> log.info("deleted : {}", s))
+                                .doOnSuccess(userRepresentation -> log.info("LiveRoom deleted successfully from firebase with id: {}", liveRoomId.get()))
+                                .then(Mono.error(throwable));
+                    } else {
+                        return Mono.error(throwable);
+                    }
+                });
+    }
+
     private Mono<LiveRoomFirebaseEntity> validateCloseJoinedCallRequest(LiveRoomFirebaseEntity liveRoomEntity, JoinCallRequestDto requestDto, User user) {
         if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No Join Requests found for the LiveRoom"));
@@ -1365,6 +1422,33 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .viewerCount(0)
                         .hostDailyGems(dailyReceivedGems)
                         .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
+                        .build());
+    }
+
+    private Mono<LiveRoom> buildAudioLiveRoomDomain(Host host, LiveRoomRequestDto requestDto) {
+        return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
+                .map(dailyReceivedGems -> LiveRoom
+                        .builder()
+                        .id(UUID.randomUUID().toString())
+                        .thumbnailId(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailId()) ? requestDto.getThumbnailId() : host.getProfileImageId())
+                        .thumbnailUrl(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailUrl()) ? requestDto.getThumbnailUrl() : host.getProfileImageUrl())
+                        .title(Strings.isNotNullAndNotEmpty(requestDto.getTitle())
+                                ? requestDto.getTitle()
+                                : host.getDisplayName())
+                        .description(requestDto.getDescription())
+                        .tags(requestDto.getTags())
+                        .type(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
+                        .status(Constants.STATUS_LIVE.getValue())
+                        .country(host.getCountry())
+                        .hostId(host.getId())
+                        .userId(host.getUserId())
+                        .hostMaxId(host.getMaxId())
+                        .kickedOutUserIds(new ArrayList<>())
+                        .viewerCount(0)
+                        .hostDailyGems(dailyReceivedGems)
+                        .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
+                        .maxAudioParticipants(LiveRoomConfigEnums.maxAudioParticipants.getValue())
+                        .audioParticipants(new ArrayList<>())
                         .build());
     }
 }

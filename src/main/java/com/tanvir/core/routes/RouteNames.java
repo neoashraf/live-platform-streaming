@@ -26,6 +26,7 @@ public class RouteNames {
 	public static String GLOBAL = "/global";
 	public static String AGENCY = "/agency";
 	public static String VIDEO = "/video";
+	public static String AUDIO = "/audio";
 	public static String SET = "/set";
 	public static String CREATE = "/create";
 	public static String PERMIT = "/permit";

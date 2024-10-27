@@ -32,6 +32,10 @@ public class LiveRoomRouter {
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
+                                                .POST(LIVE_ROOMS.concat(AUDIO), handler::createAudioStream)
+                                )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(ID).concat(JOIN), handler::joinStream)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->

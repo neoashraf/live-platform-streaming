@@ -40,6 +40,8 @@ public class RoomDataDto {
     private String country;
     private Viewer viewer;
     private double hostDailyGems;
+    private int maxAudioParticipants;
+    private List<Viewer> audioParticipants;
 
     // for end stream
     private long totalViewerCount;

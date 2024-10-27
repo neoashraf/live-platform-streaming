@@ -30,6 +30,6 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private List<Announcement> announcements;
     private String enableJoin;
     private List<JoinRequests> joinRequests;
-//    private int elapsedSeconds;
-//    private String formattedTime;
+    private int maxAudioParticipants;
+    private List<Viewer> audioParticipants;
 }
