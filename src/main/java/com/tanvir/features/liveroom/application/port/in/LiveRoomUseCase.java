@@ -24,4 +24,5 @@ public interface LiveRoomUseCase {
     Mono<JoinCallResponseDto> closeJoinedCall(JoinCallRequestDto requestDto);
 
     Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto);
+    Mono<StreamResponseDto> joinAudioStream(LiveRoomViewerRequestDto requestDto);
 }
