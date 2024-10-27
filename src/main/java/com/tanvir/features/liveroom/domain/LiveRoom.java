@@ -51,6 +51,9 @@ public class LiveRoom {
     private double hostTotalGems;
     private String hostGemsValue;
 
+    private int maxAudioParticipants;
+    private List<Viewer> audioParticipants;
+
 
     @Override
     public String toString() {
