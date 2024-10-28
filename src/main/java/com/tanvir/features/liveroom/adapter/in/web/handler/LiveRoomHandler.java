@@ -244,6 +244,7 @@ public class LiveRoomHandler {
 
         return serverRequest
                 .bodyToMono(JoinCallRequestDto.class)
+                .switchIfEmpty(Mono.just(JoinCallRequestDto.builder().build()))
                 .map(requestDto -> {
                     requestDto.setKeycloakId(keycloakId);
                     requestDto.setLiveRoomId(liveRoomId);
