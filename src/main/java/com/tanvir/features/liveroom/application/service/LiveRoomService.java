@@ -1002,6 +1002,47 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
+    public Mono<JoinCallResponseDto> startJoinCall(JoinCallRequestDto requestDto) {
+        return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .filter(liveRoom -> liveRoom.getEnableJoin().equals(Constants.STATUS_YES.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .filter(user -> user.getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active")))
+                        .thenReturn(liveRoom))
+                .flatMap(liveRoom -> cachePort.getLiveRoomById(liveRoom.getId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
+                        .flatMap(liveRoomEntity -> {
+                            if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
+                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No Join Requests found for the LiveRoom"));
+                            } else if (liveRoomEntity.getJoinRequests().stream().noneMatch(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))) {
+                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join Request not found for the LiveRoom"));
+                            } else if (liveRoomEntity.getJoinRequests().stream().noneMatch(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId())
+                                    && joinRequests.getStatus().equals(Constants.STATUS_APPROVED.getValue()))) {
+                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join Request is not approved for the LiveRoom"));
+                            }
+
+                            return Mono.just(liveRoomEntity);
+                        })
+                        .map(liveRoomEntity -> liveRoom))
+                .doOnNext(liveRoom -> cachePort.updateForStartingJoinCall(liveRoom, requestDto)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
+                .map(liveRoom -> buildJoinCallProcessData(liveRoom, requestDto, Constants.STATUS_STARTED.getValue()))
+                .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
+                        .message("Start Join call request processed successfully.")
+                        .data(liveRoomJoinRequestInfo)
+                        .count(1)
+                        .error(false)
+                        .build());
+    }
+
+    @Override
     public Mono<JoinCallResponseDto> closeJoinedCall(JoinCallRequestDto requestDto) {
         AtomicReference<String> userMaxId = new AtomicReference<>();
         return port.getLiveRoomById(requestDto.getLiveRoomId())

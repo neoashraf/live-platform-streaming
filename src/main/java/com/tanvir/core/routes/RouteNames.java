@@ -30,6 +30,7 @@ public class RouteNames {
 	public static String SET = "/set";
 	public static String CREATE = "/create";
 	public static String PERMIT = "/permit";
+	public static String START = "/start";
 	public static String CLOSE = "/close";
 	public static String EARNINGS = "/earnings";
 }

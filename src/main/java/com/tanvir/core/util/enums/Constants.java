@@ -17,6 +17,7 @@ public enum Constants {
     STATUS_PENDING("Pending"),
     STATUS_APPROVED("Approved"),
     STATUS_DECLINE("Declined"),
+    STATUS_STARTED("Started"),
     ;
     private final String value;
 

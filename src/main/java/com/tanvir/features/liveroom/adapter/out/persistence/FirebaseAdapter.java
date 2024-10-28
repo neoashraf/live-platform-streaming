@@ -1,6 +1,7 @@
 package com.tanvir.features.liveroom.adapter.out.persistence;
 
 import com.tanvir.core.util.DateTimeUtil;
+import com.tanvir.core.util.enums.Constants;
 import com.tanvir.core.util.enums.Status;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
@@ -248,6 +249,29 @@ public class FirebaseAdapter implements CachePort {
                     optionalJoinRequests.ifPresentOrElse(joinRequests -> {
                         joinRequests.setStatus(requestDto.getAction());
                         joinRequests.setReason(requestDto.getReason());
+                    }, () -> {
+                        Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
+                    });
+
+                    return firebaseEntity;
+                })
+                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity after processing join call: {}", firebaseEntity))
+                .flatMap(firebaseRepository::update)
+                .map(firebaseReturnedEntity -> liveRoom);
+    }
+
+    @Override
+    public Mono<LiveRoom> updateForStartingJoinCall(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
+        return firebaseRepository.read(liveRoom.getId())
+                .doOnRequest(l -> log.info("Request received to get  firebase entity for processing join call with id: {}", liveRoom.getId()))
+                .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity for processing join call  with id: {}", firebaseEntity))
+                .map(firebaseEntity -> {
+                    Optional<JoinRequests> optionalJoinRequests = firebaseEntity.getJoinRequests().stream()
+                            .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
+                            .findFirst();
+
+                    optionalJoinRequests.ifPresentOrElse(joinRequests -> {
+                        joinRequests.setStatus(Constants.STATUS_STARTED.getValue());
                     }, () -> {
                         Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
                     });
