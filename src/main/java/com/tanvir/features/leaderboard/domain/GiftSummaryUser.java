@@ -17,7 +17,9 @@ public class GiftSummaryUser {
     private String levelUrl;
     private Integer userLevel;
     private Double beansSent;
+    private String beansSentValue;
     private Double beansReceived;
     private String beansReceivedValue;
     private String agencyId;
+    private String gender;
 }

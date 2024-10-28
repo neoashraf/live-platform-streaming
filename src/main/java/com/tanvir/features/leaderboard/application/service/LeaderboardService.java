@@ -109,6 +109,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                                     giftSummaryUser.setLevelUrl(levelResource.getResourceUrl());
                                     giftSummaryUser.setProfileFrameUrl(user.getProfileFrameUrl());
                                     giftSummaryUser.setBeansSent(entry.getValue()); // Correctly set the beansSent value from the entry's value
+                                    giftSummaryUser.setBeansSentValue(CommonBusiness.convertToShortName(entry.getValue()));
 
                                     summaryUserList.add(giftSummaryUser);
                                 });
@@ -196,7 +197,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                         giftSummaryUser.setLevelUrl(levelResource.getResourceUrl());
                         giftSummaryUser.setProfileFrameUrl(user.getProfileFrameUrl());
                         giftSummaryUser.setBeansSent(entry.getValue()); // Correctly set the beansSent value from the entry's value
-
+                        giftSummaryUser.setBeansSentValue(CommonBusiness.convertToShortName(entry.getValue()));
                         summaryUserList.add(giftSummaryUser);
                     });
                     return summaryUserList;
@@ -269,6 +270,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                                     giftSummaryUser.setProfileFrameUrl(user.getProfileFrameUrl());
                                     giftSummaryUser.setBeansReceived(userIdToBeansMap.get(userId));  // Set the total beans
                                     giftSummaryUser.setBeansReceivedValue(CommonBusiness.convertToShortName(giftSummaryUser.getBeansReceived()));
+                                    giftSummaryUser.setGender(user.getGender());
 
                                     summaryUserList.add(giftSummaryUser);
                                 });
