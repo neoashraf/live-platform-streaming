@@ -1545,8 +1545,9 @@ public class LiveRoomService implements LiveRoomUseCase {
               liveRoom.getAudioParticipants().removeIf(viewer -> viewer.getUserId().equals(user.getId()));
        }
 
-       liveRoom.getJoinRequests().removeIf(joinRequests -> joinRequests.getUserId().equals(user.getId()));
-
+       if (liveRoom.getJoinRequests() != null && !liveRoom.getJoinRequests().isEmpty()) {
+           liveRoom.getJoinRequests().removeIf(joinRequests -> joinRequests.getUserId().equals(user.getId()));
+       }
 
         Viewer viewer = Viewer
                 .builder()

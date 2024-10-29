@@ -117,8 +117,12 @@ public class FirebaseAdapter implements CachePort {
                     firebaseEntity.setAudioParticipants(currentAudioParticipantsInFirebase);
 
                     List<JoinRequests> currentJoinRequests = new ArrayList<>(firebaseEntity.getJoinRequests() != null ? firebaseEntity.getJoinRequests() : new ArrayList<>());
-                    currentJoinRequests.removeIf(joinRequests -> joinRequests.getUserId().equals(liveRoom.getViewer().getUserId()));
-                    firebaseEntity.setJoinRequests(currentJoinRequests);
+                    log.info("Current join requests: {}", currentJoinRequests);
+                    if (!currentJoinRequests.isEmpty()) {
+                        List<JoinRequests> updatedList = currentJoinRequests.stream().filter(joinRequests -> !joinRequests.getUserId().equals(liveRoom.getViewer().getUserId()))
+                                .toList();
+                        firebaseEntity.setJoinRequests(updatedList);
+                    }
                     return firebaseEntity;
 
                 })
