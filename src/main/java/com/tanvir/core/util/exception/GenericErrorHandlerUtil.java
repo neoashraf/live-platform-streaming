@@ -22,7 +22,7 @@ public class GenericErrorHandlerUtil {
                 .error(true)
                 .build();
 
-        log.info("error response built : {}", errorResponse);
+        log.error("error response built : {}", errorResponse);
 
         return ServerResponse
                 .status(status)
