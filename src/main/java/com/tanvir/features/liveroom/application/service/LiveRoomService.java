@@ -1231,7 +1231,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         List<String> validStatus = liveRoomEntity.getJoinRequests().stream()
                 .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
                 .map(JoinRequests::getStatus)
-                .filter(joinRequestStatus -> joinRequestStatus.equals(Status.STATUS_APPROVED.getValue()))
+                .filter(joinRequestStatus -> joinRequestStatus.equals(Constants.STATUS_APPROVED.getValue()) || joinRequestStatus.equals(Constants.STATUS_STARTED.getValue()))
                 .toList();
 
         if (validPersonRequested.isEmpty() && !liveRoomEntity.getHost().getUserId().equals(user.getId())) {
@@ -1536,6 +1536,8 @@ public class LiveRoomService implements LiveRoomUseCase {
        if (liveRoom.getAudioParticipants() != null && !liveRoom.getAudioParticipants().isEmpty()) {
               liveRoom.getAudioParticipants().removeIf(viewer -> viewer.getUserId().equals(user.getId()));
        }
+
+       liveRoom.getJoinRequests().removeIf(joinRequests -> joinRequests.getUserId().equals(user.getId()));
 
 
         Viewer viewer = Viewer
