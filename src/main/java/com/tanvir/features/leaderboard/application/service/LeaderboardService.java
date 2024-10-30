@@ -90,7 +90,11 @@ public class LeaderboardService implements LeaderboardUseCase {
                                 Map<Integer, Level> integerLevelMap = tuple2.getT2();
                                 List<GiftSummaryUser> summaryUserList = new ArrayList<>();
 
-                                limitedList.forEach(entry -> {
+                                limitedList
+                                .stream()
+                                .filter(entry -> stringUserMap.containsKey(entry.getKey()))
+                                .toList()
+                                .forEach(entry -> {
                                     GiftSummaryUser giftSummaryUser = new GiftSummaryUser();
 
                                     // Fetch user details from the stringUserMap using the entry's key (userId)
@@ -179,7 +183,11 @@ public class LeaderboardService implements LeaderboardUseCase {
                     Map<Integer, Level> integerLevelMap = tuple2.getT2();
                     List<GiftSummaryUser> summaryUserList = new ArrayList<>();
 
-                    limitedList.forEach(entry -> {
+                    limitedList
+                    .stream()
+                    .filter(entry -> stringUserMap.containsKey(entry.getKey()))
+                    .toList()
+                    .forEach(entry -> {
                         GiftSummaryUser giftSummaryUser = new GiftSummaryUser();
 
                         // Fetch user details from the stringUserMap using the entry's key (userId)
@@ -254,7 +262,11 @@ public class LeaderboardService implements LeaderboardUseCase {
                                 Map<Integer, Level> integerLevelMap = tuple2.getT2();
                                 List<GiftSummaryUser> summaryUserList = new ArrayList<>();
 
-                                userIdList.forEach(userId -> {
+                                userIdList
+                                .stream()
+                                .filter(stringUserMap::containsKey)
+                                .toList()
+                                .forEach(userId -> {
                                     GiftSummaryUser giftSummaryUser = new GiftSummaryUser();
 
                                     // Fetch user details from the stringUserMap
