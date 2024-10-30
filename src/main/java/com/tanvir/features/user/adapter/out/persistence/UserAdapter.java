@@ -80,7 +80,7 @@ public class UserAdapter implements DatabasePort {
 
     @Override
     public Mono<User> save(User user) {
-        UserEntity entity = mapDomainToEntity(user);
+        UserEntity entity = modelMapper.map(user, UserEntity.class);
         entity.setCreatedOn(LocalDateTime.now());
         return repository.save(entity)
             .map(savedEntity -> modelMapper.map(savedEntity, User.class))

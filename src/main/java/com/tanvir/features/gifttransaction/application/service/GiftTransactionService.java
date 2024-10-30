@@ -380,6 +380,10 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         sender.setBeansGifted(sender.getBeansGifted() + giftTransaction.getBeans());
         sender.setSender(true);
 
+        if (sender.getId().equals(receiver.getId())) {
+            receiver.setBeans(sender.getBeans());
+        }
+
         return levelUseCase.getAllLevels()
                 .flatMap(levels -> {
                     double beansGifted = sender.getBeansGifted();
