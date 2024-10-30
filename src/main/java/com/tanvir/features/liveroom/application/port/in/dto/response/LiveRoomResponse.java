@@ -30,5 +30,7 @@ public class LiveRoomResponse {
     private Viewer viewer;
     private Announcement announcement;
     private double hostDailyGems;
+    private String hostDailyGemsValue;
+    private String gender;
     private String agoraToken;
 }

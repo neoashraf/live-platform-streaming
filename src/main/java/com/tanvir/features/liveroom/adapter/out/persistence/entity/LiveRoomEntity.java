@@ -49,6 +49,8 @@ public class LiveRoomEntity implements Persistable<String> {
     private int maxAudioParticipants;
     private List<Viewer> audioParticipants;
 
+    private String hostGender;
+
     @Override
     public String toString() {
         return CommonFunctions.buildGsonBuilder(this);

@@ -1510,7 +1510,8 @@ public class LiveRoomService implements LiveRoomUseCase {
 //            Map<String, Fan> fanMap = liveRoom.getFans();
             LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
             liveRoomResponse.setCreatedOn(liveRoom.getCreatedOn());
-//            liveRoomResponse.setFans(fanMap.values().stream().toList());
+            liveRoomResponse.setHostDailyGemsValue(CommonBusiness.convertToShortName(liveRoom.getHostDailyGems()));
+            liveRoomResponse.setGender(liveRoom.getHostGender());
             liveRoomResponseList.add(liveRoomResponse);
         }
 
@@ -1596,6 +1597,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .viewerCount(0)
                         .hostDailyGems(dailyReceivedGems)
                         .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
+                        .hostGender(host.getGender())
                         .build());
     }
 
@@ -1623,6 +1625,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .maxAudioParticipants(LiveRoomConfigEnums.maxAudioParticipants.getValue())
                         .audioParticipants(new ArrayList<>())
+                        .hostGender(host.getGender())
                         .build());
     }
 }

@@ -39,6 +39,7 @@ public class LiveRoom {
     private long viewerCount;
     private long totalViewerCount;
     private double hostDailyGems;
+    private String hostGender;
 
     private Viewer viewer;
     private Announcement announcement;
