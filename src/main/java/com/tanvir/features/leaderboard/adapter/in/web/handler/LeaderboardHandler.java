@@ -38,10 +38,13 @@ public class LeaderboardHandler {
     }
 
     public Mono<ServerResponse> getHostFanLeaderboard(ServerRequest serverRequest) {
-        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("keycloakId is required"));
+        String userId = serverRequest.pathVariable("id");
+        if (userId.isEmpty()) {
+            throw new IllegalArgumentException("userId is required");
+        }
         return this.buildBeanTransactionRequestDto(serverRequest)
                 .map(requestDto -> {
-                    requestDto.setKeycloakId(keycloakId);
+                    requestDto.setUserId(userId);
                     return requestDto;
                 })
                 .flatMap(leaderboardUseCase::getHostFanLeaderBoard)

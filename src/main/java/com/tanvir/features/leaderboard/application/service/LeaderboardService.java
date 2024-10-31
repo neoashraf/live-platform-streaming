@@ -6,6 +6,7 @@ import com.tanvir.features.agency.AgencyService;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
 import com.tanvir.features.giftsummary.domain.GiftSummary;
+import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.leaderboard.application.port.in.LeaderboardUseCase;
 import com.tanvir.features.leaderboard.application.port.in.dto.request.LeaderboardRequestDto;
 import com.tanvir.features.leaderboard.application.port.in.dto.response.LeaderBoardResponseDto;
@@ -44,9 +45,10 @@ public class LeaderboardService implements LeaderboardUseCase {
 
     @Override
     public Mono<LeaderBoardResponseDto> getGlobalFanLeaderBoard(LeaderboardRequestDto requestDto) {
-        if (requestDto.getLimit() == null || requestDto.getLimit() == 0) {
-            requestDto.setLimit(10);  // Set a default limit if not provided
-        }
+        requestDto.setLimit(requestDto.getLimit() == null || requestDto.getLimit() < 10
+                ? 10
+                : Math.min(requestDto.getLimit(), 100));
+
         return giftSummaryUseCase.getGiftSummaryByUserIdAndDate(
                         null, requestDto.getCreatedAfter(), requestDto.getCreatedBefore())
                 .flatMapMany(Flux::fromIterable)
@@ -135,10 +137,11 @@ public class LeaderboardService implements LeaderboardUseCase {
 
     @Override
     public Mono<LeaderBoardResponseDto> getHostFanLeaderBoard(LeaderboardRequestDto requestDto) {
-        if (requestDto.getLimit() == null || requestDto.getLimit() == 0) {
-            requestDto.setLimit(10);  // Set a default limit if not provided
-        }
-        return userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+        requestDto.setLimit(requestDto.getLimit() == null || requestDto.getLimit() < 10
+                ? 10
+                : Math.min(requestDto.getLimit(), 100));
+
+        return userUseCase.getUserById(requestDto.getUserId())
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("User not found")))
                 .flatMap(user -> giftSummaryUseCase.getGiftSummaryByUserIdAndDate(
                         user.getId(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore()))
@@ -215,6 +218,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                 })
                 .zipWith(giftSummaryUseCase
                         .getTotalGiftAmountByUserIdAndDate(requestDto.getUserId(), requestDto.getCreatedAfter(), requestDto.getCreatedBefore())
+                        .doOnRequest(l -> log.info("Total gift amount requested with userId: {}", requestDto.getUserId()))
                         .doOnNext(totalGiftAmount -> log.info("Total gift amount: {}", totalGiftAmount)))
                 .map(userListAndTotalGiftAmountTuple -> {
                     List<GiftSummaryUser> giftSummaryUsers = userListAndTotalGiftAmountTuple.getT1();
@@ -224,6 +228,7 @@ public class LeaderboardService implements LeaderboardUseCase {
                             .builder()
                             .topGiftSenders(giftSummaryUsers)
                             .totalGiftAmount(totalGiftAmount)
+                            .totalGiftAmountValue(CommonBusiness.convertToShortName(totalGiftAmount))
                             .build();
                     responseDto.setData(leaderboard);
                     responseDto.setMessage("Fan Leaderboard fetched successfully");
@@ -234,9 +239,10 @@ public class LeaderboardService implements LeaderboardUseCase {
 
     @Override
     public Mono<LeaderBoardResponseDto> getHostLeaderBoard(LeaderboardRequestDto requestDto) {
-        if (requestDto.getLimit() == null || requestDto.getLimit() == 0) {
-            requestDto.setLimit(10);  // Set a default limit if not provided
-        }
+        requestDto.setLimit(requestDto.getLimit() == null || requestDto.getLimit() < 10
+                ? 10
+                : Math.min(requestDto.getLimit(), 100));
+
         return giftSummaryUseCase.getHostGiftSummariesByDate(requestDto.getCreatedAfter(), requestDto.getCreatedBefore(), requestDto.getLimit())
                 .flatMap(userBeanSummaries -> {
                     // Map userId to total beans
@@ -312,9 +318,9 @@ public class LeaderboardService implements LeaderboardUseCase {
 
     @Override
     public Mono<LeaderBoardResponseDto> getAgencyLeaderBoard(LeaderboardRequestDto requestDto) {
-        if (requestDto.getLimit() == null || requestDto.getLimit() == 0) {
-            requestDto.setLimit(10);  // Set a default limit if not provided
-        }
+        requestDto.setLimit(requestDto.getLimit() == null || requestDto.getLimit() < 10
+                ? 10
+                : Math.min(requestDto.getLimit(), 100));
 
         return giftSummaryUseCase.getAgencyGiftSummariesByDate(requestDto.getCreatedAfter(), requestDto.getCreatedBefore(), requestDto.getLimit())
                 .flatMap(userBeanSummaries -> {

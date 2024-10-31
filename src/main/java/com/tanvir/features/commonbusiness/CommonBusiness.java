@@ -54,12 +54,16 @@ public class CommonBusiness {
         }
     }
 
+
     private static String formatValue(double value, String suffix) {
-        // If the value is a whole number, format without decimals
         if (value == Math.floor(value)) {
-            return String.format("%.0f%s", value, suffix); // No decimal if it's a whole number
+            // If it's a whole number, format without decimal places
+            return String.format("%.0f%s", value, suffix);
+        } else if (value * 10 == Math.floor(value * 10)) {
+            // Format with 1 decimal if there's only one non-zero decimal place
+            return String.format("%.1f%s", value, suffix);
         } else {
-            // Format with up to 2 decimal places if value has fractional part
+            // Format with up to 2 decimal places for other cases
             return String.format("%.2f%s", value, suffix);
         }
     }
