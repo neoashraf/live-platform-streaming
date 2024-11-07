@@ -184,6 +184,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .announcements(new ArrayList<>())
                                     .maxAudioParticipants(liveRoom.getMaxAudioParticipants())
                                     .audioParticipants(liveRoom.getAudioParticipants())
+                                    .enableJoin(liveRoom.getEnableJoin())
                                     .build();
                         }));
 
