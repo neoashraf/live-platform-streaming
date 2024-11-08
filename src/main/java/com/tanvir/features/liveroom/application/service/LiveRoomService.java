@@ -986,12 +986,20 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant."));
                             }
 
-                            if (requestDto.getAction().equals(Constants.STATUS_APPROVED.getValue()) &&
-                                    liveRoomEntity.getJoinRequests().stream()
-                                    .map(JoinRequests::getStatus)
-                                    .filter(status -> status.equals(Constants.STATUS_APPROVED.getValue()) || status.equals(Constants.STATUS_STARTED.getValue()))
-                                    .count() >= 3) {
-                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Maximum 3 participants are allowed to join call."));
+                            if (requestDto.getAction().equals(Constants.STATUS_APPROVED.getValue())) {
+                                long approvedOrStartedCount = liveRoomEntity.getJoinRequests().stream()
+                                        .map(JoinRequests::getStatus)
+                                        .filter(status -> status.equals(Constants.STATUS_APPROVED.getValue()) || status.equals(Constants.STATUS_STARTED.getValue()))
+                                        .count();
+
+                                if (liveRoomEntity.getType().equals(Constants.LIVE_ROOM_TYPE_VIDEO.getValue()) && approvedOrStartedCount >= 3) {
+                                    return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Maximum 3 participants are allowed to join call."));
+                                } else if (liveRoomEntity.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
+                                    int maxParticipants = liveRoomEntity.getHost().getUserLevel() <= 20 ? 8 : 15;
+                                    if (approvedOrStartedCount >= maxParticipants) {
+                                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Maximum " + maxParticipants + " participants are allowed to join call."));
+                                    }
+                                }
                             }
 
                             return Mono.just(liveRoomEntity);
