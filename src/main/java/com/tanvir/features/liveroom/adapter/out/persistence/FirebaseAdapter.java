@@ -220,6 +220,7 @@ public class FirebaseAdapter implements CachePort {
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     firebaseEntity.setEnableJoin(liveRoom.getEnableJoin());
+                    firebaseEntity.setEnableAutoJoin(liveRoom.getEnableAutoJoin());
                     return firebaseEntity;
                 })
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))

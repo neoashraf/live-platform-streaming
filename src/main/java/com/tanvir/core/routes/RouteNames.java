@@ -15,6 +15,7 @@ public class RouteNames {
 	public static String TOKEN = "/token";
 	public static String JOIN_REQUESTS = "/join-requests";
 	public static String REQUEST_ID = "/{requestId}";
+	public static String AUTO_JOIN = "/auto-join";
 
 	public static String GIFTS = "/gifts";
 	public static String GIFT_TRANSACTIONS = "/gift-transactions";

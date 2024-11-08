@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 public class EnableJoinPermission {
     private String roomId;
     private String joinCallAvailable;
+    private String autoJoinAudioStreamAvailable;
 
     @Override
     public String toString() {

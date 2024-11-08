@@ -29,6 +29,7 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private long viewerCount;
     private List<Announcement> announcements;
     private String enableJoin;
+    private String enableAutoJoin;
     private List<JoinRequests> joinRequests;
     private int maxAudioParticipants;
     private List<Viewer> audioParticipants;
