@@ -26,4 +26,5 @@ public interface LiveRoomUseCase {
 
     Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto);
     Mono<StreamResponseDto> joinAudioStream(LiveRoomViewerRequestDto requestDto);
+    Mono<LiveRoomJoinPermissionResponseDto> setEnableAutoJoinAudioStream(JoinPermissionRequestDTO requestDTO);
 }

@@ -45,6 +45,7 @@ public class LiveRoomEntity implements Persistable<String> {
     private double hostDailyGems;
     private long durationInSeconds;
     private String enableJoin;
+    private String enableAutoJoin;
     private List<JoinRequests> joinRequests;
     private int maxAudioParticipants;
     private List<Viewer> audioParticipants;

@@ -46,6 +46,7 @@ public class LiveRoom {
     private long durationInSeconds;
     private DailyStarProgress dailyStarProgress;
     private String enableJoin;
+    private String enableAutoJoin;
     private List<JoinRequests> joinRequests;
     private Announcement welcomeAnnouncement;
 

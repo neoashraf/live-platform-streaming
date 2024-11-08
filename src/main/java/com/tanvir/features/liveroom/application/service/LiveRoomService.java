@@ -455,6 +455,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     private Mono<LiveRoomJoinPermissionResponseDto> buildEnableJoinResponseDTO(LiveRoom liveRoom, String message) {
         EnableJoinPermission joinPermission = new EnableJoinPermission();
         joinPermission.setJoinCallAvailable(liveRoom.getEnableJoin());
+        joinPermission.setAutoJoinAudioStreamAvailable(liveRoom.getEnableAutoJoin());
         joinPermission.setRoomId(liveRoom.getId());
         return Mono.just(LiveRoomJoinPermissionResponseDto
                 .builder()
@@ -1222,6 +1223,37 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .subscribe())
                 .flatMap(liveRoom -> this.buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom, "User has successfully joined the room.", audioParticipantLimitReached.get()))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
+    }
+
+    @Override
+    public Mono<LiveRoomJoinPermissionResponseDto> setEnableAutoJoinAudioStream(JoinPermissionRequestDTO requestDTO) {
+        return port.getLiveRoomById(requestDTO.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,"LiveRoom does not exist by the given id")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDTO.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .map(User::getId)
+                        .doOnSuccess(userId -> log.info("User Id : {}", userId))
+                        .filter(userId -> liveRoom.getUserId().equals(userId))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"User must be the host of the LiveRoom to set the permission")))
+                        .thenReturn(liveRoom))
+                .flatMap(liveRoom -> {
+                    List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
+
+                    if (!validTypes.contains(requestDTO.getEnableJoin())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
+                    }
+                    liveRoom.setEnableAutoJoin(requestDTO.getEnableJoin());
+                    return port.saveLiveRoom(liveRoom);
+                })
+                .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
+                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom,"Auto Join AudioStream updated successfully."))
+                .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
 
     private Mono<LiveRoomFirebaseEntity> validateCloseJoinedCallRequest(LiveRoomFirebaseEntity liveRoomEntity, JoinCallRequestDto requestDto, User user) {

@@ -197,6 +197,24 @@ public class LiveRoomHandler {
                 ;
     }
 
+    public Mono<ServerResponse> setEnableAutoJoinAudioStream(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
+        String liveRoomId = serverRequest.pathVariable("id");
+
+        return serverRequest
+                .bodyToMono(JoinPermissionRequestDTO.class)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    requestDto.setLiveRoomId(liveRoomId);
+                    return requestDto;
+                })
+                .flatMap(liveRoomUseCase::setEnableAutoJoinAudioStream)
+                .flatMap(dto -> ServerResponse
+                        .created(serverRequest.uri())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto));
+    }
+
     public Mono<ServerResponse> joinRequest(ServerRequest serverRequest) {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
         String liveRoomId = serverRequest.pathVariable("id");
