@@ -644,13 +644,14 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId) {
+        String superUserMaxId = "10000001";
         return port.getLiveRoomById(liveRoomId)
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomId)))
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot End.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(keycloakId)
-                        .filter(user -> liveRoom.getUserId().equals(user.getId()))
+                        .filter(user -> liveRoom.getUserId().equals(user.getId()) || superUserMaxId.equals(user.getMaxId()))
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot end.")))
                         .map(user -> liveRoom))
                 .map(liveRoom -> {
