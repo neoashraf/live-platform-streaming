@@ -5,6 +5,8 @@ import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import reactor.core.publisher.Mono;
 
+import java.util.Optional;
+
 public interface LiveRoomUseCase {
     Mono<StreamResponseDto> createStream(LiveRoomRequestDto requestDto);
     Mono<StreamResponseDto> joinStream(LiveRoomViewerRequestDto requestDto);
@@ -12,7 +14,11 @@ public interface LiveRoomUseCase {
     Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId);
     Mono<StreamResponseDto> kickOutUser(KickOutUserRequestDto requestDto);
     Mono<LiveRoomResponseDto> getLiveRoomDetailViewById(String id);
+
+
     Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto);
+
+
     Mono<LiveRoomResponseDto> sendGift(SendGiftRequestDto requestDto);
     Mono<StreamResponseDto> comment(LiveRoomViewerRequestDto requestDto);
     Mono<LiveRoom> getLiveRoomById(String id);
@@ -26,4 +32,6 @@ public interface LiveRoomUseCase {
 
     Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto);
     Mono<StreamResponseDto> joinAudioStream(LiveRoomViewerRequestDto requestDto);
+
+    Mono<LiveRoomGridViewResponseDto> getLiveRoomById_1(GridViewRequestDto gridViewRequestDto);
 }
