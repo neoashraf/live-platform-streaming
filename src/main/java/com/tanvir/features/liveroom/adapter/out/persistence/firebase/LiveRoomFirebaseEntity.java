@@ -33,4 +33,5 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private List<JoinRequests> joinRequests;
     private int maxAudioParticipants;
     private List<Viewer> audioParticipants;
+    private List<String> kickedOutUserIds;
 }

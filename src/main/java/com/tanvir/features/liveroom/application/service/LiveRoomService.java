@@ -706,9 +706,11 @@ public class LiveRoomService implements LiveRoomUseCase {
         if (liveRoom.getKickedOutUserIds() == null || liveRoom.getKickedOutUserIds().isEmpty()) {
             liveRoom.setKickedOutUserIds(List.of(kickedUser.getId()));
         } else {
-            List<String> updatedKickedOutUsers = new ArrayList<>(liveRoom.getKickedOutUserIds());
-            updatedKickedOutUsers.add(kickedUser.getId());
-            liveRoom.setKickedOutUserIds(updatedKickedOutUsers);
+            List<String> kickedOutUserIds = liveRoom.getKickedOutUserIds();
+            if (!kickedOutUserIds.contains(kickedUser.getId())) {
+             kickedOutUserIds.add(kickedUser.getId());
+            }
+            liveRoom.setKickedOutUserIds(kickedOutUserIds);
         }
 
         if (liveRoom.getViewerIds() != null) {
