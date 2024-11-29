@@ -183,6 +183,7 @@ public class LiveRoomHandler {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
         String liveRoomId = Optional.ofNullable(serverRequest.pathVariable(QueryParams.ID.getValue())).orElseThrow(() -> new IllegalArgumentException("Live room id is required"));
 
+//        System.out.println();
         return GridViewRequestDto.builder()
                 .keycloakId(liveRoomId)
                 .build();
