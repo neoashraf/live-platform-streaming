@@ -1,18 +1,24 @@
 package com.tanvir.features.liveroom.adapter.in.web.handler;
 
 import com.tanvir.core.util.enums.AgoraTokenTypeEnum;
+import com.tanvir.core.util.enums.ExceptionMessages;
 import com.tanvir.core.util.enums.QueryParams;
+import com.tanvir.core.util.exception.ErrorHandler;
+import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
+
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -158,9 +164,31 @@ public class LiveRoomHandler {
                 .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(dto))
-                ;
+                        .bodyValue(dto)
+                );
     }
+
+    public Mono<ServerResponse> liveRoomById(ServerRequest serverRequest) {
+        return liveRoomUseCase.getLiveRoomById_1(this.buildGridViewRequestDto_1(serverRequest))
+                .flatMap(dto->ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto)
+                )
+                .onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest));
+    }
+
+    private GridViewRequestDto buildGridViewRequestDto_1(ServerRequest serverRequest) {
+
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
+        String liveRoomId = Optional.ofNullable(serverRequest.pathVariable(QueryParams.ID.getValue())).orElseThrow(() -> new IllegalArgumentException("Live room id is required"));
+
+//        System.out.println();
+        return GridViewRequestDto.builder()
+                .keycloakId(liveRoomId)
+                .build();
+    }
+
 
     private GridViewRequestDto buildGridViewRequestDto(ServerRequest serverRequest) {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
@@ -294,6 +322,5 @@ public class LiveRoomHandler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto));
     }
-
 
 }

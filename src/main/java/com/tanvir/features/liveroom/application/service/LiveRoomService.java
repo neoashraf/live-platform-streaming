@@ -767,6 +767,19 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .count(countAndDataTuple.getT1().intValue())
                                 .build()));
     }
+    @Override
+    public Mono<LiveRoomGridViewResponseDto> getLiveRoomById_1(GridViewRequestDto gridViewRequestDto) {
+
+        return port.getLiveRoomById(gridViewRequestDto.getKeycloakId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, ExceptionMessages.NO_LIVE_ROOM_FOUND_WITH_ID.getValue())))
+                .map(liveRoom -> LiveRoomGridViewResponseDto
+                        .builder()
+                        .userMessage("Live room by id ( "+gridViewRequestDto.getKeycloakId()+" ) is fetched successfully")
+                        .data(List.of(this.buildLiveRoomResponse(liveRoom)))
+                        .count(1)
+                        .build()
+                );
+    }
 
     private Mono<LiveRoomGridViewResponseDto> getVideoLiveRooms(GridViewRequestDto requestDto) {
 //        todo : implement fetch according to popular index
