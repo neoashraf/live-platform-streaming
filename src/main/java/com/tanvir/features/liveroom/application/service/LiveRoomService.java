@@ -662,8 +662,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 })
                 .flatMap(port::saveLiveRoom)
                 .doOnNext(liveRoom -> {
+                    log.info("LiveRoom details: {}", liveRoom);
                     liveRoomSummaryUseCase.processLiveRoomSummary(liveRoom)
                             .doOnNext(liveRoomSummary -> log.info("LiveRoom Summary processed successfully"))
+                            .doOnNext(liveRoomSummaryEntity -> log.debug("LiveRoomSummary details: {}", liveRoomSummaryEntity))
                             .doOnError(throwable -> log.error("Error Happened while processing LiveRoom Summary : {}", throwable.getMessage()))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe();
