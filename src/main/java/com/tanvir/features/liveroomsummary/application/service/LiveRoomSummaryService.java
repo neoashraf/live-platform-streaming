@@ -1,5 +1,6 @@
 package com.tanvir.features.liveroomsummary.application.service;
 
+import com.tanvir.core.util.Constants;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.giftsummary.application.port.out.GiftSummaryPersistencePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
@@ -25,14 +26,12 @@ import org.springframework.security.web.reactive.result.method.annotation.Curren
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -67,7 +66,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         );*/
         log.info("Current UTC time: {}", currentUTC);
 
-        // Determine the day end time for logic
+        // Determine the day end time for logic yyyy-mm-ddT01:00:00Z
         ZonedDateTime dayEndTime = currentUTC.withHour(1).withMinute(0).withSecond(0).withNano(0);
 
         // Adjust current date based on the time
@@ -92,7 +91,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         ZonedDateTime finalCurrentUTC = currentUTC;
         return latestEntryMono.flatMap(summary -> {
             log.info("Found existing summary for user : {}", userId);
-            return updateSummary(summary, durationInSeconds, liveRoom);
+            return updateSummary(summary, durationInSeconds, liveRoom, finalCurrentUTC);
         }).switchIfEmpty(Mono.defer(() -> {
             // No existing summary found; check the conditions to create a new one
             log.info("Creating a new summary for user : {}", userId);
@@ -113,8 +112,19 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             newSessionDetail.setLiveRoomId(liveRoom.getId());
             newSessionDetail.setDuration(durationInSeconds);
             newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems());
+
+            if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD && liveRoom.getType().equalsIgnoreCase("video")) {
+                newSessionDetail.setBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
+                newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
+                newSummary.setLastGemsAwardedDate(finalCurrentUTC.toLocalDate().toString());
+            }
+
             newSummary.setSessionDetails(Collections.singletonList(newSessionDetail));
 
+            if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT && liveRoom.getType().equalsIgnoreCase("video")) {
+                newSummary.setTotalLiveDays(newSummary.getTotalLiveDays() + 1);
+                newSummary.setLastDayCountedDate(finalCurrentUTC.toLocalDate().toString());
+            }
             newSummary.setCreatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
 
             // Save the new summary back to the database
@@ -164,14 +174,17 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
     }
 
 
-    private Mono<LiveRoomSummary> updateSummary(LiveRoomSummaryEntity summary, long durationInSeconds, LiveRoom liveRoom) {
+    private Mono<LiveRoomSummary> updateSummary(LiveRoomSummaryEntity summary, long durationInSeconds, LiveRoom liveRoom, ZonedDateTime finalCurrentUTC) {
         summary.setTotalDuration(summary.getTotalDuration() + durationInSeconds);
         summary.setTotalDurationString(CommonBusiness.formatTimeToString(summary.getTotalDuration()));
         summary.setHostDailyGems(liveRoom.getHostDailyGems());
         summary.setTotalSessions(summary.getTotalSessions() + 1);
 
         // Add new session details
-        List<LiveRoomSummaryEntity.SessionDetail> sessionDetails = new ArrayList<>(summary.getSessionDetails());
+        List<LiveRoomSummaryEntity.SessionDetail> sessionDetails = summary.getSessionDetails() != null ?
+                        new ArrayList<>(summary.getSessionDetails()) :
+                        new ArrayList<>();
+
         LiveRoomSummaryEntity.SessionDetail newSessionDetail = new LiveRoomSummaryEntity.SessionDetail();
         newSessionDetail.setLiveRoomId(liveRoom.getId());
         newSessionDetail.setDuration(durationInSeconds);
@@ -179,8 +192,26 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         sessionDetails.add(newSessionDetail);
         summary.setSessionDetails(sessionDetails);
 
+        String currentDate = finalCurrentUTC.toLocalDate().toString();
+        if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD
+                && (summary.getLastGemsAwardedDate() == null || !summary.getLastGemsAwardedDate().equals(currentDate))
+                && liveRoom.getType().equalsIgnoreCase("video")
+        ) {
+            addBonusToSession(summary, liveRoom, currentDate);
+        }
+
+
+        // increment totalLiveDays++ only once per day if 60+ minutes
+        if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT
+                && (summary.getLastDayCountedDate() == null || !summary.getLastDayCountedDate().equals(currentDate))
+                && liveRoom.getType().equalsIgnoreCase("video")
+        ) {
+            summary.setTotalLiveDays(summary.getTotalLiveDays() + 1);
+            summary.setLastDayCountedDate(currentDate);
+        }
+
         // Check if dayTime should be set to "Yes"
-        if (summary.getTotalDuration() >= 3600) {
+        if (summary.getTotalDuration() >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT) {
             summary.setDayTime("Yes");
         }
 
@@ -191,6 +222,16 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 .doOnNext(liveRoomSummaryEntity -> log.info("Updated summary for user : {}", liveRoomSummaryEntity))
                 .map(liveRoomSummaryEntity -> modelMapper.map(liveRoomSummaryEntity, LiveRoomSummary.class)); // Return the liveRoom wrapped in Mono
     }
+
+    private void addBonusToSession(LiveRoomSummaryEntity summary, LiveRoom liveRoom, String currentDate) {
+        liveRoom.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
+        summary.getSessionDetails().stream()
+                .filter(session -> session.getLiveRoomId().equals(liveRoom.getId()))
+                .findFirst()
+                .ifPresent(session -> session.setBonus(session.getBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT));
+        summary.setLastGemsAwardedDate(currentDate);
+    }
+
 
 
 }
