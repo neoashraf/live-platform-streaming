@@ -1269,6 +1269,29 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
 
+    @Override
+    public Mono<Earning> userEarning(String userId) {
+        return userUseCase.getUserById(userId)
+                .defaultIfEmpty(User.builder().build()) // Return a dummy user if not found
+                .map(dbUser -> {
+                    // Create and return the dummy Earning data
+                    Earning dummyEarning = new Earning();
+                    dummyEarning.setMonth("December");
+                    dummyEarning.setYear(2024);
+                    dummyEarning.setGems(dbUser.getGems());
+                    dummyEarning.setGemsString("1.3M");
+                    dummyEarning.setDuration("8100");
+                    dummyEarning.setDurationString("2 hrs 15 min");
+                    dummyEarning.setValidDays(7);
+                    dummyEarning.setBonus((int) dbUser.getBeansGifted());
+                    dummyEarning.setBonusString("10k");
+
+                    return dummyEarning;
+                });
+    }
+
+
+
     private Mono<LiveRoomFirebaseEntity> validateCloseJoinedCallRequest(LiveRoomFirebaseEntity liveRoomEntity, JoinCallRequestDto requestDto, User user) {
         if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No Join Requests found for the LiveRoom"));

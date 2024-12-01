@@ -4,6 +4,7 @@ import com.tanvir.core.util.enums.AgoraTokenTypeEnum;
 import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
+import com.tanvir.features.liveroom.domain.valueobject.Earning;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -295,5 +296,15 @@ public class LiveRoomHandler {
                         .bodyValue(dto));
     }
 
+    public Mono<ServerResponse> earnings(ServerRequest serverRequest) {
+        String userId = serverRequest.pathVariable("id");
+        log.info("userId:: {}", userId);
+
+        return liveRoomUseCase.userEarning(userId)
+                .flatMap(dto -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto));
+    }
 
 }
