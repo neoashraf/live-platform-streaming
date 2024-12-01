@@ -8,6 +8,7 @@ public class RouteNames {
 	public static String LIVE_ROOM = "/live-room";
 	public static String OFFSET = "/offset";
 	public static String ID = "/{id}";
+	public static String USERS = "/users";
 	public static String JOIN = "/join";
 	public static String LEAVE = "/leave";
 	public static String KICK = "/kick";

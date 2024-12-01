@@ -21,4 +21,5 @@ public interface UserUseCase {
 	Mono<User> getUserByKeycloakIdOrEmail(String keycloakId, String email);
 	Mono<User> updateUser(User user);
 	Mono<Map<String, User>> getUsersByIds(List<String> userIdList);
+	Mono<User> addMoreGems(String maxId, int gemsAmount);
 }

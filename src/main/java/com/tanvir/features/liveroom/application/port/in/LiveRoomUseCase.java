@@ -3,6 +3,7 @@ package com.tanvir.features.liveroom.application.port.in;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
+import com.tanvir.features.liveroom.domain.valueobject.Earning;
 import reactor.core.publisher.Mono;
 
 import java.util.Optional;
@@ -29,6 +30,7 @@ public interface LiveRoomUseCase {
     Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto);
     Mono<StreamResponseDto> joinAudioStream(LiveRoomViewerRequestDto requestDto);
     Mono<LiveRoomJoinPermissionResponseDto> setEnableAutoJoinAudioStream(JoinPermissionRequestDTO requestDTO);
+    Mono<Earning> userEarning(String userId);
 
     Mono<LiveRoomGridViewResponseDto> getLiveRoomById_1(GridViewRequestDto gridViewRequestDto);
 }
