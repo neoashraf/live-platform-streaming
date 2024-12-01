@@ -212,4 +212,21 @@ public class UserService implements UserUseCase {
         return Mono.empty();
     }
 
+    @Override
+    public Mono<User> addMoreGems(String maxId, int gemsAmount) {
+        return this.getUserByMaxId(maxId)
+                .flatMap(user -> {
+                    if (user == null) {
+                        log.warn("User with maxId {} not found.", maxId);
+                        return Mono.error(new RuntimeException("User not found"));
+                    }
+                    // Update the gems
+                    user.setGems(user.getGems() + gemsAmount);
+                    log.info("Updating gems for user with maxId {}. New gems count: {}", maxId, user.getGems());
+                    return this.updateUser(user); // Save the updated user
+                })
+                .doOnSuccess(updatedUser -> log.info("Successfully updated user gems for userId: {}", updatedUser.getId()))
+                .doOnError(error -> log.error("Error updating gems for user with maxId {}", maxId, error));
+    }
+
 }
