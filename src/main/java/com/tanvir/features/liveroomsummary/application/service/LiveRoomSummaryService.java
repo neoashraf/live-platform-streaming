@@ -121,11 +121,18 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
                 newSummary.setLastGemsAwardedDate(finalCurrentUTC.toLocalDate().toString());
 
+                // Update gems in user table
                 userUseCase.addMoreGems(liveRoom.getHostMaxId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
                         .subscribe(
                                 updatedUser -> log.info("User gems updated successfully: {}", updatedUser),
                                 error -> log.error("Failed to update user gems", error)
                         );
+
+                // Update gems in table
+                hostPersistencePort.addMoreGems(liveRoom.getUserId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
+                        .doOnSuccess(updatedHost -> log.info("Host gems updated successfully: {}", updatedHost))
+                        .doOnError(error -> log.error("Failed to update host gems for UserId {}: {}", liveRoom.getUserId(), error.getMessage()))
+                        .subscribe();
             }
 
 
@@ -239,15 +246,19 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 .findFirst()
                 .ifPresent(session -> session.setBonus(session.getBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT));
 
+        // Update gems in user table
         userUseCase.addMoreGems(liveRoom.getHostMaxId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
-                .subscribe(
-                        updatedUser -> log.info("User gems updated successfully: {}", updatedUser),
-                        error -> log.error("Failed to update user gems", error)
-                );
+                .doOnSuccess(updatedUser -> log.info("User gems updated successfully: {}", updatedUser))
+                .doOnError(error -> log.error("Failed to update user gems for HostMaxId {}: {}", liveRoom.getHostMaxId(), error.getMessage()))
+                .subscribe();
+
+        // Update gems in host table
+        hostPersistencePort.addMoreGems(liveRoom.getUserId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
+                .doOnSuccess(updatedHost -> log.info("Host gems updated successfully: {}", updatedHost))
+                .doOnError(error -> log.error("Failed to update host gems for UserId {}: {}", liveRoom.getUserId(), error.getMessage()))
+                .subscribe();
 
         summary.setLastGemsAwardedDate(currentDate);
     }
-
-
 
 }

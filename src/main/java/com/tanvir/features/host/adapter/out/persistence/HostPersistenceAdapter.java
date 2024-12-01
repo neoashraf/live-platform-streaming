@@ -46,4 +46,16 @@ public class HostPersistenceAdapter implements HostPersistencePort {
             .doOnError(throwable -> log.error("Error while saving host to mongo: {}", throwable.getMessage()))
             .doOnSuccess(host1 -> log.info("Saved host to mongo {}", host1));
     }
+
+    @Override
+    public Mono<Host> addMoreGems(String userId, int gemsAmount) {
+        // Fetch the Host by userId
+        return getHostByUserId(userId)
+                .flatMap(host -> {
+                    host.setGems(host.getGems() + gemsAmount);
+                    log.info("Adding {} gems to host with userId {}. New gems value: {}", gemsAmount, userId, host.getGems());
+                    return saveHost(host);
+                })
+                .doOnError(throwable -> log.error("Error while adding gems to host with userId {}: {}", userId, throwable.getMessage()));
+    }
 }
