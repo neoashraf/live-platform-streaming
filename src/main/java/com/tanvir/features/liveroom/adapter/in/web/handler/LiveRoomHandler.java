@@ -16,6 +16,8 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
+import java.util.Optional;
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -189,6 +191,16 @@ public class LiveRoomHandler {
                         .bodyValue(dto)
                 )
                 .onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest));
+    }
+    private GridViewRequestDto buildGridViewRequestDto_1(ServerRequest serverRequest) {
+
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
+        String liveRoomId = Optional.ofNullable(serverRequest.pathVariable(QueryParams.ID.getValue())).orElseThrow(() -> new IllegalArgumentException("Live room id is required"));
+
+//        System.out.println();
+        return GridViewRequestDto.builder()
+                .keycloakId(liveRoomId)
+                .build();
     }
 
     public Mono<ServerResponse> setJoinPermission(ServerRequest serverRequest) {
