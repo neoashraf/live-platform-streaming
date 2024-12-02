@@ -4,6 +4,7 @@ import com.tanvir.core.util.enums.AgoraTokenTypeEnum;
 import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
+import com.tanvir.features.liveroom.application.port.in.dto.response.EarningResponseDto;
 import com.tanvir.features.liveroom.domain.valueobject.Earning;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
+
+import java.time.ZonedDateTime;
 
 @Component
 @RequiredArgsConstructor
@@ -301,6 +304,25 @@ public class LiveRoomHandler {
         log.info("userId:: {}", userId);
 
         return liveRoomUseCase.userEarning(userId)
+                .switchIfEmpty(Mono.just(Earning.builder().build())) // Handle empty results
+                .map(earning -> EarningResponseDto.builder()
+                        .message("Earning details fetched successfully")
+                        .data(EarningResponseDto.EarningModel.builder()
+                                .month(earning.getMonth())
+                                .year(earning.getYear())
+                                .gems(earning.getGems())
+                                .gemsString(earning.getGemsString())
+                                .duration(earning.getDuration())
+                                .durationString(earning.getDurationString())
+                                .validDays(earning.getValidDays())
+                                .bonus(earning.getBonus())
+                                .bonusString(earning.getBonusString())
+                                .build()
+                        )
+                        .error(false)
+                        .count(1)
+                        .build()
+                )
                 .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)
