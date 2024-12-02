@@ -12,7 +12,8 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class LiveRoomGridViewResponseDto_1 {
-    private String userMessage;
+    private String message;
     private LiveRoomResponse data;
     private Integer count;
+    private boolean error;
 }

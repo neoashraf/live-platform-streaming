@@ -1496,9 +1496,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, ExceptionMessages.NO_LIVE_ROOM_FOUND_WITH_ID.getValue())))
                 .map(liveRoom -> LiveRoomGridViewResponseDto_1
                         .builder()
-                        .userMessage("Live room by id ( "+gridViewRequestDto.getKeycloakId()+" ) is fetched successfully")
+                        .message("Live room by id is fetched successfully")
                         .data(this.buildLiveRoomResponse(liveRoom))
                         .count(1)
+                        .error(false)
                         .build()
                 );
     }
