@@ -33,6 +33,9 @@ public class LiveRoomSummaryEntity {
     private int month;
     private int year;
     private List<SessionDetail> sessionDetails;
+    private int totalLiveDays;
+    private String lastGemsAwardedDate;
+    private String lastDayCountedDate;
 
     private Instant createdOn;
     private Instant updatedOn;

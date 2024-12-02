@@ -1,7 +1,9 @@
 package com.tanvir.features.liveroomsummary.application.service;
 
+import com.tanvir.core.util.Constants;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.giftsummary.application.port.out.GiftSummaryPersistencePort;
+import com.tanvir.features.host.application.port.out.HostPersistencePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomsummary.adapter.out.persistence.entity.LiveRoomSummaryEntity;
 import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
@@ -25,14 +27,9 @@ import org.springframework.security.web.reactive.result.method.annotation.Curren
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.time.*;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -46,10 +43,12 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
     private final ModelMapper modelMapper;
     private final UserUseCase userUseCase;
+    private final HostPersistencePort hostPersistencePort;
 
-    public LiveRoomSummaryService(ModelMapper modelMapper, UserUseCase userUseCase) {
+    public LiveRoomSummaryService(ModelMapper modelMapper, UserUseCase userUseCase, HostPersistencePort hostPersistencePort) {
         this.modelMapper = modelMapper;
         this.userUseCase = userUseCase;
+        this.hostPersistencePort = hostPersistencePort;
     }
 
 
@@ -67,7 +66,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         );*/
         log.info("Current UTC time: {}", currentUTC);
 
-        // Determine the day end time for logic
+        // Determine the day end time for logic yyyy-mm-ddT01:00:00Z
         ZonedDateTime dayEndTime = currentUTC.withHour(1).withMinute(0).withSecond(0).withNano(0);
 
         // Adjust current date based on the time
@@ -88,11 +87,14 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         query.with(Sort.by(Sort.Direction.DESC, "createdOn")).limit(1);
         Mono<LiveRoomSummaryEntity> latestEntryMono = reactiveMongoTemplate.findOne(query, LiveRoomSummaryEntity.class);
 
+        boolean isEligibleForBonus = durationInSeconds >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD
+                && liveRoom.getType().equalsIgnoreCase("video");
+
 
         ZonedDateTime finalCurrentUTC = currentUTC;
         return latestEntryMono.flatMap(summary -> {
             log.info("Found existing summary for user : {}", userId);
-            return updateSummary(summary, durationInSeconds, liveRoom);
+            return updateSummary(summary, durationInSeconds, liveRoom, finalCurrentUTC, isEligibleForBonus);
         }).switchIfEmpty(Mono.defer(() -> {
             // No existing summary found; check the conditions to create a new one
             log.info("Creating a new summary for user : {}", userId);
@@ -113,9 +115,35 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             newSessionDetail.setLiveRoomId(liveRoom.getId());
             newSessionDetail.setDuration(durationInSeconds);
             newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems());
+
+            if (isEligibleForBonus) {
+                newSessionDetail.setBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
+                newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
+                newSummary.setLastGemsAwardedDate(finalCurrentUTC.toLocalDate().toString());
+
+                // Update gems in user table
+                userUseCase.addMoreGems(liveRoom.getHostMaxId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
+                        .subscribe(
+                                updatedUser -> log.info("User gems updated successfully: {}", updatedUser),
+                                error -> log.error("Failed to update user gems", error)
+                        );
+
+                // Update gems in table
+                hostPersistencePort.addMoreGems(liveRoom.getUserId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
+                        .doOnSuccess(updatedHost -> log.info("Host gems updated successfully: {}", updatedHost))
+                        .doOnError(error -> log.error("Failed to update host gems for UserId {}: {}", liveRoom.getUserId(), error.getMessage()))
+                        .subscribe();
+            }
+
+
             newSummary.setSessionDetails(Collections.singletonList(newSessionDetail));
 
+            if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT && liveRoom.getType().equalsIgnoreCase("video")) {
+                newSummary.setTotalLiveDays(newSummary.getTotalLiveDays() + 1);
+                newSummary.setLastDayCountedDate(finalCurrentUTC.toLocalDate().toString());
+            }
             newSummary.setCreatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
+            newSummary.setHostDailyGems(newSessionDetail.getHostDailyGems());
 
             // Save the new summary back to the database
             return reactiveMongoTemplate.save(newSummary)
@@ -164,14 +192,16 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
     }
 
 
-    private Mono<LiveRoomSummary> updateSummary(LiveRoomSummaryEntity summary, long durationInSeconds, LiveRoom liveRoom) {
+    private Mono<LiveRoomSummary> updateSummary(LiveRoomSummaryEntity summary, long durationInSeconds, LiveRoom liveRoom, ZonedDateTime finalCurrentUTC, boolean isEligibleForBonus) {
         summary.setTotalDuration(summary.getTotalDuration() + durationInSeconds);
         summary.setTotalDurationString(CommonBusiness.formatTimeToString(summary.getTotalDuration()));
         summary.setHostDailyGems(liveRoom.getHostDailyGems());
         summary.setTotalSessions(summary.getTotalSessions() + 1);
 
         // Add new session details
-        List<LiveRoomSummaryEntity.SessionDetail> sessionDetails = new ArrayList<>(summary.getSessionDetails());
+        List<LiveRoomSummaryEntity.SessionDetail> sessionDetails = Optional.ofNullable(summary.getSessionDetails())
+                .orElseGet(ArrayList::new);
+
         LiveRoomSummaryEntity.SessionDetail newSessionDetail = new LiveRoomSummaryEntity.SessionDetail();
         newSessionDetail.setLiveRoomId(liveRoom.getId());
         newSessionDetail.setDuration(durationInSeconds);
@@ -179,18 +209,56 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         sessionDetails.add(newSessionDetail);
         summary.setSessionDetails(sessionDetails);
 
+        String currentDate = finalCurrentUTC.toLocalDate().toString();
+        if (isEligibleForBonus && (summary.getLastGemsAwardedDate() == null || !summary.getLastGemsAwardedDate().equals(currentDate))
+        ) {
+            addBonusToSession(summary, liveRoom, currentDate);
+        }
+
+
+        // increment totalLiveDays++ only once per day if 60+ minutes
+        if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT
+                && (summary.getLastDayCountedDate() == null || !summary.getLastDayCountedDate().equals(currentDate))
+                && liveRoom.getType().equalsIgnoreCase("video")
+        ) {
+            summary.setTotalLiveDays(summary.getTotalLiveDays() + 1);
+            summary.setLastDayCountedDate(currentDate);
+        }
+
         // Check if dayTime should be set to "Yes"
-        if (summary.getTotalDuration() >= 3600) {
+        if (summary.getTotalDuration() >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT) {
             summary.setDayTime("Yes");
         }
 
         summary.setUpdatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
 
+        summary.setHostDailyGems(summary.getSessionDetails().stream().mapToDouble(LiveRoomSummaryEntity.SessionDetail::getHostDailyGems).sum());
         // Save the updated summary back to the database
         return reactiveMongoTemplate.save(summary)
                 .doOnNext(liveRoomSummaryEntity -> log.info("Updated summary for user : {}", liveRoomSummaryEntity))
                 .map(liveRoomSummaryEntity -> modelMapper.map(liveRoomSummaryEntity, LiveRoomSummary.class)); // Return the liveRoom wrapped in Mono
     }
 
+    private void addBonusToSession(LiveRoomSummaryEntity summary, LiveRoom liveRoom, String currentDate) {
+        liveRoom.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
+        summary.getSessionDetails().stream()
+                .filter(session -> session.getLiveRoomId().equals(liveRoom.getId()))
+                .findFirst()
+                .ifPresent(session -> session.setBonus(session.getBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT));
+
+        // Update gems in user table
+        userUseCase.addMoreGems(liveRoom.getHostMaxId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
+                .doOnSuccess(updatedUser -> log.info("User gems updated successfully: {}", updatedUser))
+                .doOnError(error -> log.error("Failed to update user gems for HostMaxId {}: {}", liveRoom.getHostMaxId(), error.getMessage()))
+                .subscribe();
+
+        // Update gems in host table
+        hostPersistencePort.addMoreGems(liveRoom.getUserId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
+                .doOnSuccess(updatedHost -> log.info("Host gems updated successfully: {}", updatedHost))
+                .doOnError(error -> log.error("Failed to update host gems for UserId {}: {}", liveRoom.getUserId(), error.getMessage()))
+                .subscribe();
+
+        summary.setLastGemsAwardedDate(currentDate);
+    }
 
 }

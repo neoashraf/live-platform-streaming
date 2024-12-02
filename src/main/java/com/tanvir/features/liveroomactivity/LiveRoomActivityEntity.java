@@ -22,8 +22,8 @@ public class LiveRoomActivityEntity {
     private String userId;
     private Double dailyReceivedGems;
     private Instant endTime;
-    private LocalDateTime createdOn;
-    private LocalDateTime updatedOn;
-    private LocalDateTime resetOn;
+    private Instant createdOn;
+    private Instant updatedOn;
+    private Instant resetOn;
 //    private Instant endTimeZoned;
 }

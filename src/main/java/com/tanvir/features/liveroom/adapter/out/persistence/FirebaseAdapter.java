@@ -157,6 +157,13 @@ public class FirebaseAdapter implements CachePort {
                     firebaseEntity.setViewerIds(currentViewersIdsInFirebase);
                     firebaseEntity.setViewerCount(firebaseEntity.getViewerIds().size());
 
+                    //add kicked user id in kickedOutUserIds[]
+                    List<String> kickedOutUserIds = new ArrayList<>(firebaseEntity.getKickedOutUserIds() != null ? firebaseEntity.getKickedOutUserIds() : new ArrayList<>());
+                    if (!kickedOutUserIds.contains(liveRoom.getViewer().getUserId())) {
+                        kickedOutUserIds.add(liveRoom.getViewer().getUserId());
+                    }
+                    firebaseEntity.setKickedOutUserIds(kickedOutUserIds);
+
                     return firebaseEntity;
 
                 })
@@ -220,6 +227,7 @@ public class FirebaseAdapter implements CachePort {
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     firebaseEntity.setEnableJoin(liveRoom.getEnableJoin());
+                    firebaseEntity.setEnableAutoJoin(liveRoom.getEnableAutoJoin());
                     return firebaseEntity;
                 })
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))

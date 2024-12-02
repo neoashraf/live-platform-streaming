@@ -184,6 +184,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .announcements(new ArrayList<>())
                                     .maxAudioParticipants(liveRoom.getMaxAudioParticipants())
                                     .audioParticipants(liveRoom.getAudioParticipants())
+                                    .enableJoin(liveRoom.getEnableJoin())
                                     .build();
                         }));
 
@@ -454,6 +455,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     private Mono<LiveRoomJoinPermissionResponseDto> buildEnableJoinResponseDTO(LiveRoom liveRoom, String message) {
         EnableJoinPermission joinPermission = new EnableJoinPermission();
         joinPermission.setJoinCallAvailable(liveRoom.getEnableJoin());
+        joinPermission.setAutoJoinAudioStreamAvailable(liveRoom.getEnableAutoJoin());
         joinPermission.setRoomId(liveRoom.getId());
         return Mono.just(LiveRoomJoinPermissionResponseDto
                 .builder()
@@ -642,13 +644,14 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId) {
+        String superUserMaxId = "10000001";
         return port.getLiveRoomById(liveRoomId)
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomId)))
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot End.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(keycloakId)
-                        .filter(user -> liveRoom.getUserId().equals(user.getId()))
+                        .filter(user -> liveRoom.getUserId().equals(user.getId()) || superUserMaxId.equals(user.getMaxId()))
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot end.")))
                         .map(user -> liveRoom))
                 .map(liveRoom -> {
@@ -659,8 +662,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 })
                 .flatMap(port::saveLiveRoom)
                 .doOnNext(liveRoom -> {
+                    log.info("LiveRoom details: {}", liveRoom);
                     liveRoomSummaryUseCase.processLiveRoomSummary(liveRoom)
                             .doOnNext(liveRoomSummary -> log.info("LiveRoom Summary processed successfully"))
+                            .doOnNext(liveRoomSummaryEntity -> log.debug("LiveRoomSummary details: {}", liveRoomSummaryEntity))
                             .doOnError(throwable -> log.error("Error Happened while processing LiveRoom Summary : {}", throwable.getMessage()))
                             .subscribeOn(Schedulers.boundedElastic())
                             .subscribe();
@@ -703,9 +708,11 @@ public class LiveRoomService implements LiveRoomUseCase {
         if (liveRoom.getKickedOutUserIds() == null || liveRoom.getKickedOutUserIds().isEmpty()) {
             liveRoom.setKickedOutUserIds(List.of(kickedUser.getId()));
         } else {
-            List<String> updatedKickedOutUsers = new ArrayList<>(liveRoom.getKickedOutUserIds());
-            updatedKickedOutUsers.add(kickedUser.getId());
-            liveRoom.setKickedOutUserIds(updatedKickedOutUsers);
+            List<String> kickedOutUserIds = liveRoom.getKickedOutUserIds();
+            if (!kickedOutUserIds.contains(kickedUser.getId())) {
+             kickedOutUserIds.add(kickedUser.getId());
+            }
+            liveRoom.setKickedOutUserIds(kickedOutUserIds);
         }
 
         if (liveRoom.getViewerIds() != null) {
@@ -761,6 +768,19 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
                                 .count(countAndDataTuple.getT1().intValue())
                                 .build()));
+    }
+    @Override
+    public Mono<LiveRoomGridViewResponseDto> getLiveRoomById_1(GridViewRequestDto gridViewRequestDto) {
+
+        return port.getLiveRoomById(gridViewRequestDto.getKeycloakId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, ExceptionMessages.NO_LIVE_ROOM_FOUND_WITH_ID.getValue())))
+                .map(liveRoom -> LiveRoomGridViewResponseDto
+                        .builder()
+                        .userMessage("Live room by id ( "+gridViewRequestDto.getKeycloakId()+" ) is fetched successfully")
+                        .data(List.of(this.buildLiveRoomResponse(liveRoom)))
+                        .count(1)
+                        .build()
+                );
     }
 
     private Mono<LiveRoomGridViewResponseDto> getVideoLiveRooms(GridViewRequestDto requestDto) {
@@ -984,12 +1004,20 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant."));
                             }
 
-                            if (requestDto.getAction().equals(Constants.STATUS_APPROVED.getValue()) &&
-                                    liveRoomEntity.getJoinRequests().stream()
-                                    .map(JoinRequests::getStatus)
-                                    .filter(status -> status.equals(Constants.STATUS_APPROVED.getValue()) || status.equals(Constants.STATUS_STARTED.getValue()))
-                                    .count() >= 3) {
-                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Maximum 3 participants are allowed to join call."));
+                            if (requestDto.getAction().equals(Constants.STATUS_APPROVED.getValue())) {
+                                long approvedOrStartedCount = liveRoomEntity.getJoinRequests().stream()
+                                        .map(JoinRequests::getStatus)
+                                        .filter(status -> status.equals(Constants.STATUS_APPROVED.getValue()) || status.equals(Constants.STATUS_STARTED.getValue()))
+                                        .count();
+
+                                if (liveRoomEntity.getType().equals(Constants.LIVE_ROOM_TYPE_VIDEO.getValue()) && approvedOrStartedCount >= 3) {
+                                    return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Maximum 3 participants are allowed to join call."));
+                                } else if (liveRoomEntity.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
+                                    int maxParticipants = liveRoomEntity.getHost().getUserLevel() <= 20 ? 8 : 15;
+                                    if (approvedOrStartedCount >= maxParticipants) {
+                                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Maximum " + maxParticipants + " participants are allowed to join call."));
+                                    }
+                                }
                             }
 
                             return Mono.just(liveRoomEntity);
@@ -1222,6 +1250,60 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> this.buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom, "User has successfully joined the room.", audioParticipantLimitReached.get()))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
     }
+
+    @Override
+    public Mono<LiveRoomJoinPermissionResponseDto> setEnableAutoJoinAudioStream(JoinPermissionRequestDTO requestDTO) {
+        return port.getLiveRoomById(requestDTO.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,"LiveRoom does not exist by the given id")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDTO.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .map(User::getId)
+                        .doOnSuccess(userId -> log.info("User Id : {}", userId))
+                        .filter(userId -> liveRoom.getUserId().equals(userId))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"User must be the host of the LiveRoom to set the permission")))
+                        .thenReturn(liveRoom))
+                .flatMap(liveRoom -> {
+                    List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
+
+                    if (!validTypes.contains(requestDTO.getEnableJoin())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
+                    }
+                    liveRoom.setEnableAutoJoin(requestDTO.getEnableJoin());
+                    return port.saveLiveRoom(liveRoom);
+                })
+                .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
+                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom,"Auto Join AudioStream updated successfully."))
+                .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
+    }
+
+    @Override
+    public Mono<Earning> userEarning(String userId) {
+        return userUseCase.getUserById(userId)
+                .defaultIfEmpty(User.builder().build()) // Return a dummy user if not found
+                .map(dbUser -> {
+                    // Create and return the dummy Earning data
+                    Earning dummyEarning = new Earning();
+                    dummyEarning.setMonth("December");
+                    dummyEarning.setYear(2024);
+                    dummyEarning.setGems(dbUser.getGems());
+                    dummyEarning.setGemsString("1.3M");
+                    dummyEarning.setDuration("8100");
+                    dummyEarning.setDurationString("2 hrs 15 min");
+                    dummyEarning.setValidDays(7);
+                    dummyEarning.setBonus((int) dbUser.getBeansGifted());
+                    dummyEarning.setBonusString("10k");
+
+                    return dummyEarning;
+                });
+    }
+
+
 
     private Mono<LiveRoomFirebaseEntity> validateCloseJoinedCallRequest(LiveRoomFirebaseEntity liveRoomEntity, JoinCallRequestDto requestDto, User user) {
         if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
@@ -1602,6 +1684,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .description(requestDto.getDescription())
                         .tags(requestDto.getTags())
                         .type(requestDto.getType())
+                        .enableJoin(requestDto.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
+                                ? Constants.STATUS_YES.getValue()
+                                : Constants.STATUS_NO.getValue())
                         .status(Constants.STATUS_LIVE.getValue())
                         .country(host.getCountry())
                         .hostId(host.getId())

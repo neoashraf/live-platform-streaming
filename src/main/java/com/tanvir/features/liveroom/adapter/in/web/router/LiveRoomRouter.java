@@ -28,6 +28,10 @@ public class LiveRoomRouter {
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
+                                                .GET(LIVE_ROOMS_BY_ID, handler::liveRoomById)
+                                )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
                                                 .POST(LIVE_ROOMS, handler::createStream)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
@@ -68,6 +72,10 @@ public class LiveRoomRouter {
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
+                                                .POST(LIVE_ROOMS.concat(AUDIO).concat(ID).concat(AUTO_JOIN).concat(SET), handler::setEnableAutoJoinAudioStream)
+                                )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(CREATE), handler::joinRequest)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
@@ -82,6 +90,9 @@ public class LiveRoomRouter {
                                         nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(CLOSE), handler::closeJoinedCallRequest)
                                 )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder.GET(USERS.concat(ID).concat(EARNINGS), handler::earnings)
+                                        )
 
                 )
                 .build();
