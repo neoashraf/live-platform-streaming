@@ -2,6 +2,8 @@ package com.tanvir.features.liveroom.adapter.in.web.handler;
 
 import com.tanvir.core.util.enums.AgoraTokenTypeEnum;
 import com.tanvir.core.util.enums.QueryParams;
+import com.tanvir.core.util.exception.ErrorHandler;
+import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import lombok.RequiredArgsConstructor;
@@ -176,6 +178,17 @@ public class LiveRoomHandler {
                 .country(country)
                 .pageable(pageable)
                 .build();
+    }
+
+
+    public Mono<ServerResponse> liveRoomById(ServerRequest serverRequest) {
+        return liveRoomUseCase.getLiveRoomById_1(this.buildGridViewRequestDto_1(serverRequest))
+                .flatMap(dto->ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto)
+                )
+                .onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest));
     }
 
     public Mono<ServerResponse> setJoinPermission(ServerRequest serverRequest) {
