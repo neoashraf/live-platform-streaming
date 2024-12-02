@@ -6,7 +6,6 @@ public class RouteNames {
 	public static String LIVE_ROOMS = "/live-rooms";
 	public static String LIVE_ROOMS_BY_ID = "/live-rooms/{id}";
 	public static String LIVE_ROOM = "/live-room";
-	public static String LIVE_ROOMS_BY_ID = "/live-rooms/{id}";
 	public static String OFFSET = "/offset";
 	public static String ID = "/{id}";
 	public static String USERS = "/users";

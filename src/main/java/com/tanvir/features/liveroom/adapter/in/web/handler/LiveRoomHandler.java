@@ -208,26 +208,6 @@ public class LiveRoomHandler {
     }
 
 
-    public Mono<ServerResponse> liveRoomById(ServerRequest serverRequest) {
-        return liveRoomUseCase.getLiveRoomById_1(this.buildGridViewRequestDto_1(serverRequest))
-                .flatMap(dto->ServerResponse
-                        .ok()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(dto)
-                )
-                .onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest));
-    }
-    private GridViewRequestDto buildGridViewRequestDto_1(ServerRequest serverRequest) {
-
-        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
-        String liveRoomId = Optional.ofNullable(serverRequest.pathVariable(QueryParams.ID.getValue())).orElseThrow(() -> new IllegalArgumentException("Live room id is required"));
-
-//        System.out.println();
-        return GridViewRequestDto.builder()
-                .keycloakId(liveRoomId)
-                .build();
-    }
-
     public Mono<ServerResponse> setJoinPermission(ServerRequest serverRequest) {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
         String liveRoomId = serverRequest.pathVariable("id");

@@ -33,5 +33,4 @@ public interface LiveRoomUseCase {
     Mono<LiveRoomJoinPermissionResponseDto> setEnableAutoJoinAudioStream(JoinPermissionRequestDTO requestDTO);
     Mono<Earning> userEarning(String userId);
 
-    Mono<LiveRoomGridViewResponseDto> getLiveRoomById_1(GridViewRequestDto gridViewRequestDto);
 }
