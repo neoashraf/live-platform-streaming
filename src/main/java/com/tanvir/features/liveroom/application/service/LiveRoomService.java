@@ -1,5 +1,6 @@
 package com.tanvir.features.liveroom.application.service;
 
+import com.tanvir.core.util.FormatUtil;
 import com.tanvir.core.util.enums.*;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.agora.service.AgoraService;
@@ -21,7 +22,9 @@ import com.tanvir.features.liveroom.domain.LiveRoomConfigEnums;
 import com.tanvir.features.liveroom.domain.valueobject.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
+import com.tanvir.features.liveroomsummary.adapter.out.persistence.entity.LiveRoomSummaryEntity;
 import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
+import com.tanvir.features.liveroomsummary.application.service.LiveRoomSummaryService;
 import com.tanvir.features.metaproperty.application.port.in.MetaPropertyUseCase;
 import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.application.port.in.UserUseCase;
@@ -38,6 +41,7 @@ import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
 import java.text.DecimalFormat;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -60,8 +64,9 @@ public class LiveRoomService implements LiveRoomUseCase {
     private final LiveRoomActivityService liveRoomActivityService;
     private final CommonBusiness commonBusiness;
     private final LiveRoomSummaryUseCase liveRoomSummaryUseCase;
+    private final LiveRoomSummaryService liveRoomSummaryService;
 
-    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness, LiveRoomSummaryUseCase liveRoomSummaryUseCase) {
+    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness, LiveRoomSummaryUseCase liveRoomSummaryUseCase, LiveRoomSummaryService liveRoomSummaryService) {
         this.userUseCase = userUseCase;
         this.port = port;
         this.metaPropertyUseCase = metaPropertyUseCase;
@@ -75,6 +80,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         this.liveRoomActivityService = liveRoomActivityService;
         this.commonBusiness = commonBusiness;
         this.liveRoomSummaryUseCase = liveRoomSummaryUseCase;
+        this.liveRoomSummaryService = liveRoomSummaryService;
     }
 
     @Override
@@ -1269,28 +1275,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
 
-    @Override
-    public Mono<Earning> userEarning(String userId) {
-        return userUseCase.getUserById(userId)
-                .defaultIfEmpty(User.builder().build()) // Return a dummy user if not found
-                .map(dbUser -> {
-                    // Create and return the dummy Earning data
-                    Earning dummyEarning = new Earning();
-                    dummyEarning.setMonth("December");
-                    dummyEarning.setYear(2024);
-                    dummyEarning.setGems(dbUser.getGems());
-                    dummyEarning.setGemsString("1.3M");
-                    dummyEarning.setDuration("8100");
-                    dummyEarning.setDurationString("2 hrs 15 min");
-                    dummyEarning.setValidDays(7);
-                    dummyEarning.setBonus((int) dbUser.getBeansGifted());
-                    dummyEarning.setBonusString("10k");
-
-                    return dummyEarning;
-                });
-    }
-
-
 
     private Mono<LiveRoomFirebaseEntity> validateCloseJoinedCallRequest(LiveRoomFirebaseEntity liveRoomEntity, JoinCallRequestDto requestDto, User user) {
         if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
@@ -1490,6 +1474,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
+
     /*private Mono<LiveRoomGridViewResponseDto> getGridViewByTab(List<LiveRoom> liveRoomList, GridViewRequestDto requestDto) {
         return this.filterLiveRoomsAccordingToTypeAndTag(liveRoomList, requestDto)
             .map(filteredLiveRoomList -> filteredLiveRoomList.stream().sorted(Comparator.comparing(LiveRoom::getStarCount)).toList())
@@ -1523,7 +1508,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                             : freshersList;
                 });
     }*/
-
     private Mono<List<LiveRoom>> getPaginatedLiveRoomList(List<LiveRoom> liveRoomList, GridViewRequestDto requestDto) {
         /*int offset = requestDto.getOffset() == null || requestDto.getOffset() == 0
                         ? 0 : requestDto.getOffset();
@@ -1542,6 +1526,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
+
     /*private LiveRoomResponse sortAndLimitFansByEntryTimeAndCount(LiveRoomResponse liveRoomResponse, Long fanCount) {
         List<Fan> fanList = liveRoomResponse.getFans()
                 .stream()
@@ -1552,7 +1537,6 @@ public class LiveRoomService implements LiveRoomUseCase {
         liveRoomResponse.setFans(fanList);
         return liveRoomResponse;
     }*/
-
 
     private LiveRoomResponse buildLiveRoomResponse(LiveRoom liveRoom) {
         LiveRoomResponse liveRoomResponse = modelMapper.map(liveRoom, LiveRoomResponse.class);
@@ -1699,5 +1683,43 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .audioParticipants(new ArrayList<>())
                         .hostGender(host.getGender())
                         .build());
+    }
+
+    @Override
+    public Mono<Earning> userEarning(String userId) {
+        int month = LocalDate.now().getMonthValue();
+        int year = LocalDate.now().getYear();
+
+        // Fetch live room summary data
+        Mono<LiveRoomSummaryEntity> liveRoomSummaryMono = liveRoomSummaryService.findLiveRoomSummary(userId, month, year);
+
+        // Fetch user data
+        Mono<User> userMono = userUseCase.getUserById(userId)
+                .defaultIfEmpty(User.builder().build()); // Return a dummy user if not found
+
+        // Combine both user and live room summary data
+        return Mono.zip(liveRoomSummaryMono, userMono)
+                .map(tuple -> {
+                    LiveRoomSummaryEntity liveRoomSummary = tuple.getT1();
+                    User dbUser = tuple.getT2();
+
+                    Earning earning = new Earning();
+                    earning.setMonth(String.valueOf(month));
+                    earning.setYear(year);
+                    earning.setValidDays(liveRoomSummary.getTotalLiveDays());
+                    earning.setGems(dbUser.getGems());
+                    earning.setGemsString(FormatUtil.formatGems(dbUser.getGems()));
+
+                    long totalDurationInSeconds = liveRoomSummary.getTotalDuration();
+                    earning.setDuration(String.valueOf(totalDurationInSeconds));
+                    earning.setDurationString(FormatUtil.convertDurationToString(totalDurationInSeconds));
+
+                    earning.setValidDays(liveRoomSummary.getTotalLiveDays());
+                    double totalBonus = liveRoomSummary.getSessionDetails().stream().filter(session -> session.getBonus() > 0).mapToDouble(LiveRoomSummaryEntity.SessionDetail::getBonus).sum();
+
+                    earning.setBonus((int) totalBonus);
+                    earning.setBonusString(FormatUtil.formatGems(totalBonus));
+                    return earning;
+                });
     }
 }

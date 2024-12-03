@@ -261,4 +261,29 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         summary.setLastGemsAwardedDate(currentDate);
     }
 
+    public Mono<LiveRoomSummaryEntity> findLiveRoomSummary(String userId, int month, int year) {
+        Aggregation agg = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("userId").is(userId)
+                        .and("month").is(month)
+                        .and("year").is(year)),
+                Aggregation.project()
+                        .and("_id").as("id")
+                        .and("month").as("month")
+                        .and("year").as("year")
+                        .and(ConditionalOperators.ifNull("hostDailyGems").then(0)).as("hostDailyGems")
+                        .and(ConditionalOperators.ifNull("totalDuration").then(0)).as("totalDuration")
+                        .and(ConditionalOperators.ifNull("totalBonus").then(0)).as("totalBonus")
+                        .and(ConditionalOperators.ifNull("sessionDetails").then(Collections.emptyList())).as("sessionDetails")
+        );
+
+        return reactiveMongoTemplate.aggregate(agg, "liveroom_summary", LiveRoomSummaryEntity.class)
+                .next();
+    }
+
+
+
+
+
+
+
 }
