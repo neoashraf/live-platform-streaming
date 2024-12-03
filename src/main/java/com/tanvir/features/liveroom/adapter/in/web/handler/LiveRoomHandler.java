@@ -357,5 +357,4 @@ public class LiveRoomHandler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto));
     }
-
 }
