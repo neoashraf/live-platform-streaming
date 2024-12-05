@@ -25,6 +25,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.security.web.reactive.result.method.annotation.CurrentSecurityContextArgumentResolver;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.*;
@@ -118,6 +119,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
             if (isEligibleForBonus) {
                 newSessionDetail.setBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
+                newSummary.setTotalBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
                 newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
                 newSummary.setLastGemsAwardedDate(finalCurrentUTC.toLocalDate().toString());
 
@@ -258,10 +260,11 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 .doOnError(error -> log.error("Failed to update host gems for UserId {}: {}", liveRoom.getUserId(), error.getMessage()))
                 .subscribe();
 
+        summary.setTotalBonus(summary.getTotalBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT);
         summary.setLastGemsAwardedDate(currentDate);
     }
 
-    public Mono<LiveRoomSummaryEntity> findLiveRoomSummary(String userId, int month, int year) {
+    public Flux<LiveRoomSummaryEntity> findLiveRoomSummaries(String userId, int month, int year) {
         Aggregation agg = Aggregation.newAggregation(
                 Aggregation.match(Criteria.where("userId").is(userId)
                         .and("month").is(month)
@@ -276,9 +279,9 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                         .and(ConditionalOperators.ifNull("sessionDetails").then(Collections.emptyList())).as("sessionDetails")
         );
 
-        return reactiveMongoTemplate.aggregate(agg, "liveroom_summary", LiveRoomSummaryEntity.class)
-                .next();
+        return reactiveMongoTemplate.aggregate(agg, "liveroom_summary", LiveRoomSummaryEntity.class);
     }
+
 
 
 
