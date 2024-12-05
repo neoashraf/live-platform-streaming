@@ -27,7 +27,7 @@ public class EarningResponseDto {
         private String duration;
         private String durationString;
         private int validDays;
-        private int bonus;
+        private double bonus;
         private String bonusString;
     }
 }

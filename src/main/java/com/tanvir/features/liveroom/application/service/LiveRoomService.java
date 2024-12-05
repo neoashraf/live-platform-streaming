@@ -35,6 +35,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.testng.util.Strings;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuple3;
@@ -1705,36 +1706,53 @@ public class LiveRoomService implements LiveRoomUseCase {
         int month = LocalDate.now().getMonthValue();
         int year = LocalDate.now().getYear();
 
-        // Fetch live room summary data
-        Mono<LiveRoomSummaryEntity> liveRoomSummaryMono = liveRoomSummaryService.findLiveRoomSummary(userId, month, year);
+        Flux<LiveRoomSummaryEntity> dbLiveRoomSummaries = liveRoomSummaryService.findLiveRoomSummaries(userId, month, year);
+
+        // Fetch total bonus
+        Mono<Double> totalBonusMono = dbLiveRoomSummaries
+                .flatMap(summary -> Flux.fromIterable(summary.getSessionDetails())
+                        .filter(session -> session.getBonus() > 0)
+                        .map(LiveRoomSummaryEntity.SessionDetail::getBonus)
+                        .reduce(0.0, Double::sum))
+                .reduce(0.0, Double::sum)
+                .doOnNext(bonus -> log.info("Computed total bonus for user {}: {}", userId, bonus));
 
         // Fetch user data
         Mono<User> userMono = userUseCase.getUserById(userId)
-                .defaultIfEmpty(User.builder().build()); // Return a dummy user if not found
+                .defaultIfEmpty(User.builder().build())
+                .doOnNext(user -> log.info("Fetched user details for userId {}: {}", userId, user));
 
-        // Combine both user and live room summary data
-        return Mono.zip(liveRoomSummaryMono, userMono)
-                .map(tuple -> {
-                    LiveRoomSummaryEntity liveRoomSummary = tuple.getT1();
-                    User dbUser = tuple.getT2();
+        // Combine all data
+        return Mono.zip(
+                totalBonusMono,
+                userMono,
+                dbLiveRoomSummaries.reduce((summary1, summary2) -> {
+                    summary1.setTotalDuration(summary1.getTotalDuration() + summary2.getTotalDuration());
+                    summary1.setTotalLiveDays(summary1.getTotalLiveDays() + summary2.getTotalLiveDays());
+                    return summary1;
+                })
+        ).map(tuple -> {
+            double totalBonus = tuple.getT1();
+            User dbUser = tuple.getT2();
+            LiveRoomSummaryEntity liveRoomSummary = tuple.getT3();
 
-                    Earning earning = new Earning();
-                    earning.setMonth(String.valueOf(month));
-                    earning.setYear(year);
-                    earning.setValidDays(liveRoomSummary.getTotalLiveDays());
-                    earning.setGems(dbUser.getGems());
-                    earning.setGemsString(FormatUtil.formatGems(dbUser.getGems()));
-
-                    long totalDurationInSeconds = liveRoomSummary.getTotalDuration();
-                    earning.setDuration(String.valueOf(totalDurationInSeconds));
-                    earning.setDurationString(FormatUtil.convertDurationToString(totalDurationInSeconds));
-
-                    earning.setValidDays(liveRoomSummary.getTotalLiveDays());
-                    double totalBonus = liveRoomSummary.getSessionDetails().stream().filter(session -> session.getBonus() > 0).mapToDouble(LiveRoomSummaryEntity.SessionDetail::getBonus).sum();
-
-                    earning.setBonus((int) totalBonus);
-                    earning.setBonusString(FormatUtil.formatGems(totalBonus));
-                    return earning;
-                });
+            // Build Earning object
+            return Earning.builder()
+                    .month(String.valueOf(month))
+                    .year(year)
+                    .gems(dbUser.getGems())
+                    .gemsString(FormatUtil.formatGems(dbUser.getGems()))
+                    .duration(String.valueOf(liveRoomSummary.getTotalDuration()))
+                    .durationString(FormatUtil.convertDurationToString(liveRoomSummary.getTotalDuration()))
+                    .validDays(liveRoomSummary.getTotalLiveDays())
+                    .bonus(totalBonus)
+                    .bonusString(FormatUtil.formatGems(totalBonus))
+                    .build();
+        }).onErrorResume(e -> {
+            log.error("Error computing user earnings for userId {}: {}", userId, e.getMessage());
+            return Mono.just(Earning.builder().month(String.valueOf(month)).year(year).build());
+        });
     }
+
+
 }

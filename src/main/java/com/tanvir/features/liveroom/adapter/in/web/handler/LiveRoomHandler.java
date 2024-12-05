@@ -1,7 +1,6 @@
 package com.tanvir.features.liveroom.adapter.in.web.handler;
 
 import com.tanvir.core.util.enums.AgoraTokenTypeEnum;
-import com.tanvir.core.util.enums.ExceptionMessages;
 import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.core.util.exception.ErrorHandler;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
@@ -21,8 +20,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 import java.util.Optional;
-
-import java.time.ZonedDateTime;
+import java.util.Map;
 
 @Component
 @RequiredArgsConstructor
@@ -330,31 +328,49 @@ public class LiveRoomHandler {
 
     public Mono<ServerResponse> earnings(ServerRequest serverRequest) {
         String userId = serverRequest.pathVariable("id");
-        log.info("userId:: {}", userId);
+        log.info("Processing earnings for userId: {}", userId);
+
+        if (userId == null || userId.trim().isEmpty()) {
+            log.warn("Invalid userId provided");
+            return ServerResponse.badRequest()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(Map.of("message", "User ID must not be empty", "error", true));
+        }
 
         return liveRoomUseCase.userEarning(userId)
                 .switchIfEmpty(Mono.just(Earning.builder().build())) // Handle empty results
-                .map(earning -> EarningResponseDto.builder()
-                        .message("Earning details fetched successfully")
-                        .data(EarningResponseDto.EarningModel.builder()
-                                .month(earning.getMonth())
-                                .year(earning.getYear())
-                                .gems(earning.getGems())
-                                .gemsString(earning.getGemsString())
-                                .duration(earning.getDuration())
-                                .durationString(earning.getDurationString())
-                                .validDays(earning.getValidDays())
-                                .bonus(earning.getBonus())
-                                .bonusString(earning.getBonusString())
-                                .build()
-                        )
-                        .error(false)
-                        .count(1)
-                        .build()
-                )
+                .map(earning -> {
+                    log.info("Earnings fetched successfully for userId: {}", userId);
+                    return EarningResponseDto.builder()
+                            .message("Earning details fetched successfully")
+                            .data(EarningResponseDto.EarningModel.builder()
+                                    .month(earning.getMonth())
+                                    .year(earning.getYear())
+                                    .gems(earning.getGems())
+                                    .gemsString(earning.getGemsString())
+                                    .duration(earning.getDuration())
+                                    .durationString(earning.getDurationString())
+                                    .validDays(earning.getValidDays())
+                                    .bonus(earning.getBonus())
+                                    .bonusString(earning.getBonusString())
+                                    .build())
+                            .error(false)
+                            .count(1)
+                            .build();
+                })
                 .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(dto));
+                        .bodyValue(dto))
+                .onErrorResume(e -> {
+                    log.error("Error processing earnings for userId {}: {}", userId, e.getMessage());
+                    return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(EarningResponseDto.builder()
+                                    .message("Failed to fetch earning details")
+                                    .error(true)
+                                    .build());
+                });
     }
+
 }
