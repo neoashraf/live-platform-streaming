@@ -25,6 +25,7 @@ import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
 import com.tanvir.features.liveroomsummary.adapter.out.persistence.entity.LiveRoomSummaryEntity;
 import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
 import com.tanvir.features.liveroomsummary.application.service.LiveRoomSummaryService;
+import com.tanvir.features.liveroomsummary.domain.LiveRoomSummary;
 import com.tanvir.features.metaproperty.application.port.in.MetaPropertyUseCase;
 import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.application.port.in.UserUseCase;
@@ -1709,13 +1710,30 @@ public class LiveRoomService implements LiveRoomUseCase {
         Flux<LiveRoomSummaryEntity> dbLiveRoomSummaries = liveRoomSummaryService.findLiveRoomSummaries(userId, month, year);
 
         // Fetch total bonus
-        Mono<Double> totalBonusMono = dbLiveRoomSummaries
+        Mono<Double> totalBonusMono= dbLiveRoomSummaries
                 .flatMap(summary -> Flux.fromIterable(summary.getSessionDetails())
                         .filter(session -> session.getBonus() > 0)
                         .map(LiveRoomSummaryEntity.SessionDetail::getBonus)
                         .reduce(0.0, Double::sum))
                 .reduce(0.0, Double::sum)
                 .doOnNext(bonus -> log.info("Computed total bonus for user {}: {}", userId, bonus));
+
+        dbLiveRoomSummaries.switchIfEmpty(Flux.error(new RuntimeException("No data found for userId, month, and year")))
+                .map(LiveRoomSummaryEntity::getTotalLiveDays)
+                .reduce(0, Integer::sum)
+                .doOnNext(total -> log.info("Summed totalLiveDays: {}", total))
+                .subscribe();
+
+        Mono<Integer> totalLiveDaysMono = dbLiveRoomSummaries
+                .map(LiveRoomSummaryEntity::getTotalLiveDays)
+                .reduce(0, Integer::sum)
+                .doOnNext(
+                        liveDaya -> log.info("Computed total live days for user {}: {}", userId, liveDaya));
+
+        Mono<Long> totalDurationsMono = dbLiveRoomSummaries
+                .map(LiveRoomSummaryEntity::getTotalDuration)
+                .reduce(0L, Long::sum)
+                .doOnNext(durations -> log.info("Computed total duration for user {}: {}", userId, durations));
 
         // Fetch user data
         Mono<User> userMono = userUseCase.getUserById(userId)
@@ -1724,17 +1742,17 @@ public class LiveRoomService implements LiveRoomUseCase {
 
         // Combine all data
         return Mono.zip(
+                totalDurationsMono,
+                totalLiveDaysMono,
                 totalBonusMono,
-                userMono,
-                dbLiveRoomSummaries.reduce((summary1, summary2) -> {
-                    summary1.setTotalDuration(summary1.getTotalDuration() + summary2.getTotalDuration());
-                    summary1.setTotalLiveDays(summary1.getTotalLiveDays() + summary2.getTotalLiveDays());
-                    return summary1;
-                })
+                userMono
+
         ).map(tuple -> {
-            double totalBonus = tuple.getT1();
-            User dbUser = tuple.getT2();
-            LiveRoomSummaryEntity liveRoomSummary = tuple.getT3();
+            log.info("Tuple values: totalDurations={}, totalLiveDays={}, totalBonus={}", tuple.getT1(), tuple.getT2(), tuple.getT3());
+            Long totalDurations = tuple.getT1();
+            Integer totalLiveDays = tuple.getT2();
+            Double totalBonus = tuple.getT3();
+            User dbUser = tuple.getT4();
 
             // Build Earning object
             return Earning.builder()
@@ -1742,9 +1760,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                     .year(year)
                     .gems(dbUser.getGems())
                     .gemsString(FormatUtil.formatGems(dbUser.getGems()))
-                    .duration(String.valueOf(liveRoomSummary.getTotalDuration()))
-                    .durationString(FormatUtil.convertDurationToString(liveRoomSummary.getTotalDuration()))
-                    .validDays(liveRoomSummary.getTotalLiveDays())
+                    .duration(String.valueOf(totalDurations))
+                    .durationString(FormatUtil.convertDurationToString(totalDurations))
+                    .validDays(totalLiveDays)
                     .bonus(totalBonus)
                     .bonusString(FormatUtil.formatGems(totalBonus))
                     .build();

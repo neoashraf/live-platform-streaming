@@ -11,7 +11,7 @@ public class FormatUtil {
         return String.valueOf((int) bonus);
     }
 
-    public static String convertDurationToString(long totalSeconds) {
+    public static String convertDurationToString(Long totalSeconds) {
         long hours = totalSeconds / 3600;
         long minutes = (totalSeconds % 3600) / 60;
         long seconds = totalSeconds % 60;

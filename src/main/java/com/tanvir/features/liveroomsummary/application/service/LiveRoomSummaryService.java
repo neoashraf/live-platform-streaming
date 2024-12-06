@@ -276,6 +276,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                         .and(ConditionalOperators.ifNull("hostDailyGems").then(0)).as("hostDailyGems")
                         .and(ConditionalOperators.ifNull("totalDuration").then(0)).as("totalDuration")
                         .and(ConditionalOperators.ifNull("totalBonus").then(0)).as("totalBonus")
+                        .and(ConditionalOperators.ifNull("totalLiveDays").then(0)).as("totalLiveDays")
                         .and(ConditionalOperators.ifNull("sessionDetails").then(Collections.emptyList())).as("sessionDetails")
         );
 
