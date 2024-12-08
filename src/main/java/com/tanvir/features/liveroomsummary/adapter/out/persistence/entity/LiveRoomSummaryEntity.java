@@ -45,9 +45,11 @@ public class LiveRoomSummaryEntity {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class SessionDetail {
+        private Instant createdOn;
         private String liveRoomId;
         private long duration;
         private double bonus;
         private double hostDailyGems;
+        private double giftReceivedAmount;
     }
 }
