@@ -120,13 +120,6 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                     newSummary.setTotalBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
                     newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
                     newSummary.setLastGemsAwardedDate(finalCurrentUTC.toLocalDate().toString());
-
-                    // Chain bonus updates
-                    return userUseCase.addMoreGems(liveRoom.getHostMaxId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
-                            .doOnSuccess(updatedUser -> log.info("User gems updated successfully: {}", updatedUser))
-                            .then(hostPersistencePort.addMoreGems(liveRoom.getUserId(), Constants.DAILY_GEMS_REWARD_AMOUNT))
-                            .doOnSuccess(updatedHost -> log.info("Host gems updated successfully: {}", updatedHost))
-                            .thenReturn(amount); // Continue with amount
                 }
                 return Mono.just(amount);
             }).flatMap(amount -> {
@@ -257,14 +250,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         summary.setTotalBonus(summary.getTotalBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT);
         summary.setLastGemsAwardedDate(currentDate);
 
-        // Chain reactive updates for user and host gems
-        return userUseCase.addMoreGems(liveRoom.getHostMaxId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
-                .doOnSuccess(updatedUser -> log.info("User gems updated successfully: {}", updatedUser))
-                .doOnError(error -> log.error("Failed to update user gems for HostMaxId {}: {}", liveRoom.getHostMaxId(), error.getMessage()))
-                .then(hostPersistencePort.addMoreGems(liveRoom.getUserId(), Constants.DAILY_GEMS_REWARD_AMOUNT)
-                        .doOnSuccess(updatedHost -> log.info("Host gems updated successfully: {}", updatedHost))
-                        .doOnError(error -> log.error("Failed to update host gems for UserId {}: {}", liveRoom.getUserId(), error.getMessage())))
-                .then();
+        return Mono.empty();
     }
 
 
