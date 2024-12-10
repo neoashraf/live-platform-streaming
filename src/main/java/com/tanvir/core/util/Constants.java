@@ -25,8 +25,8 @@ public final class Constants {
     public static final String REPAYMENT_FREQUENCY_HALF_YEARLY = "HALF-YEARLY";
 
     public static final int DAILY_GEMS_REWARD_AMOUNT = 10000;
-    public static final int MINIMUM_DURATION_FOR_DAY_INCREMENT = 10; // 60 minutes
-    public static final int MINIMUM_DURATION_FOR_GEMS_REWARD = 10;   // 90 minutes
+    public static final int MINIMUM_DURATION_FOR_DAY_INCREMENT = 3600; // 60 minutes
+    public static final int MINIMUM_DURATION_FOR_GEMS_REWARD = 5400;   // 90 minutes
 
 
 
