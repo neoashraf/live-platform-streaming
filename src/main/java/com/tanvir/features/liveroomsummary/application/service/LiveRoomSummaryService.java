@@ -57,6 +57,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
     @Override
     public Mono<LiveRoomSummary> processLiveRoomSummary(LiveRoom liveRoom) {
+        log.info("Live Room initial daily host GEMS:: {}", liveRoom.getHostDailyGems());
         String userId = liveRoom.getUserId();
         Mono<Host> dbHostUser = hostPersistencePort.getHostByUserId(userId);
 
@@ -110,12 +111,23 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             newSummary.setMonth(finalCurrentUTC.getMonthValue());
             newSummary.setYear(finalCurrentUTC.getYear());
 
+            if (liveRoom.getType().equalsIgnoreCase("video")){
+                newSummary.setTotalVideoDuration(durationInSeconds);
+                newSummary.setTotalVideoDurationString(CommonBusiness.formatTimeToString(durationInSeconds));
+            }
+
+            if (liveRoom.getType().equalsIgnoreCase("audio")){
+                newSummary.setTotalAudioDuration(durationInSeconds);
+                newSummary.setTotalAudioDurationString(CommonBusiness.formatTimeToString(durationInSeconds));
+            }
+
             // Create session details
             LiveRoomSummaryEntity.SessionDetail newSessionDetail = new LiveRoomSummaryEntity.SessionDetail();
             newSessionDetail.setCreatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
             newSessionDetail.setLiveRoomId(liveRoom.getId());
             newSessionDetail.setDuration(durationInSeconds);
             newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems());
+            newSessionDetail.setSessionType(liveRoom.getType());
 
             return receivedGiftAmountMono.flatMap(amount -> {
                 log.info("Total gift received amount: {}", amount);
@@ -124,9 +136,9 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 if (isEligibleForBonus && (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD)) {
                     newSessionDetail.setBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
                     newSummary.setTotalBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
-                    newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
                     newSummary.setLastGemsAwardedDate(finalCurrentUTC.toLocalDate().toString());
                 }
+                newSessionDetail.setHostDailyGems(newSessionDetail.getHostDailyGems() + amount);
                 return Mono.just(amount);
             }).flatMap(amount -> {
                 newSummary.setSessionDetails(Collections.singletonList(newSessionDetail));
@@ -206,7 +218,18 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         newSessionDetail.setDuration(durationInSeconds);
         newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems());
         newSessionDetail.setGiftReceivedAmount(receivedGiftAmount);
+        newSessionDetail.setSessionType(liveRoom.getType());
         sessionDetails.add(newSessionDetail);
+
+        if (liveRoom.getType().equalsIgnoreCase("video")){
+            summary.setTotalVideoDuration(summary.getTotalDuration() + durationInSeconds);
+            summary.setTotalVideoDurationString(CommonBusiness.formatTimeToString(summary.getTotalDuration() + durationInSeconds));
+        }
+
+        if (liveRoom.getType().equalsIgnoreCase("audio")){
+            summary.setTotalAudioDuration(summary.getTotalAudioDuration() + durationInSeconds);
+            summary.setTotalAudioDurationString(CommonBusiness.formatTimeToString(summary.getTotalAudioDuration() + durationInSeconds));
+        }
 
         summary.setSessionDetails(sessionDetails);
 
@@ -230,6 +253,10 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         if (summary.getTotalDuration() >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT) {
             summary.setDayTime("Yes");
         }
+
+        summary.setHostDailyGems(summary.getHostDailyGems() + receivedGiftAmount);
+        summary.setTotalDuration(summary.getTotalAudioDuration() + summary.getTotalVideoDuration());
+        summary.setTotalDurationString( CommonBusiness.formatTimeToString(summary.getTotalAudioDuration() + summary.getTotalVideoDuration()));
 
         summary.setUpdatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
 
@@ -259,7 +286,6 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 .findFirst()
                 .ifPresent(session -> {
                     session.setBonus(session.getBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT);
-                    session.setHostDailyGems(session.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
                 });
 
         summary.setTotalBonus(summary.getTotalBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT);

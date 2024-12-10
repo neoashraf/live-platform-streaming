@@ -37,6 +37,11 @@ public class LiveRoomSummaryEntity {
     private String lastGemsAwardedDate;
     private String lastDayCountedDate;
 
+    private long totalVideoDuration;
+    private String totalVideoDurationString;
+    private long totalAudioDuration;
+    private String totalAudioDurationString;
+
     private Instant createdOn;
     private Instant updatedOn;
 
@@ -51,5 +56,6 @@ public class LiveRoomSummaryEntity {
         private double bonus;
         private double hostDailyGems;
         private double giftReceivedAmount;
+        private String sessionType;
     }
 }
