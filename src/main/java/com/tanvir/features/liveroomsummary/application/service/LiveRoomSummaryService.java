@@ -5,6 +5,7 @@ import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.domain.GiftTransaction;
 import com.tanvir.features.host.application.port.out.HostPersistencePort;
+import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomsummary.adapter.out.persistence.entity.LiveRoomSummaryEntity;
 import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
@@ -57,6 +58,8 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
     @Override
     public Mono<LiveRoomSummary> processLiveRoomSummary(LiveRoom liveRoom) {
         String userId = liveRoom.getUserId();
+        Mono<Host> dbHostUser = hostPersistencePort.getHostByUserId(userId);
+
         long durationInSeconds = liveRoom.getDurationInSeconds();
         ZonedDateTime currentUTC = ZonedDateTime.now(ZoneOffset.UTC);
 
@@ -80,12 +83,15 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 .reduce(0.0, Double::sum)
                 .defaultIfEmpty(0.0);
 
-        boolean isEligibleForBonus = durationInSeconds >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD
-                && liveRoom.getType().equalsIgnoreCase("video");
+        // Calculate bonus eligibility reactively
+        Mono<Boolean> isEligibleForBonusMono = dbHostUser.map(host ->
+                         "video".equalsIgnoreCase(liveRoom.getType())
+                        && "video".equalsIgnoreCase(host.getHostType())
+        ).defaultIfEmpty(false); // Handle case where dbHostUser is empty
 
         ZonedDateTime finalCurrentUTC = currentUTC;
 
-        return latestEntryMono.flatMap(summary -> {
+        return isEligibleForBonusMono.flatMap(isEligibleForBonus -> latestEntryMono.flatMap(summary -> {
             log.info("Found existing summary for user: {}", userId);
             // Update existing summary with duration, gifts, and bonus
             return receivedGiftAmountMono.flatMap(amount -> updateSummary(summary, durationInSeconds, liveRoom, finalCurrentUTC, isEligibleForBonus, amount));
@@ -115,7 +121,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 log.info("Total gift received amount: {}", amount);
                 newSessionDetail.setGiftReceivedAmount(amount);
 
-                if (isEligibleForBonus) {
+                if (isEligibleForBonus && (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD)) {
                     newSessionDetail.setBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
                     newSummary.setTotalBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
                     newSessionDetail.setHostDailyGems(liveRoom.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
@@ -124,7 +130,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 return Mono.just(amount);
             }).flatMap(amount -> {
                 newSummary.setSessionDetails(Collections.singletonList(newSessionDetail));
-                if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT && liveRoom.getType().equalsIgnoreCase("video")) {
+                if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT && liveRoom.getType().equalsIgnoreCase("video") && isEligibleForBonus) {
                     newSummary.setTotalLiveDays(newSummary.getTotalLiveDays() + 1);
                     newSummary.setLastDayCountedDate(finalCurrentUTC.toLocalDate().toString());
                 }
@@ -135,8 +141,9 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                         .doOnNext(savedSummary -> log.info("Created summary for user: {}", savedSummary))
                         .map(savedSummary -> modelMapper.map(savedSummary, LiveRoomSummary.class));
             });
-        }));
+        })));
     }
+
 
 
     @Override
@@ -179,7 +186,11 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
     }
 
 
-    private Mono<LiveRoomSummary> updateSummary(LiveRoomSummaryEntity summary, long durationInSeconds, LiveRoom liveRoom, ZonedDateTime finalCurrentUTC, boolean isEligibleForBonus, Double receivedGiftAmount) {
+    private Mono<LiveRoomSummary> updateSummary(LiveRoomSummaryEntity summary, long durationInSeconds, LiveRoom liveRoom,
+                                                ZonedDateTime finalCurrentUTC, boolean isEligibleForBonus,
+                                                Double receivedGiftAmount) {
+
+        // Update summary details
         summary.setTotalDuration(summary.getTotalDuration() + durationInSeconds);
         summary.setTotalDurationString(CommonBusiness.formatTimeToString(summary.getTotalDuration()));
         summary.setHostDailyGems(liveRoom.getHostDailyGems());
@@ -201,15 +212,16 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
         String currentDate = finalCurrentUTC.toLocalDate().toString();
 
+        // Add bonus if eligible
         Mono<Void> bonusMono = Mono.empty();
-        if (isEligibleForBonus && (summary.getLastGemsAwardedDate() == null || !summary.getLastGemsAwardedDate().equals(currentDate))) {
+        if (isEligibleForBonus && (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD) && (summary.getLastGemsAwardedDate() == null || !summary.getLastGemsAwardedDate().equals(currentDate))) {
             bonusMono = addBonusToSession(summary, liveRoom, currentDate);
         }
 
         // Increment totalLiveDays if conditions are met
         if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT
                 && (summary.getLastDayCountedDate() == null || !summary.getLastDayCountedDate().equals(currentDate))
-                && liveRoom.getType().equalsIgnoreCase("video")) {
+                && "video".equalsIgnoreCase(liveRoom.getType()) && isEligibleForBonus) {
             summary.setTotalLiveDays(summary.getTotalLiveDays() + 1);
             summary.setLastDayCountedDate(currentDate);
         }
@@ -245,10 +257,22 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         summary.getSessionDetails().stream()
                 .filter(session -> session.getLiveRoomId().equals(liveRoom.getId()))
                 .findFirst()
-                .ifPresent(session -> session.setBonus(session.getBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT));
+                .ifPresent(session -> {
+                    session.setBonus(session.getBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT);
+                    session.setHostDailyGems(session.getHostDailyGems() + Constants.DAILY_GEMS_REWARD_AMOUNT);
+                });
 
         summary.setTotalBonus(summary.getTotalBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT);
         summary.setLastGemsAwardedDate(currentDate);
+
+        // Update hostDailyGems to the latest session value
+        summary.setHostDailyGems(
+                summary.getSessionDetails().stream()
+                        .max(Comparator.comparing(LiveRoomSummaryEntity.SessionDetail::getCreatedOn, Comparator.nullsFirst(Comparator.naturalOrder())))
+                        .map(LiveRoomSummaryEntity.SessionDetail::getHostDailyGems)
+                        .orElse(0.0)
+        );
+
 
         return Mono.empty();
     }
