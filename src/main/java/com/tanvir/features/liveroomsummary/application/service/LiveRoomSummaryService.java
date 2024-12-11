@@ -307,6 +307,33 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         return Mono.empty();
     }
 
+    public Mono<LiveRoomSummaryEntity> findLiveRoomSummaryTotals(String userId, int month, int year) {
+        Aggregation agg = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("userId").is(userId)
+                        .and("month").is(month)
+                        .and("year").is(year)),
+                Aggregation.project()
+                        .and(ConditionalOperators.ifNull("hostDailyGems").then(0)).as("hostDailyGems")
+                        .and(ConditionalOperators.ifNull("totalDuration").then(0)).as("totalDuration")
+                        .and(ConditionalOperators.ifNull("totalVideoDuration").then(0)).as("totalVideoDuration")
+                        .and(ConditionalOperators.ifNull("totalAudioDuration").then(0)).as("totalAudioDuration")
+                        .and(ConditionalOperators.ifNull("totalGiftReceivedAmount").then(0)).as("totalGiftReceivedAmount")
+                        .and(ConditionalOperators.ifNull("totalBonus").then(0)).as("totalBonus")
+                        .and(ConditionalOperators.ifNull("totalLiveDays").then(0)).as("totalLiveDays"),
+                Aggregation.group() // Grouping by null to compute totals across all matched records
+                        .sum("hostDailyGems").as("hostDailyGems")
+                        .sum("totalDuration").as("totalDuration")
+                        .sum("totalVideoDuration").as("totalVideoDuration")
+                        .sum("totalAudioDuration").as("totalAudioDuration")
+                        .sum("totalGiftReceivedAmount").as("totalGiftReceivedAmount")
+                        .sum("totalBonus").as("totalBonus")
+                        .sum("totalLiveDays").as("totalLiveDays")
+        );
+
+        return reactiveMongoTemplate.aggregate(agg, "liveroom_summary", LiveRoomSummaryEntity.class)
+                .next(); // Use .next() to get the first (and only) result as Mono
+    }
+
 
     public Flux<LiveRoomSummaryEntity> findLiveRoomSummaries(String userId, int month, int year) {
         Aggregation agg = Aggregation.newAggregation(
@@ -319,6 +346,9 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                         .and("year").as("year")
                         .and(ConditionalOperators.ifNull("hostDailyGems").then(0)).as("hostDailyGems")
                         .and(ConditionalOperators.ifNull("totalDuration").then(0)).as("totalDuration")
+                        .and(ConditionalOperators.ifNull("totalVideoDuration").then(0)).as("totalVideoDuration")
+                        .and(ConditionalOperators.ifNull("totalAudioDuration").then(0)).as("totalAudioDuration")
+                        .and(ConditionalOperators.ifNull("totalGiftReceivedAmount").then(0)).as("totalGiftReceivedAmount")
                         .and(ConditionalOperators.ifNull("totalBonus").then(0)).as("totalBonus")
                         .and(ConditionalOperators.ifNull("totalLiveDays").then(0)).as("totalLiveDays")
                         .and(ConditionalOperators.ifNull("sessionDetails").then(Collections.emptyList())).as("sessionDetails")
