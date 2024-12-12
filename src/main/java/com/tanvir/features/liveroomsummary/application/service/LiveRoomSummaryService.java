@@ -106,7 +106,6 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             newSummary.setTotalDuration(durationInSeconds);
             newSummary.setTotalDurationString(CommonBusiness.formatTimeToString(durationInSeconds));
             newSummary.setTotalSessions(1);
-            newSummary.setHostDailyGems(liveRoom.getHostDailyGems());
             newSummary.setDayTime(durationInSeconds >= 3600 ? "Yes" : "No");
             newSummary.setMonth(finalCurrentUTC.getMonthValue());
             newSummary.setYear(finalCurrentUTC.getYear());
@@ -138,13 +137,11 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                     newSummary.setTotalBonus(Constants.DAILY_GEMS_REWARD_AMOUNT);
                     newSummary.setLastGemsAwardedDate(finalCurrentUTC.toLocalDate().toString());
                 }
-                newSessionDetail.setHostDailyGems(newSessionDetail.getHostDailyGems() + giftAmount);
-                newSummary.setTotalGiftReceivedAmount(giftAmount);
+                newSummary.setSessionDetails(Collections.singletonList(newSessionDetail));
                 return Mono.just(giftAmount);
             }).flatMap(amount -> {
-                newSummary.setSessionDetails(Collections.singletonList(newSessionDetail));
                 if (durationInSeconds >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT && liveRoom.getType().equalsIgnoreCase("video") && isEligibleForBonus) {
-                    newSummary.setTotalLiveDays(newSummary.getTotalLiveDays() + 1);
+                    newSummary.setTotalLiveDays(1);
                     newSummary.setLastDayCountedDate(finalCurrentUTC.toLocalDate().toString());
                 }
                 newSummary.setCreatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
@@ -206,7 +203,6 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
         // Update summary details
         summary.setTotalDurationString(CommonBusiness.formatTimeToString(summary.getTotalDuration()));
-        summary.setHostDailyGems(liveRoom.getHostDailyGems());
         summary.setTotalSessions(summary.getTotalSessions() + 1);
 
         // Add new session details
@@ -244,8 +240,6 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         if (summary.getTotalDuration() >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT) {
             summary.setDayTime("Yes");
         }
-
-        summary.setHostDailyGems(summary.getHostDailyGems() + receivedGiftAmount);
 
         long totalVideoDurations = summary.getSessionDetails().stream().filter(session -> session.getSessionType().equalsIgnoreCase("video")).mapToLong(LiveRoomSummaryEntity.SessionDetail::getDuration).sum();
         long totalAudioDurations = summary.getSessionDetails().stream().filter(session -> session.getSessionType().equalsIgnoreCase("audio")).mapToLong(LiveRoomSummaryEntity.SessionDetail::getDuration).sum();
@@ -294,15 +288,6 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
         summary.setTotalBonus(summary.getTotalBonus() + Constants.DAILY_GEMS_REWARD_AMOUNT);
         summary.setLastGemsAwardedDate(currentDate);
-
-        // Update hostDailyGems to the latest session value
-        summary.setHostDailyGems(
-                summary.getSessionDetails().stream()
-                        .max(Comparator.comparing(LiveRoomSummaryEntity.SessionDetail::getCreatedOn, Comparator.nullsFirst(Comparator.naturalOrder())))
-                        .map(LiveRoomSummaryEntity.SessionDetail::getHostDailyGems)
-                        .orElse(0.0)
-        );
-
 
         return Mono.empty();
     }
