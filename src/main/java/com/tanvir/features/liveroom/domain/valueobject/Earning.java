@@ -19,4 +19,5 @@ public class Earning {
     private int validDays;
     private double bonus;
     private String bonusString;
+    private String hostType;
 }

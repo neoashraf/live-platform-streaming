@@ -1703,59 +1703,58 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
-    public Mono<Earning> userEarning(String userId) {
-        int month = LocalDate.now().getMonthValue();
-        int year = LocalDate.now().getYear();
+    public Mono<Earning> userEarning(String keycloakId) {
+        int month = LocalDate.now(ZoneOffset.UTC).getMonthValue();
+        int year = LocalDate.now(ZoneOffset.UTC).getYear();
 
-        // Fetch pre-aggregated totals using findLiveRoomSummaryTotals
-        Mono<LiveRoomSummaryEntity> dbLiveRoomSummaryTotals = liveRoomSummaryService.findLiveRoomSummaryTotals(userId, month, year);
+        // Step 1: Fetch User by Keycloak ID
+        return userUseCase.getUserByKeycloakId(keycloakId)
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("User not found for Keycloak ID: " + keycloakId)))
+                .flatMap(dbUser -> {
+                    // Step 2: Fetch Host by User ID
+                    Mono<Host> dbHostUser = hostUseCase.getHostByUserId(dbUser.getId())
+                            .switchIfEmpty(Mono.error(new IllegalArgumentException("Host not found for User ID: " + dbUser.getId())));
 
-        // Fetch user data
-        Mono<User> userMono = userUseCase.getUserById(userId)
-                .defaultIfEmpty(User.builder().build())
-                .doOnNext(user -> log.info("Fetched user details for userId {}: {}", userId, user));
+                    // Step 3: Fetch pre-aggregated totals using findLiveRoomSummaryTotals
+                    Mono<LiveRoomSummaryEntity> dbLiveRoomSummaryTotals = liveRoomSummaryService.findLiveRoomSummaryTotals(dbUser.getId(), month, year)
+                            .switchIfEmpty(Mono.error(new IllegalArgumentException("No summary found for User ID: " + dbUser.getId() + ", Month: " + month + ", Year: " + year)));
 
-        // Extract total bonus directly from session details if needed
-        Mono<Double> totalBonusMono = dbLiveRoomSummaryTotals
-                .flatMap(summary -> {
-                    if (summary.getSessionDetails() == null) {
-                        return Mono.just(0.0);
-                    }
-                    return Flux.fromIterable(summary.getSessionDetails())
-                            .filter(session -> session.getBonus() > 0)
-                            .map(LiveRoomSummaryEntity.SessionDetail::getBonus)
-                            .reduce(0.0, Double::sum);
+                    // Step 4: Combine data into Earning
+                    return Mono.zip(dbHostUser, dbLiveRoomSummaryTotals)
+                            .flatMap(tuple -> {
+                                Host host = tuple.getT1();
+                                LiveRoomSummaryEntity summary = tuple.getT2();
+                                double totalBonus = summary.getTotalBonus();
+
+                                log.info("Combining data for userId {}: hostType={}, totalDurations={}, totalLiveDays={}, totalBonus={}",
+                                        dbUser.getId(), host.getHostType(), summary.getTotalVideoDuration(), summary.getTotalLiveDays(), totalBonus);
+
+                                // Build Earning object based on hostType
+                                Earning.EarningBuilder earningBuilder = Earning.builder()
+                                        .month(String.valueOf(month))
+                                        .year(year)
+                                        .gems(dbUser.getGems())
+                                        .hostType(host.getHostType())
+                                        .gemsString(FormatUtil.formatGems(dbUser.getGems()));
+
+                                if ("video".equalsIgnoreCase(host.getHostType())) {
+                                    earningBuilder
+                                            .duration(String.valueOf(summary.getTotalVideoDuration()))
+                                            .durationString(FormatUtil.convertDurationToString(summary.getTotalVideoDuration()))
+                                            .validDays(summary.getTotalLiveDays())
+                                            .bonus(totalBonus)
+                                            .bonusString(FormatUtil.formatGems(totalBonus));
+                                } else if ("audio".equalsIgnoreCase(host.getHostType())) {
+                                    log.info("Audio host type detected; only gems and gemsString fields will be populated for userId {}", dbUser.getId());
+                                    // Other fields remain empty
+                                }
+
+                                return Mono.just(earningBuilder.build());
+                            });
                 })
-                .doOnNext(bonus -> log.info("Computed total bonus  from session details for user {}: {}", userId, bonus));
-
-        // Combine data into Earning
-        return Mono.zip(
-                dbLiveRoomSummaryTotals,
-                userMono
-        ).map(tuple -> {
-            LiveRoomSummaryEntity summary = tuple.getT1();
-            User dbUser = tuple.getT2();
-
-            log.info("Tuple values: totalDurations={}, totalLiveDays={}, totalBonus={}",
-                    summary.getTotalVideoDuration(), summary.getTotalLiveDays(), summary.getTotalBonus());
-
-            // Build Earning object
-            return Earning.builder()
-                    .month(String.valueOf(month))
-                    .year(year)
-                    .gems(dbUser.getGems())
-                    .gemsString(FormatUtil.formatGems(dbUser.getGems()))
-                    .duration(String.valueOf(summary.getTotalVideoDuration()))
-                    .durationString(FormatUtil.convertDurationToString(summary.getTotalVideoDuration()))
-                    .validDays(summary.getTotalLiveDays())
-                    .bonus(summary.getTotalBonus())
-                    .bonusString(FormatUtil.formatGems(summary.getTotalBonus()))
-                    .build();
-        }).onErrorResume(e -> {
-            log.error("Error computing user earnings for userId {}: {}", userId, e.getMessage());
-            return Mono.just(Earning.builder().month(String.valueOf(month)).year(year).build());
-        });
+                .doOnError(e -> log.error("Error computing user earnings for keycloakId {}: {}", keycloakId, e.getMessage()));
     }
+
 
 
 

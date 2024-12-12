@@ -327,25 +327,28 @@ public class LiveRoomHandler {
     }
 
     public Mono<ServerResponse> earnings(ServerRequest serverRequest) {
-        String userId = serverRequest.pathVariable("id");
-        log.info("Processing earnings for userId: {}", userId);
 
-        if (userId == null || userId.trim().isEmpty()) {
-            log.warn("Invalid userId provided");
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory and must be provided."));
+
+        log.info("Processing earnings for keycloakId: {}", keycloakId);
+
+        if (keycloakId.trim().isEmpty()) {
+            log.warn("Invalid keycloakId provided");
             return ServerResponse.badRequest()
                     .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue(Map.of("message", "User ID must not be empty", "error", true));
+                    .bodyValue(Map.of("message", "User keycloak ID must not be empty", "error", true));
         }
 
-        return liveRoomUseCase.userEarning(userId)
+        return liveRoomUseCase.userEarning(keycloakId)
                 .switchIfEmpty(Mono.just(Earning.builder().build())) // Handle empty results
                 .map(earning -> {
-                    log.info("Earnings fetched successfully for userId: {}", userId);
+                    log.info("Earnings fetched successfully for keycloakId: {}", keycloakId);
                     return EarningResponseDto.builder()
                             .message("Earning details fetched successfully")
                             .data(EarningResponseDto.EarningModel.builder()
                                     .month(earning.getMonth())
                                     .year(earning.getYear())
+                                    .hostType(earning.getHostType())
                                     .gems(earning.getGems())
                                     .gemsString(earning.getGemsString())
                                     .duration(earning.getDuration())
@@ -363,7 +366,7 @@ public class LiveRoomHandler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto))
                 .onErrorResume(e -> {
-                    log.error("Error processing earnings for userId {}: {}", userId, e.getMessage());
+                    log.error("Error processing earnings for keycloakId {}: {}", keycloakId, e.getMessage());
                     return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                             .contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(EarningResponseDto.builder()

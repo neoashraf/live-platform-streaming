@@ -29,5 +29,6 @@ public class EarningResponseDto {
         private int validDays;
         private double bonus;
         private String bonusString;
+        private String hostType;
     }
 }
