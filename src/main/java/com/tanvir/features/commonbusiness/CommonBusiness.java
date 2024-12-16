@@ -12,6 +12,10 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -137,6 +141,28 @@ public class CommonBusiness {
                 })
                 .doOnError(throwable -> log.error("Error while setting user level url: {}", throwable.getMessage()));
     }
+
+    public static boolean areDatesEqual(String stringDate, Instant instantDate) {
+        if (instantDate == null) {
+            return false;
+        }
+
+        LocalDate parsedStringDate = LocalDate.parse(stringDate);
+        LocalDate instantLocalDate = instantDate.atZone(ZoneOffset.UTC).toLocalDate();
+
+        return parsedStringDate.equals(instantLocalDate);
+    }
+
+    public static String formatInstantToDate(Instant instant) {
+
+        // Convert Instant to LocalDate
+        LocalDate localDate = instant.atZone(ZoneOffset.UTC).toLocalDate();
+
+        // Format the LocalDate to the desired format (yyyy-MM-dd)
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        return localDate.format(formatter);
+    }
+
 
 
 }

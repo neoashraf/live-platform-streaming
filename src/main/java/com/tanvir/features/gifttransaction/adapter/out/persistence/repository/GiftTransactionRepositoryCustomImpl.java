@@ -1,11 +1,13 @@
 package com.tanvir.features.gifttransaction.adapter.out.persistence.repository;
 
 import com.tanvir.features.gifttransaction.adapter.out.persistence.entity.GiftTransactionEntity;
+import com.tanvir.features.gifttransaction.domain.LiveRoomTotalBeans;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
@@ -123,4 +125,24 @@ public class GiftTransactionRepositoryCustomImpl implements GiftTransactionRepos
         // Perform the count operation using reactiveMongoTemplate
         return reactiveMongoTemplate.count(query, GiftTransactionEntity.class);
     }
+
+
+    @Override
+    public Flux<LiveRoomTotalBeans> findTotalBeansGroupedByLiveRoomId(Instant start, Instant end) {
+        Aggregation aggregation = Aggregation.newAggregation(
+                // Match documents that have a non-null liveRoomId and are within the date range
+                Aggregation.match(Criteria.where("createdOn").gte(start).lt(end)
+                        .and("liveRoomId").ne(null)), // Exclude documents with null liveRoomId
+                Aggregation.group("liveRoomId")
+                        .sum("beans").as("totalBeans")
+                        .first("liveRoomId").as("liveRoomId"), // Ensure liveRoomId is included
+                Aggregation.project("liveRoomId", "totalBeans")
+        );
+
+        return reactiveMongoTemplate.aggregate(aggregation, GiftTransactionEntity.class, LiveRoomTotalBeans.class);
+    }
+
+
+
+
 }

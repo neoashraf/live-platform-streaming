@@ -10,4 +10,5 @@ import reactor.core.publisher.Mono;
 public interface LiveRoomSummaryUseCase {
     Mono<LiveRoomSummary> processLiveRoomSummary(LiveRoom liveRoom);
     Mono<HostEarningResponseDto> getHostEarnings(HostEarningRequestDto requestDto);
+    Mono<String> updateLiveRoomSummary();
 }

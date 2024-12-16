@@ -26,6 +26,10 @@ public class LiveRoomSummaryRouter {
                                         nestedBuilder
                                                 .GET(EARNINGS, handler::getHostEarnings)
                                 )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
+                                                .GET("/update", handler::updateOldLiveRoomSummary)
+                                )
                 )
                 .build();
     }

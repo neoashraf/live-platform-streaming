@@ -6,6 +6,8 @@ import org.springframework.data.mongodb.repository.ReactiveMongoRepository;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
+
 
 public interface LiveRoomRepository extends ReactiveMongoRepository<LiveRoomEntity, String> {
     Mono<LiveRoomEntity> getLiveRoomEntityById(String id);
@@ -17,4 +19,5 @@ public interface LiveRoomRepository extends ReactiveMongoRepository<LiveRoomEnti
 //    Flux<LiveRoomEntity> getLiveRoomEntitiesByTypeAndStatusOrderByPopularityLevelDesc(String type, String status, Pageable pageable);
 
     Mono<LiveRoomEntity> getLiveRoomEntityByHostIdAndStatus(String hostId, String status);
+    Flux<LiveRoomEntity> findByCreatedOnBetween(Instant start, Instant end);
 }

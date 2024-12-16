@@ -34,6 +34,15 @@ public class LiveRoomSummaryHandler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto));
     }
+    public Mono<ServerResponse> updateOldLiveRoomSummary(ServerRequest serverRequest) {
+        // Trigger the update process and return a response
+        return liveRoomSummaryUseCase.updateLiveRoomSummary()
+                .then(ServerResponse.ok().bodyValue("Live room summary update initiated."))
+                .onErrorResume(e -> {
+                    // Handle errors and return appropriate responses
+                    return ServerResponse.status(500).bodyValue("An error occurred while updating live room summary: " + e.getMessage());
+                });
+    }
 
 
 }
