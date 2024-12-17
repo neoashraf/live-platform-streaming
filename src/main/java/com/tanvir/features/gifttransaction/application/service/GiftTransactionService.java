@@ -39,7 +39,9 @@ import reactor.core.scheduler.Schedulers;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -106,10 +108,10 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 .doOnNext(giftTransaction -> log.info("sender level : {}", giftTransaction.getSenderReceiverDto().getSender().getUserLevel()))
                 .flatMap(giftTransaction -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getSender())
-                            .doOnError(throwable -> log.error("Error while updating sender user"))
-                            .flatMap(user -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getReceiver()))
-                            .doOnError(throwable -> log.error("Error while updating receiver user"))
-                            .thenReturn(giftTransaction))
+                        .doOnError(throwable -> log.error("Error while updating sender user"))
+                        .flatMap(user -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getReceiver()))
+                        .doOnError(throwable -> log.error("Error while updating receiver user"))
+                        .thenReturn(giftTransaction))
                 .map(giftTransaction -> this.buildSendGiftResponseDto(giftTransaction, "Gift sent successfully"))
                 .as(transactionalOperator::transactional);
     }
@@ -121,14 +123,14 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                     DailyStarProgress starProgress = this.calculateStarProgress(currentGems);
                     giftTransaction.setDailyStarProgress(starProgress);
                     return Strings.isNotNullAndNotEmpty(giftTransaction.getLiveSession()) && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
-                        ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
+                            ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
                             .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
                             .flatMap(liveRoom -> {
                                 liveRoom.setHostDailyGems(currentGems);
-                               return liveRoomUseCase.updateLiveRoom(liveRoom)
-                                       .thenReturn(giftTransaction);
+                                return liveRoomUseCase.updateLiveRoom(liveRoom)
+                                        .thenReturn(giftTransaction);
                             })
-                        : Mono.just(giftTransaction);
+                            : Mono.just(giftTransaction);
                 });
     }
 
@@ -191,21 +193,19 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
                     return port.getBeanTransactionsCount(requestDto)
                             .flatMap(aLong -> port.getBeanTransactions(requestDto)
-                                .map(giftTransaction -> {
-                                    giftTransaction.setBeansPlain(CommonBusiness.convertToPlainBigDecimal(giftTransaction.getBeans()));
-                                    return giftTransaction;
-                                })
-                                .collectList()
-                                .map(giftTransactions -> GiftTransactionResponseDto
-                                        .builder()
-                                        .message("Gift Transactions fetched successfully")
-                                        .data(giftTransactions)
-                                        .count(aLong.intValue())
-                                        .build()));
+                                    .map(giftTransaction -> {
+                                        giftTransaction.setBeansPlain(CommonBusiness.convertToPlainBigDecimal(giftTransaction.getBeans()));
+                                        return giftTransaction;
+                                    })
+                                    .collectList()
+                                    .map(giftTransactions -> GiftTransactionResponseDto
+                                            .builder()
+                                            .message("Gift Transactions fetched successfully")
+                                            .data(giftTransactions)
+                                            .count(aLong.intValue())
+                                            .build()));
 
                 });
-
-
 
 
     }
@@ -292,18 +292,18 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         log.info("getLiveSession : {}", giftTransaction.getLiveSession());
         return giftTransaction.getLiveSession() != null && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
                 ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
-                    .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
-                    .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
-                    .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Live Room is not live")))
-                    .flatMap(liveRoom -> this.buildGiftAnnouncement(giftTransaction)
-                            .flatMap(announcement -> {
-                                liveRoom.setDailyStarProgress(giftTransaction.getDailyStarProgress());
-                                liveRoom.setAnnouncement(announcement);
-                                liveRoom.setHostTotalGems(giftTransaction.getSenderReceiverDto().getReceiver().getGems());
-                                liveRoom.setHostGemsValue(CommonBusiness.convertToShortName(giftTransaction.getSenderReceiverDto().getReceiver().getGems()));
-                                return cachePort.updateForGift(liveRoom)
-                                        .thenReturn(giftTransaction);
-                            }))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Live Room is not live")))
+                .flatMap(liveRoom -> this.buildGiftAnnouncement(giftTransaction)
+                        .flatMap(announcement -> {
+                            liveRoom.setDailyStarProgress(giftTransaction.getDailyStarProgress());
+                            liveRoom.setAnnouncement(announcement);
+                            liveRoom.setHostTotalGems(giftTransaction.getSenderReceiverDto().getReceiver().getGems());
+                            liveRoom.setHostGemsValue(CommonBusiness.convertToShortName(giftTransaction.getSenderReceiverDto().getReceiver().getGems()));
+                            return cachePort.updateForGift(liveRoom)
+                                    .thenReturn(giftTransaction);
+                        }))
                 : Mono.just(giftTransaction);
     }
 
@@ -317,6 +317,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
                     ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(giftTransaction.getGift().getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
                     ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+
+                    List<ResourceFormat> resourceFormats = giftTransaction.getGift().getResourceFormats();
+
                     Announcement announcement = Announcement
                             .builder()
                             .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue())
@@ -338,11 +341,29 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 //                                            .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
                                             .imageUrl(imageResource.getThumbnailUrl())
                                             .build())
+                                    .resources(buildResourceCollection(resourceFormats, giftTransaction))
                                     .build())
                             .build();
                     log.info("Gift Announcement Built : {}", announcement);
                     return announcement;
                 });
+    }
+
+    private List<Announcement.Resources> buildResourceCollection(List<ResourceFormat> resourceFormats, GiftTransaction giftTransaction) {
+
+        return resourceFormats.stream()
+                .filter(resourceFormat -> resourceFormat.getResourceType().equals(ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue())
+                        || resourceFormat.getResourceType().equals(ResourceTypeEnum.RESOURCE_TYPE_ANIMATION.getValue())
+                )
+                .map(resourceFormat -> Announcement.Resources.builder()
+                        .id(resourceFormat.getResourceId())
+                        .type(resourceFormat.getResourceType())
+                        .name(giftTransaction.getGift().getName())
+                        .url(resourceFormat.getResourceUrl())
+                        .thumbnailUrl(resourceFormat.getThumbnailUrl())
+                        .build()
+                )
+                .toList();
     }
 
     private SendGiftResponseDto buildSendGiftResponseDto(GiftTransaction giftTransaction, String message) {
@@ -394,7 +415,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                 giftTransaction.getSenderReceiverDto().getSender().setLevelBadgeUrl(user.getLevelBadgeUrl());
                                 return user;
                             });
-                            })
+                })
                 .map(userMono -> giftTransaction)
                 .doOnError(throwable -> log.error("Error while updating user for gift transaction : {}", throwable.getMessage()));
     }
