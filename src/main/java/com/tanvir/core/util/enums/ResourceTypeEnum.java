@@ -5,7 +5,7 @@ import lombok.Getter;
 @Getter
 public enum ResourceTypeEnum {
     RESOURCE_TYPE_IMAGE("IMAGE"),
-    RESOURCE_TYPE_ANIMATION("ANIMATION");
+    RESOURCE_TYPE_ANIMATION("SVGA");
 
     private final String value;
 

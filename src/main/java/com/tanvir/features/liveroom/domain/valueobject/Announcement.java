@@ -30,6 +30,7 @@ public class Announcement {
     public static class Gift {
         private int quantity;
         private Resource resource;
+        private List<Resources> resources;
     }
 
     @Data
@@ -39,6 +40,18 @@ public class Announcement {
     public static class Resource {
         private String name;
         private String imageUrl;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Resources {
+        private String id;
+        private String type;
+        private String name;
+        private String url;
+        private String thumbnailUrl;
     }
 
     @Override
