@@ -17,17 +17,15 @@ import com.tanvir.features.liveroomsummary.adapter.out.persistence.repository.Li
 import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
 import com.tanvir.features.liveroomsummary.application.port.out.LiveRoomSummaryPersistencePort;
 import com.tanvir.features.liveroomsummary.domain.LiveRoomSummary;
-import com.tanvir.features.liveroomsummary.domain.dto.HostEarning;
-import com.tanvir.features.liveroomsummary.domain.dto.HostEarningRequestDto;
-import com.tanvir.features.liveroomsummary.domain.dto.HostEarningResponseDto;
-import com.tanvir.features.liveroomsummary.domain.dto.HostEarningSummaryDto;
+import com.tanvir.features.liveroomsummary.domain.dto.*;
 import com.tanvir.features.user.application.port.in.UserUseCase;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
-import org.springframework.data.mongodb.core.aggregation.Aggregation;
-import org.springframework.data.mongodb.core.aggregation.ConditionalOperators;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
@@ -36,10 +34,9 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.*;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Service
 @Slf4j
@@ -47,6 +44,9 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
     @Autowired
     private ReactiveMongoTemplate reactiveMongoTemplate;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     @Autowired
     private LiveRoomSummaryPersistencePort port;
@@ -359,7 +359,7 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
         return reactiveMongoTemplate.aggregate(agg, "liveroom_summary", LiveRoomSummaryEntity.class);
     }
 
-    public Mono<String> updateLiveRoomSummary() {
+    public Mono<String> updateLiveRoomSummary2() {
         Instant start = Instant.parse("2024-12-01T01:00:00Z");
         Instant end = Instant.parse("2024-12-13T01:00:00Z");
 
@@ -443,7 +443,11 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             throw new IllegalStateException("CreatedOn and EndedOn timestamps cannot be null.");
         }
 
-        long durationInSeconds = java.time.Duration.between(liveRoom.getCreatedOn(), liveRoom.getEndedOn()).getSeconds();
+        long durationInSeconds = 0;
+        if (liveRoom.getCreatedOn() != null && liveRoom.getEndedOn() != null &&
+                liveRoom.getEndedOn().isAfter(liveRoom.getCreatedOn())) {
+            durationInSeconds = Duration.between(liveRoom.getCreatedOn(), liveRoom.getEndedOn()).getSeconds();
+        }
 
         // Update session detail fields
         sessionDetail.setLiveRoomId(liveRoom.getId());
@@ -501,26 +505,59 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
     }
 
     private void updateTotals(LiveRoomSummaryEntity summary) {
-        // Recalculate the total values like duration, gifts, etc.
-        long totalDuration = summary.getSessionDetails().stream().mapToLong(LiveRoomSummaryEntity.SessionDetail::getDuration).sum();
-        double totalGiftReceivedAmount = summary.getSessionDetails().stream().mapToDouble(LiveRoomSummaryEntity.SessionDetail::getGiftReceivedAmount).sum();
-        long totalVideoDuration = summary.getSessionDetails().stream()
-                .filter(session -> "video".equalsIgnoreCase(session.getSessionType())) // Check for null
-                .mapToLong(LiveRoomSummaryEntity.SessionDetail::getDuration)
-                .sum();
-        long totalAudioDuration = summary.getSessionDetails().stream()
-                .filter(session -> "audio".equalsIgnoreCase(session.getSessionType())) // Check for null
-                .mapToLong(LiveRoomSummaryEntity.SessionDetail::getDuration)
-                .sum();
+        Host dbHostUser = hostPersistencePort.getHostByUserId(summary.getUserId()).block();
+        summary.setMaxId(dbHostUser.getMaxId());
+        summary.setAgencyId(dbHostUser.getAgencyMaxId());
 
-        summary.setTotalDuration(totalDuration);
-        summary.setTotalDurationString(CommonBusiness.formatTimeToString(totalDuration));
-        summary.setTotalVideoDuration(totalVideoDuration);
-        summary.setTotalVideoDurationString(CommonBusiness.formatTimeToString(totalVideoDuration));
-        summary.setTotalAudioDuration(totalAudioDuration);
-        summary.setTotalAudioDurationString(CommonBusiness.formatTimeToString(totalAudioDuration));
+        // Iterate through session details and apply logic
+        summary.getSessionDetails().forEach(sessionDetail -> {
+            boolean isEligible = "video".equalsIgnoreCase(sessionDetail.getSessionType()) && "video".equalsIgnoreCase(dbHostUser.getHostType());
 
-        summary.setTotalGiftReceivedAmount(totalGiftReceivedAmount);
+            if (isEligible) {
+                log.info("LiveRoom ID: {} is eligible for bonus.", sessionDetail.getLiveRoomId());
+
+                // Apply bonus if conditions are met
+                if (sessionDetail.getDuration() >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD &&
+                        (summary.getLastGemsAwardedDate() == null ||
+                                !summary.getLastGemsAwardedDate().equalsIgnoreCase(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn())))) {
+                    sessionDetail.setBonus(10000);
+                    summary.setLastGemsAwardedDate(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()));
+                    log.info("Bonus of 10,000 applied to session ID: {}", sessionDetail.getLiveRoomId());
+                }
+            }
+
+            // Increment total live days if conditions are met
+            if (sessionDetail.getDuration() >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT &&
+                    (summary.getLastDayCountedDate() == null ||
+                            !summary.getLastDayCountedDate().equalsIgnoreCase(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()))) &&
+                    isEligible) {
+                summary.setTotalLiveDays(summary.getTotalLiveDays() + 1);
+                summary.setLastDayCountedDate(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()));
+                summary.setDayTime("Yes");
+                log.info("Incremented total live days for session ID: {}", sessionDetail.getLiveRoomId());
+            }
+        });
+
+        // Recalculate total values (duration, gifts, etc.)
+        long totalDuration = 0;
+        double totalGiftReceivedAmount = 0;
+        long totalVideoDuration = 0;
+        long totalAudioDuration = 0;
+        Instant latestUpdatedOn = Instant.now();
+
+        for (LiveRoomSummaryEntity.SessionDetail session : summary.getSessionDetails()) {
+            totalDuration += session.getDuration();
+            totalGiftReceivedAmount += session.getGiftReceivedAmount();
+
+            if ("video".equalsIgnoreCase(session.getSessionType())) {
+                totalVideoDuration += session.getDuration();
+            } else if ("audio".equalsIgnoreCase(session.getSessionType())) {
+                totalAudioDuration += session.getDuration();
+            }
+
+            // Get latest session's createdOn timestamp
+            latestUpdatedOn = session.getCreatedOn().isAfter(latestUpdatedOn) ? session.getCreatedOn().plusSeconds(session.getDuration()) : latestUpdatedOn;
+        }
 
         summary.setHostDailyGems(
                 summary.getSessionDetails().stream()
@@ -529,13 +566,182 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                         .orElse(0.0)
         );
 
-        summary.setUpdatedOn(
-                summary.getSessionDetails().stream()
-                        .max(Comparator.comparing(LiveRoomSummaryEntity.SessionDetail::getCreatedOn, Comparator.nullsFirst(Comparator.naturalOrder())))
-                        .map(LiveRoomSummaryEntity.SessionDetail::getCreatedOn)
-                        .orElse(Instant.now())
-        );
+
+        // Set calculated totals
+        summary.setTotalDuration(totalDuration);
+        summary.setTotalDurationString(CommonBusiness.formatTimeToString(totalDuration));
+        summary.setTotalVideoDuration(totalVideoDuration);
+        summary.setTotalVideoDurationString(CommonBusiness.formatTimeToString(totalVideoDuration));
+        summary.setTotalAudioDuration(totalAudioDuration);
+        summary.setTotalAudioDurationString(CommonBusiness.formatTimeToString(totalAudioDuration));
+        summary.setTotalGiftReceivedAmount(totalGiftReceivedAmount);
+        summary.setUpdatedOn(latestUpdatedOn);
+
+        if(summary.getSessionDetails().stream().mapToDouble(LiveRoomSummaryEntity.SessionDetail::getBonus).sum() == 0.0){
+            summary.setLastGemsAwardedDate(null);
+            summary.setLastDayCountedDate(null);
+            summary.setTotalLiveDays(0);
+            summary.setTotalBonus(0);
+            summary.setDayTime("No");
+        }
+        summary.setTotalBonus(summary.getSessionDetails().stream().mapToDouble(LiveRoomSummaryEntity.SessionDetail::getBonus).sum());
+        log.info("Updated totals: Duration: {}, Video Duration: {}, Audio Duration: {}, Gift Amount: {}",
+                totalDuration, totalVideoDuration, totalAudioDuration, totalGiftReceivedAmount);
     }
+
+
+    public void updateLiveRoomSummary() {
+        // Get the list of SummarySessionDetails
+        List<LiveRoomSummaryEntity> liveRoomSummaryEntities = groupAndSortByUserId();
+
+        // Log each SummarySessionDetail
+        for (LiveRoomSummaryEntity summary : liveRoomSummaryEntities) {
+            log.info("Summary Entity: {}", summary);
+            mongoTemplate.save(summary);
+        }
+
+        // Return a message after processing
+        log.info("All SummarySessionDetails have been processed.");
+
+    }
+
+
+//    update in non-reactive
+public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
+    Instant start = Instant.parse("2024-12-01T01:00:00Z");
+    Instant end = Instant.parse("2024-12-13T01:00:00Z");
+
+    // Step 1: Get all gift data for the date range (synchronously)
+    List<LiveRoomTotalBeans> dbAllGiftBean = giftTransactionRepositoryCustomImpl.findTotalBeansGroupedByLiveRoomId(start, end).collectList().block();
+    List<LiveRoomSummaryEntity> dbAllLiveRoomSummary = liveRoomSummaryRepository.findByCreatedOnBetween(start, end).collectList().block();
+
+
+    // Step 2: Define criteria for filtering
+    Criteria criteria = new Criteria().andOperator(
+            Criteria.where("createdOn").ne(null),
+            Criteria.where("createdOn").gte(start).lt(end),
+            Criteria.where("endedOn").ne(null),
+            Criteria.where("status").is("Offline"),
+            Criteria.where("type").ne(null)
+    );
+
+    // Step 3: Define Aggregation Pipeline
+
+    // Match Stage
+    AggregationOperation matchStage = Aggregation.match(criteria);
+
+    // Add Fields Stage: Add a new field 'date' using $dateToString
+    AggregationOperation addFieldsStage = Aggregation.addFields()
+            .addField("date").withValue(
+                    new Document("$dateToString", new Document("format", "%Y-%m-%d").append("date", "$createdOn"))
+            ).build();
+
+    // Sort Stage: Sort by userId, date, and createdOn
+    AggregationOperation sortStage = Aggregation.sort(
+            Sort.by(
+                    Sort.Order.asc("userId"),
+                    Sort.Order.asc("date"),
+                    Sort.Order.asc("createdOn")
+            )
+    );
+
+    // Group Stage: Group by userId and date, and push sessions to an array
+    AggregationOperation groupStage = Aggregation.group("userId", "date")
+            .push("$$ROOT").as("sessions");
+
+    // Project Stage: Flatten the result into the desired structure
+    AggregationOperation projectStage = Aggregation.project("sessions")
+            .and("_id.userId").as("userId")
+            .and("_id.date").as("date")
+            .and("sessions").as("completeSessionDetails");
+
+    // Combine all stages into an aggregation pipeline
+    Aggregation aggregation = Aggregation.newAggregation(
+            matchStage,
+            addFieldsStage,
+            sortStage,
+            groupStage,
+            projectStage
+    );
+
+    // Execute Aggregation Query Synchronously
+    List<SessionDetail> sessionDetails = mongoTemplate.aggregate(aggregation, "liverooms", SessionDetail.class).getMappedResults();
+
+    // Process the session data
+    List<SummarySessionDetail> summarySessionDetails = new ArrayList<>();
+    for (SessionDetail sessionDetail : sessionDetails) {
+        Map<String, LiveRoomTotalBeans> liveRoomBeansMap = dbAllGiftBean.stream()
+                .collect(Collectors.toMap(LiveRoomTotalBeans::getLiveRoomId, Function.identity()));
+
+        // Create a map of date -> List of FilterSummary
+        List<Map<String, List<FilterSummary>>> completeSessionDetails = new ArrayList<>();
+        Map<String, List<FilterSummary>> dateSessionMap = new HashMap<>();
+
+        for (LiveRoomEntity liveRoomEntity : sessionDetail.getSessions()) {
+            String date = CommonBusiness.formatInstantToDate(liveRoomEntity.getCreatedOn());
+            dateSessionMap.putIfAbsent(date, new ArrayList<>());
+
+            long durationInSeconds = 0;
+            if (liveRoomEntity.getEndedOn().isAfter(liveRoomEntity.getCreatedOn())) {
+                durationInSeconds = Duration.between(liveRoomEntity.getCreatedOn(), liveRoomEntity.getEndedOn()).getSeconds();
+            }
+
+            // Get the total beans for the current live room session from the gift data map
+            LiveRoomTotalBeans liveRoomTotalBeans = liveRoomBeansMap.get(liveRoomEntity.getId());
+            Double giftReceivedAmount = liveRoomTotalBeans != null ? liveRoomTotalBeans.getTotalBeans() : 0.0;
+
+            // Create the FilterSummary and add to the date's list
+            dateSessionMap.get(date).add(new FilterSummary(
+                    liveRoomEntity.getCreatedOn(),
+                    liveRoomEntity.getId(),
+                    durationInSeconds,
+                    0,
+                    liveRoomEntity.getHostDailyGems(),
+                    giftReceivedAmount,
+                    liveRoomEntity.getType()
+            ));
+        }
+
+        // Add to the list in the desired format
+        completeSessionDetails.add(dateSessionMap);
+        summarySessionDetails.add(new SummarySessionDetail(sessionDetail.getUserId(), completeSessionDetails));
+    }
+
+
+    List<LiveRoomSummaryEntity> updatedAllLiveRoomSummary = dbAllLiveRoomSummary.stream()
+            .map(summary -> {
+                // Get the formatted date from the 'createdOn' Instant in summary
+                String summaryDate = CommonBusiness.formatInstantToDate(summary.getCreatedOn());
+
+                // Filter and map to new session details based on userId and date
+                List<LiveRoomSummaryEntity.SessionDetail> newSessionDetails = summarySessionDetails.stream()
+                        .filter(session -> session.getUserId().equals(summary.getUserId()))
+                        .flatMap(session -> session.getCompleteSessionDetails().stream())
+                        .filter(sessionDetailMap -> sessionDetailMap.keySet().stream()
+                                .anyMatch(date -> date.equals(summaryDate))) // Match the date key in the map
+                        .flatMap(sessionDetailMap -> sessionDetailMap.get(summaryDate).stream()) // Get the list of FilterSummary for the date
+                        .map(filterSummary -> LiveRoomSummaryEntity.SessionDetail.builder()
+                                .createdOn(filterSummary.getCreatedOn())
+                                .liveRoomId(filterSummary.getLiveRoomId())
+                                .duration(filterSummary.getDuration())
+                                .bonus(filterSummary.getBonus())
+                                .hostDailyGems(filterSummary.getHostDailyGems())
+                                .giftReceivedAmount(filterSummary.getGiftReceivedAmount())
+                                .sessionType(filterSummary.getSessionType())
+                                .build())
+                        .collect(Collectors.toList());
+
+                // Update the session details with the new session details
+                summary.setSessionDetails(newSessionDetails);
+
+                // Return the updated summary entity
+                updateTotals(summary);
+                return summary;
+            })
+            .collect(Collectors.toList());
+
+    return updatedAllLiveRoomSummary;
+}
 
 
 
