@@ -361,9 +361,22 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
     public Mono<String> updateLiveRoomSummary() {
         Instant start = Instant.parse("2024-12-01T01:00:00Z");
-        Instant end = Instant.parse("2024-12-16T01:00:00Z");
+        Instant end = Instant.parse("2024-12-13T01:00:00Z");
 
-        Flux<LiveRoomEntity> dbAllLiveRoom = liveRoomRepository.findByCreatedOnBetween(start, end);
+        Criteria criteria = new Criteria();
+        criteria.andOperator(
+                Criteria.where("createdOn").ne(null),          // createdOn is not null
+                Criteria.where("createdOn").gte(start).lt(end), // createdOn within range
+                Criteria.where("endedOn").ne(null),
+                Criteria.where("status").is("Offline"),
+                Criteria.where("type").ne(null)                // type is not null
+        );
+
+        Query query = new Query(criteria).with(Sort.by(Sort.Direction.ASC, "createdOn"));
+
+        Flux<LiveRoomEntity> dbAllLiveRoom = reactiveMongoTemplate.find(query, LiveRoomEntity.class);
+
+
         Flux<LiveRoomSummaryEntity> dbAllLiveRoomSummary = liveRoomSummaryRepository.findByCreatedOnBetween(start, end);
         Flux<LiveRoomTotalBeans> dbAllGiftBean = giftTransactionRepositoryCustomImpl.findTotalBeansGroupedByLiveRoomId(start, end);
 
@@ -398,8 +411,11 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
                         if (existingSummary != null) {
                             return updateSummary(existingSummary, liveRoom, totalBeans, isEligibleForBonusMono);
+                        } else {
+                            log.info("No existing summary found for LiveRoom with ID: {}", liveRoom.getUserId());
+                            return Mono.<Void>empty(); // Explicitly casting to Mono<Void>
                         }
-                        return null;
+
                     }).collect(Collectors.toList());
 
                     // Execute all updates asynchronously
@@ -422,9 +438,16 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 .findFirst()
                 .orElse(new LiveRoomSummaryEntity.SessionDetail());
 
+        if (liveRoom.getCreatedOn() == null || liveRoom.getEndedOn() == null) {
+            log.error("CreatedOn or EndedOn is null for LiveRoom ID: {}", liveRoom.getId());
+            throw new IllegalStateException("CreatedOn and EndedOn timestamps cannot be null.");
+        }
+
+        long durationInSeconds = java.time.Duration.between(liveRoom.getCreatedOn(), liveRoom.getEndedOn()).getSeconds();
+
         // Update session detail fields
         sessionDetail.setLiveRoomId(liveRoom.getId());
-        sessionDetail.setDuration(liveRoom.getDurationInSeconds());
+        sessionDetail.setDuration(durationInSeconds);
         sessionDetail.setGiftReceivedAmount(getGiftAmount(liveRoom, totalBeans));
         sessionDetail.setSessionType(liveRoom.getType());
         sessionDetail.setCreatedOn(liveRoom.getEndedOn());
@@ -450,14 +473,15 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
                 summary.setDayTime("Yes");
             }
 
-            // Update totals
-            updateTotals(summary);
 
             // Use a copy of the session details list
             List<LiveRoomSummaryEntity.SessionDetail> updatedSessionDetails = new ArrayList<>(summary.getSessionDetails());
             updatedSessionDetails.removeIf(session -> session.getLiveRoomId().equals(liveRoom.getId()));
             updatedSessionDetails.add(sessionDetail);
             summary.setSessionDetails(updatedSessionDetails);
+
+            // Update totals
+            updateTotals(summary);
 
             return reactiveMongoTemplate.save(summary)
                     .doOnSuccess(savedSummary -> log.info("LiveRoomSummary successfully updated for LiveRoom ID: {}", liveRoom.getId()))

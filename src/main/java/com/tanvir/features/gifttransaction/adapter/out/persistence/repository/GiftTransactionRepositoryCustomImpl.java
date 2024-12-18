@@ -130,12 +130,11 @@ public class GiftTransactionRepositoryCustomImpl implements GiftTransactionRepos
     @Override
     public Flux<LiveRoomTotalBeans> findTotalBeansGroupedByLiveRoomId(Instant start, Instant end) {
         Aggregation aggregation = Aggregation.newAggregation(
-                // Match documents that have a non-null liveRoomId and are within the date range
                 Aggregation.match(Criteria.where("createdOn").gte(start).lt(end)
-                        .and("liveRoomId").ne(null)), // Exclude documents with null liveRoomId
+                        .and("liveRoomId").ne(null)),
                 Aggregation.group("liveRoomId")
                         .sum("beans").as("totalBeans")
-                        .first("liveRoomId").as("liveRoomId"), // Ensure liveRoomId is included
+                        .first("liveRoomId").as("liveRoomId"),
                 Aggregation.project("liveRoomId", "totalBeans")
         );
 

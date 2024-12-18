@@ -19,5 +19,4 @@ public interface LiveRoomRepository extends ReactiveMongoRepository<LiveRoomEnti
 //    Flux<LiveRoomEntity> getLiveRoomEntitiesByTypeAndStatusOrderByPopularityLevelDesc(String type, String status, Pageable pageable);
 
     Mono<LiveRoomEntity> getLiveRoomEntityByHostIdAndStatus(String hostId, String status);
-    Flux<LiveRoomEntity> findByCreatedOnBetween(Instant start, Instant end);
 }
