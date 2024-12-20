@@ -615,6 +615,25 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
     List<LiveRoomTotalBeans> dbAllGiftBean = giftTransactionRepositoryCustomImpl.findTotalBeansGroupedByLiveRoomId(start, end).collectList().block();
     List<LiveRoomSummaryEntity> dbAllLiveRoomSummary = liveRoomSummaryRepository.findByCreatedOnBetween(start, end).collectList().block();
 
+    List<LiveRoomSummaryEntity> liveRoomSummaryEntities = dbAllLiveRoomSummary.stream().map(summary -> {
+        summary.setTotalBonus(0);
+        summary.setTotalLiveDays(0);
+
+        summary.setTotalDuration(0);
+        summary.setTotalDurationString(null);
+
+        summary.setTotalVideoDuration(0);
+        summary.setTotalVideoDurationString(null);
+
+        summary.setTotalAudioDuration(0);
+        summary.setTotalAudioDurationString(null);
+
+        summary.setTotalGiftReceivedAmount(0);
+        summary.setLastGemsAwardedDate(null);
+        summary.setLastDayCountedDate(null);
+        return summary;
+    }).toList();
+
 
     // Step 2: Define criteria for filtering
     Criteria criteria = new Criteria().andOperator(
@@ -708,7 +727,7 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
     }
 
 
-    List<LiveRoomSummaryEntity> updatedAllLiveRoomSummary = dbAllLiveRoomSummary.stream()
+    List<LiveRoomSummaryEntity> updatedAllLiveRoomSummary = liveRoomSummaryEntities.stream()
             .map(summary -> {
                 // Get the formatted date from the 'createdOn' Instant in summary
                 String summaryDate = CommonBusiness.formatInstantToDate(summary.getCreatedOn());
