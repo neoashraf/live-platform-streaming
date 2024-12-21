@@ -775,7 +775,7 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
 
     public void updateUserHostAndMax() {
         Instant start = Instant.parse("2024-12-01T01:00:00Z");
-        Instant end = Instant.parse("2024-12-025T01:00:00Z");
+        Instant end = Instant.parse("2024-12-25T01:00:00Z");
 
         // Fetch the total beans grouped by user
         List<UserTotalBeans> dbAllGiftBean = giftTransactionRepositoryCustomImpl
