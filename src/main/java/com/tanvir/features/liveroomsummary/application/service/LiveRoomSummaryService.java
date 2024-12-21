@@ -775,7 +775,7 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
 
     public void updateUserHostAndMax() {
         Instant start = Instant.parse("2024-12-01T01:00:00Z");
-        Instant end = Instant.now();
+        Instant end = Instant.parse("2024-12-025T01:00:00Z");
 
         // Fetch the total beans grouped by user
         List<UserTotalBeans> dbAllGiftBean = giftTransactionRepositoryCustomImpl
@@ -806,16 +806,16 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
                     }
 
                     // Handle "max_user" user type
-                    if ("max_user".equalsIgnoreCase(dbUser.getUserType())) {
-                        MaxUserEntity dbMaxUser = maxUserPersistencePort.getHostByUserId(singleUserGift.getReceiverId()).block();
-                        if (dbMaxUser != null) {
-                            dbMaxUser.setGems(singleUserGift.getTotalBeans());
-                            maxUserPersistencePort.saveMaxUserEntity(dbMaxUser).block();
-                        } else {
-                            // Log or handle missing max user case
-                            log.error("Max user not found for user ID: {}", singleUserGift.getReceiverId());
-                        }
-                    }
+//                    if ("max_user".equalsIgnoreCase(dbUser.getUserType())) {
+//                        MaxUserEntity dbMaxUser = maxUserPersistencePort.getHostByUserId(singleUserGift.getReceiverId()).block();
+//                        if (dbMaxUser != null) {
+//                            dbMaxUser.setGems(singleUserGift.getTotalBeans());
+//                            maxUserPersistencePort.saveMaxUserEntity(dbMaxUser).block();
+//                        } else {
+//                            // Log or handle missing max user case
+//                            log.error("Max user not found for user ID: {}", singleUserGift.getReceiverId());
+//                        }
+//                    }
                 } else {
                     // Log or handle missing user case
                     log.error("User not found for user ID: {}", singleUserGift.getReceiverId());
