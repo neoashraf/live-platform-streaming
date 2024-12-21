@@ -2,11 +2,15 @@ package com.tanvir.features.liveroomsummary.application.service;
 
 import com.tanvir.core.util.Constants;
 import com.tanvir.features.commonbusiness.CommonBusiness;
+import com.tanvir.features.gifttransaction.adapter.out.persistence.entity.MaxUserEntity;
 import com.tanvir.features.gifttransaction.adapter.out.persistence.repository.GiftTransactionRepository;
 import com.tanvir.features.gifttransaction.adapter.out.persistence.repository.GiftTransactionRepositoryCustomImpl;
+import com.tanvir.features.gifttransaction.adapter.out.persistence.repository.UserBaseRepository;
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
+import com.tanvir.features.gifttransaction.application.port.out.MaxUserPersistencePort;
 import com.tanvir.features.gifttransaction.domain.GiftTransaction;
 import com.tanvir.features.gifttransaction.domain.LiveRoomTotalBeans;
+import com.tanvir.features.gifttransaction.domain.UserTotalBeans;
 import com.tanvir.features.host.application.port.out.HostPersistencePort;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
@@ -19,6 +23,7 @@ import com.tanvir.features.liveroomsummary.application.port.out.LiveRoomSummaryP
 import com.tanvir.features.liveroomsummary.domain.LiveRoomSummary;
 import com.tanvir.features.liveroomsummary.domain.dto.*;
 import com.tanvir.features.user.application.port.in.UserUseCase;
+import com.tanvir.features.user.domain.User;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.modelmapper.ModelMapper;
@@ -63,6 +68,10 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
     private GiftTransactionRepository giftTransactionRepository;
     @Autowired
     private GiftTransactionRepositoryCustomImpl giftTransactionRepositoryCustomImpl;
+    @Autowired
+    private UserBaseRepository userBaseRepository;
+    @Autowired
+    private MaxUserPersistencePort maxUserPersistencePort;
 
     public LiveRoomSummaryService(ModelMapper modelMapper, UserUseCase userUseCase, HostPersistencePort hostPersistencePort, GiftTransactionPersistencePort giftTransactionPersistencePort) {
         this.modelMapper = modelMapper;
@@ -600,6 +609,8 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
             mongoTemplate.save(summary);
         }
 
+        updateUserHostAndMax();
+
         // Return a message after processing
         log.info("All SummarySessionDetails have been processed.");
 
@@ -761,6 +772,60 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
 
     return updatedAllLiveRoomSummary;
 }
+
+    public void updateUserHostAndMax() {
+        Instant start = Instant.parse("2024-12-01T01:00:00Z");
+        Instant end = Instant.now();
+
+        // Fetch the total beans grouped by user
+        List<UserTotalBeans> dbAllGiftBean = giftTransactionRepositoryCustomImpl
+                .findTotalBeansGroupedByUserId(start, end)
+                .collectList()
+                .block();
+
+        if (dbAllGiftBean != null && !dbAllGiftBean.isEmpty()) {
+            dbAllGiftBean.forEach(singleUserGift -> {
+                // Fetch user by ID
+                User dbUser = userUseCase.getUserById(singleUserGift.getReceiverId()).block();
+
+                if (dbUser != null) {
+                    // Update user gems
+                    dbUser.setGems(singleUserGift.getTotalBeans());
+                    userUseCase.saveUser(dbUser).block();
+
+                    // Handle "host" user type
+                    if ("host".equalsIgnoreCase(dbUser.getUserType())) {
+                        Host dbHost = hostPersistencePort.getHostByUserId(singleUserGift.getReceiverId()).block();
+                        if (dbHost != null) {
+                            dbHost.setGems(singleUserGift.getTotalBeans());
+                            hostPersistencePort.saveHost(dbHost).block();
+                        } else {
+                            // Log or handle missing host case
+                            log.error("Host not found for user ID: {}", singleUserGift.getReceiverId());
+                        }
+                    }
+
+                    // Handle "max_user" user type
+                    if ("max_user".equalsIgnoreCase(dbUser.getUserType())) {
+                        MaxUserEntity dbMaxUser = maxUserPersistencePort.getHostByUserId(singleUserGift.getReceiverId()).block();
+                        if (dbMaxUser != null) {
+                            dbMaxUser.setGems(singleUserGift.getTotalBeans());
+                            maxUserPersistencePort.saveMaxUserEntity(dbMaxUser).block();
+                        } else {
+                            // Log or handle missing max user case
+                            log.error("Max user not found for user ID: {}", singleUserGift.getReceiverId());
+                        }
+                    }
+                } else {
+                    // Log or handle missing user case
+                    log.error("User not found for user ID: {}", singleUserGift.getReceiverId());
+                }
+            });
+        } else {
+            // Log or handle empty list case
+            log.info("No gift beans found for the specified time range.");
+        }
+    }
 
 
 

@@ -2,6 +2,7 @@ package com.tanvir.features.gifttransaction.adapter.out.persistence.repository;
 
 import com.tanvir.features.gifttransaction.adapter.out.persistence.entity.GiftTransactionEntity;
 import com.tanvir.features.gifttransaction.domain.LiveRoomTotalBeans;
+import com.tanvir.features.gifttransaction.domain.UserTotalBeans;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
@@ -143,5 +144,17 @@ public class GiftTransactionRepositoryCustomImpl implements GiftTransactionRepos
 
 
 
+    public Flux<UserTotalBeans> findTotalBeansGroupedByUserId(Instant start, Instant end) {
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("createdOn").gte(start).lt(end)
+                        .and("receiverId").ne(null)),
+                Aggregation.group("receiverId")
+                        .sum("beans").as("totalBeans")
+                        .first("receiverId").as("receiverId"),
+                Aggregation.project("receiverId", "totalBeans")
+        );
+
+        return reactiveMongoTemplate.aggregate(aggregation, GiftTransactionEntity.class, UserTotalBeans.class);
+    }
 
 }

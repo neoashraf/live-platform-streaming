@@ -6,4 +6,6 @@ import reactor.core.publisher.Mono;
 public interface MaxUserPersistencePort {
     Mono<MaxUserEntity> getMaxUserEntityByUserId(String userId);
     Mono<MaxUserEntity> saveMaxUserEntity(MaxUserEntity maxUserEntity);
+
+    Mono<MaxUserEntity> getHostByUserId(String receiverId);
 }
