@@ -367,239 +367,12 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
         return reactiveMongoTemplate.aggregate(agg, "liveroom_summary", LiveRoomSummaryEntity.class);
     }
+  //  update old data
 
-    public Mono<String> updateLiveRoomSummary2() {
-        Instant start = Instant.parse("2024-12-01T01:00:00Z");
-        Instant end = Instant.parse("2024-12-13T01:00:00Z");
-
-        Criteria criteria = new Criteria();
-        criteria.andOperator(
-                Criteria.where("createdOn").ne(null),          // createdOn is not null
-                Criteria.where("createdOn").gte(start).lt(end), // createdOn within range
-                Criteria.where("endedOn").ne(null),
-                Criteria.where("status").is("Offline"),
-                Criteria.where("type").ne(null)                // type is not null
-        );
-
-        Query query = new Query(criteria).with(Sort.by(Sort.Direction.ASC, "createdOn"));
-
-        Flux<LiveRoomEntity> dbAllLiveRoom = reactiveMongoTemplate.find(query, LiveRoomEntity.class);
-
-
-        Flux<LiveRoomSummaryEntity> dbAllLiveRoomSummary = liveRoomSummaryRepository.findByCreatedOnBetween(start, end);
-        Flux<LiveRoomTotalBeans> dbAllGiftBean = giftTransactionRepositoryCustomImpl.findTotalBeansGroupedByLiveRoomId(start, end);
-
-        // Combine all the data
-        Mono.zip(dbAllLiveRoom.collectList(), dbAllLiveRoomSummary.collectList(), dbAllGiftBean.collectList())
-                .flatMap(data -> {
-                    List<LiveRoomEntity> liveRooms = data.getT1();
-                    List<LiveRoomSummaryEntity> liveRoomSummaries = data.getT2();
-                    List<LiveRoomTotalBeans> totalBeans = data.getT3();
-
-                    // Iterate through each LiveRoomEntity and update corresponding summary
-                    List<Mono<Void>> updateMonos = liveRooms.stream().map(liveRoom -> {
-
-                        Mono<Host> dbHostUser = hostPersistencePort.getHostByUserId(liveRoom.getUserId());
-
-                        Mono<Boolean> isEligibleForBonusMono = dbHostUser.map(host ->
-                                "video".equalsIgnoreCase(liveRoom.getType())
-                                        && "video".equalsIgnoreCase(host.getHostType())
-                        ).defaultIfEmpty(false);
-
-
-                        // Find the existing summary or create a new one
-                        LiveRoomSummaryEntity existingSummary = liveRoomSummaries.stream()
-                                .filter(summary ->
-                                        summary.getUserId().equals(liveRoom.getUserId()) &&
-                                                CommonBusiness.formatInstantToDate(summary.getCreatedOn()).equals(CommonBusiness.formatInstantToDate(liveRoom.getCreatedOn()))
-                                )
-                                .findFirst()
-                                .orElse(null);
-
-
-
-                        if (existingSummary != null) {
-                            return updateSummary(existingSummary, liveRoom, totalBeans, isEligibleForBonusMono);
-                        } else {
-                            log.info("No existing summary found for LiveRoom with ID: {}", liveRoom.getUserId());
-                            return Mono.<Void>empty(); // Explicitly casting to Mono<Void>
-                        }
-
-                    }).collect(Collectors.toList());
-
-                    // Execute all updates asynchronously
-                    return Mono.when(updateMonos);
-                })
-                .subscribe(
-                        null,
-                        error -> log.error("Error updating LiveRoom summaries", error),
-                        () -> log.info("Successfully updated all LiveRoom summaries")
-                );
-        return Mono.just("Successfully updated all LiveRoom summaries");
-    }
-
-    private Mono<Void> updateSummary(LiveRoomSummaryEntity summary, LiveRoomEntity liveRoom,
-                                     List<LiveRoomTotalBeans> totalBeans, Mono<Boolean> isEligibleForBonusMono) {
-        log.info("Starting updateSummary for LiveRoom ID: {}", liveRoom.getId());
-
-        LiveRoomSummaryEntity.SessionDetail sessionDetail = summary.getSessionDetails().stream()
-                .filter(session -> session.getLiveRoomId().equals(liveRoom.getId()))
-                .findFirst()
-                .orElse(new LiveRoomSummaryEntity.SessionDetail());
-
-        if (liveRoom.getCreatedOn() == null || liveRoom.getEndedOn() == null) {
-            log.error("CreatedOn or EndedOn is null for LiveRoom ID: {}", liveRoom.getId());
-            throw new IllegalStateException("CreatedOn and EndedOn timestamps cannot be null.");
-        }
-
-        long durationInSeconds = 0;
-        if (liveRoom.getCreatedOn() != null && liveRoom.getEndedOn() != null &&
-                liveRoom.getEndedOn().isAfter(liveRoom.getCreatedOn())) {
-            durationInSeconds = Duration.between(liveRoom.getCreatedOn(), liveRoom.getEndedOn()).getSeconds();
-        }
-
-        // Update session detail fields
-        sessionDetail.setLiveRoomId(liveRoom.getId());
-        sessionDetail.setDuration(durationInSeconds);
-        sessionDetail.setGiftReceivedAmount(getGiftAmount(liveRoom, totalBeans));
-        sessionDetail.setSessionType(liveRoom.getType());
-        sessionDetail.setCreatedOn(liveRoom.getEndedOn());
-        sessionDetail.setHostDailyGems(liveRoom.getHostDailyGems());
-
-        return isEligibleForBonusMono.flatMap(isEligible -> {
-            if (isEligible) {
-                log.info("LiveRoom ID: {} is eligible for bonus.", liveRoom.getId());
-                if (liveRoom.getDurationInSeconds() >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD &&
-                        (summary.getLastGemsAwardedDate() == null ||
-                                !summary.getLastGemsAwardedDate().equalsIgnoreCase(CommonBusiness.formatInstantToDate(liveRoom.getCreatedOn())))) {
-                    sessionDetail.setBonus(10000);
-                    summary.setLastGemsAwardedDate(CommonBusiness.formatInstantToDate(liveRoom.getEndedOn()));
-                }
-            }
-
-            if (liveRoom.getDurationInSeconds() >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT &&
-                    (summary.getLastDayCountedDate() == null ||
-                            !summary.getLastDayCountedDate().equalsIgnoreCase(CommonBusiness.formatInstantToDate(liveRoom.getCreatedOn()))) &&
-                    isEligible) {
-                summary.setTotalLiveDays(summary.getTotalLiveDays() + 1);
-                summary.setLastDayCountedDate(CommonBusiness.formatInstantToDate(liveRoom.getEndedOn()));
-                summary.setDayTime("Yes");
-            }
-
-
-            // Use a copy of the session details list
-            List<LiveRoomSummaryEntity.SessionDetail> updatedSessionDetails = new ArrayList<>(summary.getSessionDetails());
-            updatedSessionDetails.removeIf(session -> session.getLiveRoomId().equals(liveRoom.getId()));
-            updatedSessionDetails.add(sessionDetail);
-            summary.setSessionDetails(updatedSessionDetails);
-
-            // Update totals
-            updateTotals(summary);
-
-            return reactiveMongoTemplate.save(summary)
-                    .doOnSuccess(savedSummary -> log.info("LiveRoomSummary successfully updated for LiveRoom ID: {}", liveRoom.getId()))
-                    .doOnError(error -> log.error("Error saving LiveRoomSummary for LiveRoom ID: {}", liveRoom.getId(), error))
-                    .then();
-        });
-    }
-
-
-    private double getGiftAmount(LiveRoomEntity liveRoom, List<LiveRoomTotalBeans> totalBeans) {
-        // Find the total gift amount based on liveRoomId from totalBeans
-        return totalBeans.stream()
-                .filter(bean -> bean.getLiveRoomId() != null && bean.getLiveRoomId().equals(liveRoom.getId()))
-                .map(LiveRoomTotalBeans::getTotalBeans)
-                .findFirst()
-                .orElse(0.0);
-    }
-
-    private void updateTotals(LiveRoomSummaryEntity summary) {
-        Host dbHostUser = hostPersistencePort.getHostByUserId(summary.getUserId()).block();
-        summary.setMaxId(dbHostUser.getMaxId());
-        summary.setAgencyId(dbHostUser.getAgencyMaxId());
-
-        // Iterate through session details and apply logic
-        summary.getSessionDetails().forEach(sessionDetail -> {
-            boolean isEligible = "video".equalsIgnoreCase(sessionDetail.getSessionType()) && "video".equalsIgnoreCase(dbHostUser.getHostType());
-
-            if (isEligible) {
-                log.info("LiveRoom ID: {} is eligible for bonus.", sessionDetail.getLiveRoomId());
-
-                // Apply bonus if conditions are met
-                if (sessionDetail.getDuration() >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD &&
-                        (summary.getLastGemsAwardedDate() == null ||
-                                !summary.getLastGemsAwardedDate().equalsIgnoreCase(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn())))) {
-                    sessionDetail.setBonus(10000);
-                    summary.setLastGemsAwardedDate(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()));
-                    log.info("Bonus of 10,000 applied to session ID: {}", sessionDetail.getLiveRoomId());
-                }
-            }
-
-            // Increment total live days if conditions are met
-            if (sessionDetail.getDuration() >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT &&
-                    (summary.getLastDayCountedDate() == null ||
-                            !summary.getLastDayCountedDate().equalsIgnoreCase(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()))) &&
-                    isEligible) {
-                summary.setTotalLiveDays(summary.getTotalLiveDays() + 1);
-                summary.setLastDayCountedDate(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()));
-                summary.setDayTime("Yes");
-                log.info("Incremented total live days for session ID: {}", sessionDetail.getLiveRoomId());
-            }
-        });
-
-        // Recalculate total values (duration, gifts, etc.)
-        long totalDuration = 0;
-        double totalGiftReceivedAmount = 0;
-        long totalVideoDuration = 0;
-        long totalAudioDuration = 0;
-        Instant latestUpdatedOn = Instant.now();
-
-        for (LiveRoomSummaryEntity.SessionDetail session : summary.getSessionDetails()) {
-            totalDuration += session.getDuration();
-            totalGiftReceivedAmount += session.getGiftReceivedAmount();
-
-            if ("video".equalsIgnoreCase(session.getSessionType())) {
-                totalVideoDuration += session.getDuration();
-            } else if ("audio".equalsIgnoreCase(session.getSessionType())) {
-                totalAudioDuration += session.getDuration();
-            }
-
-            // Get latest session's createdOn timestamp
-            latestUpdatedOn = session.getCreatedOn().isAfter(latestUpdatedOn) ? session.getCreatedOn().plusSeconds(session.getDuration()) : latestUpdatedOn;
-        }
-
-        summary.setHostDailyGems(
-                summary.getSessionDetails().stream()
-                        .max(Comparator.comparing(LiveRoomSummaryEntity.SessionDetail::getCreatedOn, Comparator.nullsFirst(Comparator.naturalOrder())))
-                        .map(LiveRoomSummaryEntity.SessionDetail::getHostDailyGems)
-                        .orElse(0.0)
-        );
-
-
-        // Set calculated totals
-        summary.setTotalDuration(totalDuration);
-        summary.setTotalDurationString(CommonBusiness.formatTimeToString(totalDuration));
-        summary.setTotalVideoDuration(totalVideoDuration);
-        summary.setTotalVideoDurationString(CommonBusiness.formatTimeToString(totalVideoDuration));
-        summary.setTotalAudioDuration(totalAudioDuration);
-        summary.setTotalAudioDurationString(CommonBusiness.formatTimeToString(totalAudioDuration));
-        summary.setTotalGiftReceivedAmount(totalGiftReceivedAmount);
-        summary.setUpdatedOn(latestUpdatedOn);
-
-        if(summary.getSessionDetails().stream().mapToDouble(LiveRoomSummaryEntity.SessionDetail::getBonus).sum() == 0.0){
-            summary.setLastGemsAwardedDate(null);
-            summary.setLastDayCountedDate(null);
-            summary.setTotalLiveDays(0);
-            summary.setTotalBonus(0);
-            summary.setDayTime("No");
-        }
-        summary.setTotalBonus(summary.getSessionDetails().stream().mapToDouble(LiveRoomSummaryEntity.SessionDetail::getBonus).sum());
-        log.info("Updated totals: Duration: {}, Video Duration: {}, Audio Duration: {}, Gift Amount: {}",
-                totalDuration, totalVideoDuration, totalAudioDuration, totalGiftReceivedAmount);
-    }
 
 
     public void updateLiveRoomSummary() {
+        Instant startTime= Instant.now();
         // Get the list of SummarySessionDetails
         List<LiveRoomSummaryEntity> liveRoomSummaryEntities = groupAndSortByUserId();
 
@@ -613,6 +386,9 @@ public class LiveRoomSummaryService implements LiveRoomSummaryUseCase {
 
         // Return a message after processing
         log.info("All SummarySessionDetails have been processed.");
+        Instant endTime = Instant.now();
+        long seconds = Duration.between(startTime, endTime).toSeconds();
+        log.info("Total Execution times:: "+seconds);
 
     }
 
@@ -700,6 +476,7 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
     // Process the session data
     List<SummarySessionDetail> summarySessionDetails = new ArrayList<>();
     for (SessionDetail sessionDetail : sessionDetails) {
+
         Map<String, LiveRoomTotalBeans> liveRoomBeansMap = dbAllGiftBean.stream()
                 .collect(Collectors.toMap(LiveRoomTotalBeans::getLiveRoomId, Function.identity()));
 
@@ -773,6 +550,91 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
     return updatedAllLiveRoomSummary;
 }
 
+    private void updateTotals(LiveRoomSummaryEntity summary) {
+        Host dbHostUser = hostPersistencePort.getHostByUserId(summary.getUserId()).block();
+        summary.setMaxId(dbHostUser.getMaxId());
+        summary.setAgencyId(dbHostUser.getAgencyMaxId());
+
+        // Iterate through session details and apply logic
+        summary.getSessionDetails().forEach(sessionDetail -> {
+            boolean isEligible = "video".equalsIgnoreCase(sessionDetail.getSessionType()) && "video".equalsIgnoreCase(dbHostUser.getHostType());
+
+            if (isEligible) {
+                log.info("LiveRoom ID: {} is eligible for bonus.", sessionDetail.getLiveRoomId());
+
+                // Apply bonus if conditions are met
+                if (sessionDetail.getDuration() >= Constants.MINIMUM_DURATION_FOR_GEMS_REWARD &&
+                        (summary.getLastGemsAwardedDate() == null ||
+                                !summary.getLastGemsAwardedDate().equalsIgnoreCase(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn())))) {
+                    sessionDetail.setBonus(10000);
+                    summary.setLastGemsAwardedDate(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()));
+                    log.info("Bonus of 10,000 applied to session ID: {}", sessionDetail.getLiveRoomId());
+                }
+            }
+
+            // Increment total live days if conditions are met
+            if (sessionDetail.getDuration() >= Constants.MINIMUM_DURATION_FOR_DAY_INCREMENT &&
+                    (summary.getLastDayCountedDate() == null ||
+                            !summary.getLastDayCountedDate().equalsIgnoreCase(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()))) &&
+                    isEligible) {
+                summary.setTotalLiveDays(summary.getTotalLiveDays() + 1);
+                summary.setLastDayCountedDate(CommonBusiness.formatInstantToDate(sessionDetail.getCreatedOn()));
+                summary.setDayTime("Yes");
+                log.info("Incremented total live days for session ID: {}", sessionDetail.getLiveRoomId());
+            }
+        });
+
+        // Recalculate total values (duration, gifts, etc.)
+        long totalDuration = 0;
+        double totalGiftReceivedAmount = 0;
+        long totalVideoDuration = 0;
+        long totalAudioDuration = 0;
+        Instant latestUpdatedOn = Instant.now();
+
+        for (LiveRoomSummaryEntity.SessionDetail session : summary.getSessionDetails()) {
+            totalDuration += session.getDuration();
+            totalGiftReceivedAmount += session.getGiftReceivedAmount();
+
+            if ("video".equalsIgnoreCase(session.getSessionType())) {
+                totalVideoDuration += session.getDuration();
+            } else if ("audio".equalsIgnoreCase(session.getSessionType())) {
+                totalAudioDuration += session.getDuration();
+            }
+
+            // Get latest session's createdOn timestamp
+            latestUpdatedOn = session.getCreatedOn().isAfter(latestUpdatedOn) ? session.getCreatedOn().plusSeconds(session.getDuration()) : latestUpdatedOn;
+        }
+
+        summary.setHostDailyGems(
+                summary.getSessionDetails().stream()
+                        .max(Comparator.comparing(LiveRoomSummaryEntity.SessionDetail::getCreatedOn, Comparator.nullsFirst(Comparator.naturalOrder())))
+                        .map(LiveRoomSummaryEntity.SessionDetail::getHostDailyGems)
+                        .orElse(0.0)
+        );
+
+
+        // Set calculated totals
+        summary.setTotalDuration(totalDuration);
+        summary.setTotalDurationString(CommonBusiness.formatTimeToString(totalDuration));
+        summary.setTotalVideoDuration(totalVideoDuration);
+        summary.setTotalVideoDurationString(CommonBusiness.formatTimeToString(totalVideoDuration));
+        summary.setTotalAudioDuration(totalAudioDuration);
+        summary.setTotalAudioDurationString(CommonBusiness.formatTimeToString(totalAudioDuration));
+        summary.setTotalGiftReceivedAmount(totalGiftReceivedAmount);
+        summary.setUpdatedOn(latestUpdatedOn);
+
+        if(summary.getSessionDetails().stream().mapToDouble(LiveRoomSummaryEntity.SessionDetail::getBonus).sum() == 0.0){
+            summary.setLastGemsAwardedDate(null);
+            summary.setLastDayCountedDate(null);
+            summary.setTotalLiveDays(0);
+            summary.setTotalBonus(0);
+            summary.setDayTime("No");
+        }
+        summary.setTotalBonus(summary.getSessionDetails().stream().mapToDouble(LiveRoomSummaryEntity.SessionDetail::getBonus).sum());
+        log.info("Updated totals: Duration: {}, Video Duration: {}, Audio Duration: {}, Gift Amount: {}",
+                totalDuration, totalVideoDuration, totalAudioDuration, totalGiftReceivedAmount);
+    }
+
     public void updateUserHostAndMax() {
         Instant start = Instant.parse("2024-12-01T01:00:00Z");
         Instant end = Instant.parse("2024-12-25T01:00:00Z");
@@ -805,17 +667,6 @@ public List<LiveRoomSummaryEntity>  groupAndSortByUserId() {
                         }
                     }
 
-                    // Handle "max_user" user type
-//                    if ("max_user".equalsIgnoreCase(dbUser.getUserType())) {
-//                        MaxUserEntity dbMaxUser = maxUserPersistencePort.getHostByUserId(singleUserGift.getReceiverId()).block();
-//                        if (dbMaxUser != null) {
-//                            dbMaxUser.setGems(singleUserGift.getTotalBeans());
-//                            maxUserPersistencePort.saveMaxUserEntity(dbMaxUser).block();
-//                        } else {
-//                            // Log or handle missing max user case
-//                            log.error("Max user not found for user ID: {}", singleUserGift.getReceiverId());
-//                        }
-//                    }
                 } else {
                     // Log or handle missing user case
                     log.error("User not found for user ID: {}", singleUserGift.getReceiverId());

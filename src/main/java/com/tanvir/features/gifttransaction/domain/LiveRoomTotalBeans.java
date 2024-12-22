@@ -10,5 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class LiveRoomTotalBeans {
     private String liveRoomId;
+    private String receiverId;
     private Double totalBeans;
 }
