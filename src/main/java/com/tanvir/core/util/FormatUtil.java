@@ -15,26 +15,45 @@ public class FormatUtil {
 
 
     public static String convertDurationToString(Long totalSeconds) {
-        long days = totalSeconds / 86400; // 1 day = 86400 seconds
-        long hours = (totalSeconds % 86400) / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        long seconds = totalSeconds % 60;
+        long hours = totalSeconds / 3600; // Total hours
+        long minutes = (totalSeconds % 3600) / 60; // Remaining minutes
 
         StringBuilder duration = new StringBuilder();
 
-        if (days > 0) {
-            duration.append(days).append(" day").append(days > 1 ? "s " : " ");
-        }
         if (hours > 0) {
             duration.append(hours).append(" hr").append(hours > 1 ? "s " : " ");
         }
         if (minutes > 0) {
             duration.append(minutes).append(" min").append(minutes > 1 ? "s " : " ");
         }
-        if (seconds > 0) {
-            duration.append(seconds).append(" sec").append(seconds > 1 ? "s" : "");
-        }
+
         return duration.toString().trim();
+    }
+
+    public static String convertToShortName(Double value) {
+        if (value >= 1e9) {
+            // For billions
+            return formatValue(value / 1e9, "B");
+        } else if (value >= 1e6) {
+            // For millions
+            return formatValue(value / 1e6, "M");
+        } else if (value >= 1e3) {
+            // For thousands
+            return formatValue(value / 1e3, "K");
+        } else {
+            // For values below 1,000, avoid decimal if whole number
+            return formatValue(value, "");
+        }
+    }
+
+    private static String formatValue(double value, String suffix) {
+        // If the value is a whole number, format without decimals
+        if (value == Math.floor(value)) {
+            return String.format("%.0f%s", value, suffix); // No decimal if it's a whole number
+        } else {
+            // Format with up to 2 decimal places if value has fractional part
+            return String.format("%.2f%s", value, suffix);
+        }
     }
 
 }

@@ -1735,7 +1735,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                         .year(year)
                                         .gems(dbUser.getGems())
                                         .hostType(host.getHostType())
-                                        .gemsString(FormatUtil.formatGems(dbUser.getGems()));
+                                        .gemsString(FormatUtil.convertToShortName(dbUser.getGems()));
 
                                 if ("video".equalsIgnoreCase(host.getHostType())) {
                                     earningBuilder
@@ -1743,7 +1743,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                             .durationString(FormatUtil.convertDurationToString(summary.getTotalVideoDuration()))
                                             .validDays(summary.getTotalLiveDays())
                                             .bonus(totalBonus)
-                                            .bonusString(FormatUtil.formatGems(totalBonus));
+                                            .bonusString(FormatUtil.convertToShortName(totalBonus));
                                 } else if ("audio".equalsIgnoreCase(host.getHostType())) {
                                     log.info("Audio host type detected; only gems and gemsString fields will be populated for userId {}", dbUser.getId());
                                     // Other fields remain empty
