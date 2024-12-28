@@ -10,4 +10,5 @@ public interface GiftTransactionPersistencePort {
     Flux<GiftTransaction> getBeanTransactions(GiftTransactionRequestDto requestDto);
     Mono<Long> getBeanTransactionsCount(GiftTransactionRequestDto requestDto);
     Flux<GiftTransaction> getGiftTransactions(String liveRoomId);
+     Mono<Double> getTotalGiftByLiveRoomId(String liveRoomId);
 }

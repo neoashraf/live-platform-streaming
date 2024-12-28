@@ -7,10 +7,13 @@ import com.tanvir.features.gifttransaction.application.port.in.dto.request.GiftT
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.domain.GiftTransaction;
 import lombok.extern.slf4j.Slf4j;
+import org.bson.Document;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -18,6 +21,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Arrays;
 import java.util.Map;
 
 @Component
@@ -34,6 +38,23 @@ public class GiftTransactionAdapter implements GiftTransactionPersistencePort {
         this.repository = repository;
         this.customRepository = customRepository;
         this.modelMapper = modelMapper;
+    }
+
+    @Autowired
+    public Mono<Double> getTotalGiftByLiveRoomId(String liveRoomId) {
+        Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("liveRoomId").is(liveRoomId)),
+                Aggregation.project()
+                        .andExpression("ifNull(beans, 0)").as("beans"),
+                Aggregation.group().sum("beans").as("totalBeans")
+        );
+
+        // Return the result as a Flux<Document> and extract the totalBeans
+        return reactiveMongoTemplate
+                .aggregate(aggregation, "gift_transactions", Document.class)
+                .next()
+                .map(document -> document.getDouble("totalBeans"))
+                .defaultIfEmpty(0.0);
     }
 
     @Override

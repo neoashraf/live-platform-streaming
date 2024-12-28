@@ -7,6 +7,8 @@ import com.tanvir.features.agora.service.AgoraService;
 import com.tanvir.features.agora.service.AgoraTokenRequestDto;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.content.application.port.in.ContentUseCase;
+import com.tanvir.features.gifttransaction.application.port.in.GiftTransactionUseCase;
+import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
@@ -67,8 +69,9 @@ public class LiveRoomService implements LiveRoomUseCase {
     private final CommonBusiness commonBusiness;
     private final LiveRoomSummaryUseCase liveRoomSummaryUseCase;
     private final LiveRoomSummaryService liveRoomSummaryService;
+    private final GiftTransactionPersistencePort giftTransactionPersistencePort;
 
-    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness, LiveRoomSummaryUseCase liveRoomSummaryUseCase, LiveRoomSummaryService liveRoomSummaryService) {
+    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness, LiveRoomSummaryUseCase liveRoomSummaryUseCase, LiveRoomSummaryService liveRoomSummaryService, GiftTransactionPersistencePort giftTransactionPersistencePort ) {
         this.userUseCase = userUseCase;
         this.port = port;
         this.metaPropertyUseCase = metaPropertyUseCase;
@@ -83,6 +86,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         this.commonBusiness = commonBusiness;
         this.liveRoomSummaryUseCase = liveRoomSummaryUseCase;
         this.liveRoomSummaryService = liveRoomSummaryService;
+        this.giftTransactionPersistencePort = giftTransactionPersistencePort;
     }
 
     @Override
@@ -1417,21 +1421,25 @@ public class LiveRoomService implements LiveRoomUseCase {
 
 
     private Mono<StreamResponseDto> buildEndStreamResponseDto(LiveRoom liveRoom) {
-        return Mono.just(StreamResponseDto
-                .builder()
-                .message("LiveStream Ended Successfully")
-                .data(RoomDataDto
+        return giftTransactionPersistencePort.getTotalGiftByLiveRoomId(liveRoom.getId())
+                .defaultIfEmpty(0.0)
+                .map(giftReceivedAmount -> StreamResponseDto
                         .builder()
-                        .id(liveRoom.getId())
-                        .endedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
-                        .durationInSeconds(liveRoom.getDurationInSeconds())
-                        .duration(CommonBusiness.formatTimeToString(liveRoom.getDurationInSeconds()))
-                        .totalViewerCount(liveRoom.getTotalViewerCount())
-                        .hostDailyGems(liveRoom.getHostDailyGems())
-                        .build())
-                .count(1)
-                .build());
+                        .message("LiveStream Ended Successfully")
+                        .data(RoomDataDto
+                                .builder()
+                                .id(liveRoom.getId())
+                                .endedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
+                                .durationInSeconds(liveRoom.getDurationInSeconds())
+                                .duration(FormatUtil.convertDurationToString(liveRoom.getDurationInSeconds()))
+                                .totalViewerCount(liveRoom.getTotalViewerCount())
+                                .hostDailyGems(liveRoom.getHostDailyGems())
+                                .giftReceivedAmount(giftReceivedAmount)
+                                .build())
+                        .count(1)
+                        .build());
     }
+
 
     private EndStreamResponseDto buildUserInfo(User user, EndStreamResponseDto responseDto) {
         User userInfo = User
