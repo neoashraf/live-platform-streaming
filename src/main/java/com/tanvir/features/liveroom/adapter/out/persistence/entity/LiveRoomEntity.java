@@ -29,6 +29,10 @@ public class LiveRoomEntity implements Persistable<String> {
     private String thumbnailId;
     private String thumbnailUrl;
 
+    private int month;
+    private int year;
+    private Double giftReceivedAmount;
+
     private String title;
     private String description;
     private List<String> tags;

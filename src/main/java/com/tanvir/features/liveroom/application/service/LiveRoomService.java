@@ -672,6 +672,16 @@ public class LiveRoomService implements LiveRoomUseCase {
                     liveRoom.setDurationInSeconds((liveRoom.getEndedOn().getEpochSecond() - liveRoom.getCreatedOn().getEpochSecond()));
                     return liveRoom;
                 })
+                .flatMap(liveRoom -> giftTransactionPersistencePort.getTotalGiftByLiveRoomId(liveRoomId)
+                        .map(totalReceivedGift -> {
+                            liveRoom.setGiftReceivedAmount(totalReceivedGift);
+                            int month = ZonedDateTime.now(ZoneOffset.UTC).getMonthValue();
+                            int year = ZonedDateTime.now(ZoneOffset.UTC).getYear();
+                            liveRoom.setMonth(month);
+                            liveRoom.setYear(year);
+                            return liveRoom;
+                        })
+                )
                 .flatMap(port::saveLiveRoom)
                 .doOnNext(liveRoom -> {
                     log.info("LiveRoom details: {}", liveRoom);
@@ -1435,6 +1445,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .totalViewerCount(liveRoom.getTotalViewerCount())
                                 .hostDailyGems(liveRoom.getHostDailyGems())
                                 .giftReceivedAmount(giftReceivedAmount)
+                                .giftReceivedAmountString(FormatUtil.formatGems(giftReceivedAmount))
                                 .build())
                         .count(1)
                         .build());

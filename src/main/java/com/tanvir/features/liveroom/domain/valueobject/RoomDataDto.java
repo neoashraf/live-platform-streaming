@@ -48,4 +48,5 @@ public class RoomDataDto {
     private String enableJoin;
     private String roomId;
     private Double giftReceivedAmount;
+    private String giftReceivedAmountString;
 }
