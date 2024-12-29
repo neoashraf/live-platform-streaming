@@ -4,11 +4,11 @@ public class FormatUtil {
 
     public static String formatGems(double bonus) {
         if (bonus >= 1_000_000_000) {
-            return String.format("%.1fB", bonus / 1_000_000_000);
+            return String.format("%.2fB", bonus / 1_000_000_000);
         } else if (bonus >= 1_000_000) {
-            return String.format("%.1fM", bonus / 1_000_000);
+            return String.format("%.2fM", bonus / 1_000_000);
         } else if (bonus >= 1_000) {
-            return String.format("%.1fK", bonus / 1_000);
+            return String.format("%.2fK", bonus / 1_000);
         }
         return String.valueOf((int) bonus);
     }

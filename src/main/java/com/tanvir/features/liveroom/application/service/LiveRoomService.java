@@ -1723,8 +1723,8 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<Earning> userEarning(String keycloakId) {
-        int month = LocalDate.now(ZoneOffset.UTC).getMonthValue();
-        int year = LocalDate.now(ZoneOffset.UTC).getYear();
+        int month = ZonedDateTime.now(ZoneOffset.UTC).getMonthValue();
+        int year = ZonedDateTime.now(ZoneOffset.UTC).getYear();
 
         // Step 1: Fetch User by Keycloak ID
         return userUseCase.getUserByKeycloakId(keycloakId)
