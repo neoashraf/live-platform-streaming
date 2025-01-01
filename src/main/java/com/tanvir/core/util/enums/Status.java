@@ -17,7 +17,8 @@ public enum Status {
     STATUS_RESCHEDULED("Rescheduled"),
     STATUS_FAILED("Failed"),
     STATUS_CLOSED("Closed"),
-    STATUS_EXCEPTION("Exception");
+    STATUS_EXCEPTION("Exception"),
+    STATUS_KICKED("Kicked");
 
 
     private final String value;

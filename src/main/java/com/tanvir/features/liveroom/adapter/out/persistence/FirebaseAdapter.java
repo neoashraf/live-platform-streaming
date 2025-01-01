@@ -164,6 +164,20 @@ public class FirebaseAdapter implements CachePort {
                     }
                     firebaseEntity.setKickedOutUserIds(kickedOutUserIds);
 
+                    // set joinRequest status to Kicked
+
+                    if (firebaseEntity.getJoinRequests() != null && !firebaseEntity.getJoinRequests().isEmpty()) {
+                        List<JoinRequests> updatedJoinRequests = firebaseEntity.getJoinRequests().stream()
+                                .peek(joinRequests -> {
+                                    if (joinRequests.getUserId().equals(liveRoom.getViewer().getUserId())) {
+                                        joinRequests.setStatus(Status.STATUS_KICKED.getValue());
+                                    }
+                                })
+                                .toList();
+
+                        firebaseEntity.setJoinRequests(updatedJoinRequests);
+                    }
+
                     return firebaseEntity;
 
                 })
