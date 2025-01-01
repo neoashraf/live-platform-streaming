@@ -693,7 +693,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .subscribe();
                 })
                 .doOnNext(liveRoom ->
-                        cachePort.delete(liveRoomId)
+                        cachePort.updateForEndStream(liveRoom)
                         .doOnSuccess(liveRoomEntity -> log.info("LiveRoom deleted from firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while deleting LiveRoom from Firebase : {}", throwable.getMessage()))
                         .subscribeOn(Schedulers.boundedElastic())
