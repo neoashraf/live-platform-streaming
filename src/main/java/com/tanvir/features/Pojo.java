@@ -12,10 +12,7 @@ import org.modelmapper.ModelMapper;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -48,13 +45,18 @@ public class Pojo {
 
         // Get the current date and time in UTC
         ZonedDateTime birthday = ZonedDateTime.now(ZoneOffset.UTC);
+        Instant instant = ZonedDateTime.now(ZoneOffset.UTC).toInstant();
 
         // Get the day of the month (UTC)
         int date1 = birthday.getDayOfMonth();
 
         // Print the full birthday and the day of the month
-        System.out.println("Birthday (UTC): " + birthday);
+        System.out.println("Birthday Zoned: " + birthday);
+        System.out.println("Birthday Instant: " + instant);
         System.out.println("Day of the month (UTC): " + date1);
+
+        System.out.println("Zoned string: " + birthday.toString());
+        System.out.println("Instant string: " + instant.toString());
 
 
     }

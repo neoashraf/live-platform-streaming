@@ -323,7 +323,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                     Announcement announcement = Announcement
                             .builder()
                             .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue())
-                            .time(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString())
+                            .time(ZonedDateTime.now(ZoneOffset.UTC).toString())
                             .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue()))
                             .mentionedUser(AnnouncementUser
                                     .builder()

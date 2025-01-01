@@ -500,7 +500,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     announcement.setAnnouncementId(UUID.randomUUID().toString());
                                     announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue()));
                                     announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue());
-                                    announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
+                                    announcement.setTime(ZonedDateTime.now(ZoneOffset.UTC).toString());
                                     List<String> imageUrlList = content.getResourceFormats()
                                             .stream()
                                             .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
@@ -520,7 +520,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     announcement.setAnnouncementId(UUID.randomUUID().toString());
                                     announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue()));
                                     announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_ENTRY_CARD.getValue());
-                                    announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
+                                    announcement.setTime(ZonedDateTime.now(ZoneOffset.UTC).toString());
                                     List<String> imageUrlList = content.getResourceFormats()
                                             .stream()
                                             .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
@@ -538,7 +538,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         announcement.setAnnouncementId(UUID.randomUUID().toString());
                         announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue()));
                         announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_CASUAL.getValue());
-                        announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
+                        announcement.setTime(ZonedDateTime.now(ZoneOffset.UTC).toString());
                         return Mono.just(Tuples.of(announcement, user));
                     }
 
@@ -594,7 +594,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         Announcement announcement = new Announcement();
         announcement.setAnnouncementId(UUID.randomUUID().toString());
         announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_KICK.getValue());
-        announcement.setTime(LocalDateTime.now().toInstant(ZoneOffset.UTC).toString());
+        announcement.setTime(ZonedDateTime.now(ZoneOffset.UTC).toString());
         announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_KICK.getValue()));
 
 
