@@ -21,6 +21,7 @@ import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort;
 import com.tanvir.features.liveroom.domain.LiveRoomConfigEnums;
+import com.tanvir.features.liveroom.domain.OfficialIdEnum;
 import com.tanvir.features.liveroom.domain.valueobject.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
@@ -713,8 +714,14 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .filter(host -> liveRoom.getUserId().equals(host.getId()))
                             .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot kick out.")))
                             .flatMap(host -> userUseCase.getUserById(requestDto.getUserId())
-                            .flatMap(kickedUser -> this.updateLiveRoomForKick(liveRoom, kickedUser)
-                                    .thenReturn(kickedUser))
+                                .flatMap(user -> {
+                                    if (OfficialIdEnum.OFFICIAL_IDS.getValue().contains(user.getMaxId())) {
+                                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Kickout not possible, Official ID"));
+                                    }
+                                    return Mono.just(user);
+                                })
+                                .flatMap(kickedUser -> this.updateLiveRoomForKick(liveRoom, kickedUser)
+                                .thenReturn(kickedUser))
                             .flatMap(kickedUser -> this.buildKickOutAnnouncement(liveRoom, host, kickedUser))))
                 .flatMap(liveRoom1 -> port.saveLiveRoom(liveRoom1)
                         .thenReturn(liveRoom1))
