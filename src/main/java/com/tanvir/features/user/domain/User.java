@@ -20,7 +20,7 @@ public class User {
     private String createdBy;
     private LocalDateTime updatedOn;
     private String updatedBy;
-
+    private LocalDateTime statusUpdatedAt;
     private String maxId;
     private String firstName;
     private String lastName;
@@ -45,15 +45,17 @@ public class User {
     private String levelBadgeUrl;
     private double beans;
     private double gems;
+    private double beansGifted;
 
-
-    private String referralId;
     private String profileDescription;
     private String keycloakId;
-
     private String rideId;
     private String entryCardId;
-    private double beansGifted;
+
+    // Follow features
+    private List<String> followers;
+    private List<String> followings;
+    private List<String> friends;
 
     // for send gifts
     private boolean isSender;

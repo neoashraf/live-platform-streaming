@@ -25,6 +25,7 @@ public class UserEntity {
     private String createdBy;
     private LocalDateTime updatedOn;
     private String updatedBy;
+    private LocalDateTime statusUpdatedAt;
 
     @Indexed(unique = true)
     private String maxId;
@@ -51,8 +52,8 @@ public class UserEntity {
     private int userLevel;
     private String levelBadgeUrl;
     private double beans;
-    private double beansGifted;
     private double gems;
+    private double beansGifted;
 
     private String profileDescription;
     @Indexed(unique = true)
@@ -60,6 +61,14 @@ public class UserEntity {
 
     private String rideId;
     private String entryCardId;
+
+
+
+
+    // Follow features
+    private List<String> followers;
+    private List<String> followings;
+    private List<String> friends;
 
 
 
