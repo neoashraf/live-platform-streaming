@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -69,6 +70,10 @@ public class FirebaseAdapter implements CachePort {
                 .map(firebaseEntity -> {
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
                     currentViewersInFirebase.add(liveRoom.getViewer());
+
+
+                    currentViewersInFirebase.sort(Comparator.comparingInt(Viewer::getUserLevel).reversed());
+
 
                     firebaseEntity.setViewers(currentViewersInFirebase);
 

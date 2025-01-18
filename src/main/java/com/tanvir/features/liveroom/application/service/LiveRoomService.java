@@ -72,7 +72,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     private final LiveRoomSummaryService liveRoomSummaryService;
     private final GiftTransactionPersistencePort giftTransactionPersistencePort;
 
-    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness, LiveRoomSummaryUseCase liveRoomSummaryUseCase, LiveRoomSummaryService liveRoomSummaryService, GiftTransactionPersistencePort giftTransactionPersistencePort ) {
+    public LiveRoomService(UserUseCase userUseCase, LiveRoomPersistencePort port, MetaPropertyUseCase metaPropertyUseCase, ModelMapper modelMapper, TransactionalOperator rxtx, CachePort cachePort, HostUseCase hostUseCase, ContentUseCase contentUseCase, LevelUseCase levelUseCase, AgoraService agoraService, LiveRoomActivityService liveRoomActivityService, CommonBusiness commonBusiness, LiveRoomSummaryUseCase liveRoomSummaryUseCase, LiveRoomSummaryService liveRoomSummaryService, GiftTransactionPersistencePort giftTransactionPersistencePort) {
         this.userUseCase = userUseCase;
         this.port = port;
         this.metaPropertyUseCase = metaPropertyUseCase;
@@ -101,32 +101,32 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
                 .flatMap(user ->
                         hostUseCase.getHostByUserId(user.getId())
-                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
-                        .filter(host -> host.getActive().equals(Constants.STATUS_YES.getValue()))
-                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host is Banned. Cannot create LiveRoom.")))
-                        .flatMap(host -> port.getActiveLiveRoomByHostId(host.getId())
-                        .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
-                        .switchIfEmpty(Mono.just(LiveRoom.builder().build()))
-                        .flatMap(liveRoom ->
-                            liveRoom.getId() != null
-                                    ? Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already has an active LiveRoom."))
-                                    : Mono.just(liveRoom))
-                        .thenReturn(host)))
+                                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
+                                .filter(host -> host.getActive().equals(Constants.STATUS_YES.getValue()))
+                                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host is Banned. Cannot create LiveRoom.")))
+                                .flatMap(host -> port.getActiveLiveRoomByHostId(host.getId())
+                                        .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
+                                        .switchIfEmpty(Mono.just(LiveRoom.builder().build()))
+                                        .flatMap(liveRoom ->
+                                                liveRoom.getId() != null
+                                                        ? Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already has an active LiveRoom."))
+                                                        : Mono.just(liveRoom))
+                                        .thenReturn(host)))
                 .flatMap(host -> this.buildLiveRoomDomain(host, requestDto)
-                    .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
-                    .flatMap(port::saveLiveRoom)
-                    .map(liveRoom -> {
-                        liveRoomId.set(liveRoom.getId());
-                        return liveRoom;
-                    })
-                    .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
-                    .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
-                    .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
-                            .flatMap(cachePort::create)
-                            .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
-                            .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .subscribe()))
+                        .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
+                        .flatMap(port::saveLiveRoom)
+                        .map(liveRoom -> {
+                            liveRoomId.set(liveRoom.getId());
+                            return liveRoom;
+                        })
+                        .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
+                        .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
+                        .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
+                                .flatMap(cachePort::create)
+                                .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
+                                .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .subscribe()))
                 .flatMap(liveRoom -> this.buildCreateStreamResponseDto(requestDto, liveRoom, "Live room created successfully."))
                 .doOnError(throwable -> log.error("Failed to Create stream response dto. Error : {}", throwable.getMessage()))
                 .as(rxtx::transactional)
@@ -283,12 +283,18 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .userLevel(user.getUserLevel())
                                     .levelBadgeUrl(user.getLevelBadgeUrl())
                                     .build();
+
                             liveRoom.setViewer(viewer);
                             liveRoom.setViewerCount(liveRoom.getViewerCount() + 1);
 
-                            List<String> currentViewerIdsInLiveroom = new ArrayList<>(liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().isEmpty()
-                                    ? liveRoom.getViewerIds() : new ArrayList<>());
+                            List<String> currentViewerIdsInLiveroom = new ArrayList<>(
+                                    liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().isEmpty()
+                                            ? liveRoom.getViewerIds()
+                                            : new ArrayList<>()
+                            );
+
                             currentViewerIdsInLiveroom.add(viewer.getUserId());
+
                             liveRoom.setViewerIds(currentViewerIdsInLiveroom);
                             liveRoom.setTotalViewerCount(liveRoom.getTotalViewerCount() + 1);
 
@@ -427,7 +433,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnError(throwable -> log.error("Error happened while generating Agora Token : {}", throwable.getMessage()))
                 .map(agoraTokenResponseDto -> {
                     if (agoraTokenResponseDto.getData() != null && !agoraTokenResponseDto.getData().isEmpty()) {
-                      roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getAgoraToken());
+                        roomDataDto.setAgoraToken(agoraTokenResponseDto.getData().get(0).getAgoraToken());
                     }
                     return roomDataDto;
                 })
@@ -508,10 +514,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                                             .map(ResourceFormat::getThumbnailUrl).toList();
                                     announcement.setResource(
                                             Announcement.Resource
-                                                .builder()
+                                                    .builder()
                                                     .name(content.getName())
                                                     .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
-                                                .build()
+                                                    .build()
                                     );
                                     return Tuples.of(announcement, user);
                                 });
@@ -564,26 +570,26 @@ public class LiveRoomService implements LiveRoomUseCase {
                 })
                 .flatMap(announcement -> {
                     return userUseCase.getUserById(liveRoom.getUserId())
-                        .flatMap(host -> levelUseCase
-                                .getLevelDomainByLevel(host.getUserLevel())
-                                .map(level -> {
-                                    ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
-                                    String levelUrl = imageResource.getResourceUrl();
+                            .flatMap(host -> levelUseCase
+                                    .getLevelDomainByLevel(host.getUserLevel())
+                                    .map(level -> {
+                                        ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                                        String levelUrl = imageResource.getResourceUrl();
 
-                                    Announcement welcomeAnnouncement = new Announcement();
-                                    welcomeAnnouncement.setPublisher(AnnouncementUser
-                                            .builder()
-                                            .userId(host.getId())
-                                            .maxId(host.getMaxId())
-                                            .name(host.getDisplayName())
-                                            .levelUrl(levelUrl)
-                                            .build());
-                                    welcomeAnnouncement.setMentionedUser(announcement.getMentionedUser());
-                                    welcomeAnnouncement.setMessageTemplate(AnnouncementEnum.ANNOUNCEMENT_MESSAGE_WELCOME.getValue().concat(liveRoom.getDescription()));
-                                    log.info("Welcome Announcement message template: {}", welcomeAnnouncement.getMessageTemplate());
-                                    liveRoom.setWelcomeAnnouncement(welcomeAnnouncement);
-                                    return announcement;
-                                }));
+                                        Announcement welcomeAnnouncement = new Announcement();
+                                        welcomeAnnouncement.setPublisher(AnnouncementUser
+                                                .builder()
+                                                .userId(host.getId())
+                                                .maxId(host.getMaxId())
+                                                .name(host.getDisplayName())
+                                                .levelUrl(levelUrl)
+                                                .build());
+                                        welcomeAnnouncement.setMentionedUser(announcement.getMentionedUser());
+                                        welcomeAnnouncement.setMessageTemplate(AnnouncementEnum.ANNOUNCEMENT_MESSAGE_WELCOME.getValue().concat(liveRoom.getDescription()));
+                                        log.info("Welcome Announcement message template: {}", welcomeAnnouncement.getMessageTemplate());
+                                        liveRoom.setWelcomeAnnouncement(welcomeAnnouncement);
+                                        return announcement;
+                                    }));
                 })
                 .map(announcement -> {
                     liveRoom.setAnnouncement(announcement);
@@ -695,10 +701,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 })
                 .doOnNext(liveRoom ->
                         cachePort.updateForEndStream(liveRoom)
-                        .doOnSuccess(liveRoomEntity -> log.info("LiveRoom deleted from firebase successfully"))
-                        .doOnError(throwable -> log.error("Error Happened while deleting LiveRoom from Firebase : {}", throwable.getMessage()))
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .subscribe())
+                                .doOnSuccess(liveRoomEntity -> log.info("LiveRoom deleted from firebase successfully"))
+                                .doOnError(throwable -> log.error("Error Happened while deleting LiveRoom from Firebase : {}", throwable.getMessage()))
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .subscribe())
                 .flatMap(this::buildEndStreamResponseDto);
     }
 
@@ -711,9 +717,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .filter(liveRoom -> liveRoom.getViewerIds().contains(requestDto.getUserId()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Viewer doesn't exist in LiveRoom. Cannot kick out.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
-                            .filter(host -> liveRoom.getUserId().equals(host.getId()))
-                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot kick out.")))
-                            .flatMap(host -> userUseCase.getUserById(requestDto.getUserId())
+                        .filter(host -> liveRoom.getUserId().equals(host.getId()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot kick out.")))
+                        .flatMap(host -> userUseCase.getUserById(requestDto.getUserId())
                                 .flatMap(user -> {
                                     if (OfficialIdEnum.OFFICIAL_IDS.getValue().contains(user.getMaxId())) {
                                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Kickout not possible, Official ID"));
@@ -721,8 +727,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     return Mono.just(user);
                                 })
                                 .flatMap(kickedUser -> this.updateLiveRoomForKick(liveRoom, kickedUser)
-                                .thenReturn(kickedUser))
-                            .flatMap(kickedUser -> this.buildKickOutAnnouncement(liveRoom, host, kickedUser))))
+                                        .thenReturn(kickedUser))
+                                .flatMap(kickedUser -> this.buildKickOutAnnouncement(liveRoom, host, kickedUser))))
                 .flatMap(liveRoom1 -> port.saveLiveRoom(liveRoom1)
                         .thenReturn(liveRoom1))
                 .flatMap(liveRoom -> cachePort.updateForViewerKick(liveRoom)
@@ -739,7 +745,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         } else {
             List<String> kickedOutUserIds = liveRoom.getKickedOutUserIds();
             if (!kickedOutUserIds.contains(kickedUser.getId())) {
-             kickedOutUserIds.add(kickedUser.getId());
+                kickedOutUserIds.add(kickedUser.getId());
             }
             liveRoom.setKickedOutUserIds(kickedOutUserIds);
         }
@@ -779,7 +785,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
         return this.validateGridViewRequest(requestDto)
                 .flatMap(requestDto1 -> requestDto.getViewMode().equals(Constants.TAB_PARTY.getValue())
-                    ? port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
+                        ? port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
                         .zipWith(port.getActiveAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
                         .map(countAndDataTuple -> LiveRoomGridViewResponseDto
                                 .builder()
@@ -787,16 +793,16 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
                                 .count(countAndDataTuple.getT1().intValue())
                                 .build())
-                    : /*port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_VIDEO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
+                        : /*port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_VIDEO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
                         .zipWith(port.getActiveVideoLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())*/
                         port.getActiveLiveRoomsCountByTypeAndCountry(null, requestDto.getCountry(), requestDto.getViewMode())
-                        .zipWith(port.getActiveVideoAndAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
-                        .map(countAndDataTuple -> LiveRoomGridViewResponseDto
-                                .builder()
-                                .userMessage("LiveRoom Grid View Fetched Successfully.")
-                                .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
-                                .count(countAndDataTuple.getT1().intValue())
-                                .build()));
+                                .zipWith(port.getActiveVideoAndAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
+                                .map(countAndDataTuple -> LiveRoomGridViewResponseDto
+                                        .builder()
+                                        .userMessage("LiveRoom Grid View Fetched Successfully.")
+                                        .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
+                                        .count(countAndDataTuple.getT1().intValue())
+                                        .build()));
     }
 
     private Mono<LiveRoomGridViewResponseDto> getVideoLiveRooms(GridViewRequestDto requestDto) {
@@ -818,16 +824,16 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<LiveRoomResponseDto> sendGift(SendGiftRequestDto requestDto) {
         return rxtx.transactional(
-                    port.getLiveRoomById(requestDto.getLiveRoomId())
-                    .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, ExceptionMessages.NO_LIVE_ROOM_FOUND_WITH_ID.getValue().concat(requestDto.getLiveRoomId()))))
-                    /*.filter(liveRoom -> liveRoom.getFans().containsKey(requestDto.getFanUserId()))
-                    .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, ExceptionMessages.USER_DOESNT_EXIST_IN_ROOM.getValue())))*/
-                    .flatMap(liveRoom -> userUseCase.getUserById(requestDto.getFanUserId())
-                            .filter(fanUser -> fanUser.getBeans() > requestDto.getGiftBeans())
-                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, ExceptionMessages.INSUFFICIENT_BEANS.getValue())))
-                            .flatMap(fanUser -> Mono.zip(Mono.just(liveRoom), Mono.just(fanUser), metaPropertyUseCase.getMetaPropertyByDescription(MetaPropertyEnums.INDEX_META_PROPERTY.getValue()))))
-                    .flatMap(tuple3 -> this.updateFanAndHostBeansCountGemsCountLevelPercentage(tuple3, requestDto))
-                    .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "Gift Sent Successfully")));
+                port.getLiveRoomById(requestDto.getLiveRoomId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, ExceptionMessages.NO_LIVE_ROOM_FOUND_WITH_ID.getValue().concat(requestDto.getLiveRoomId()))))
+                        /*.filter(liveRoom -> liveRoom.getFans().containsKey(requestDto.getFanUserId()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, ExceptionMessages.USER_DOESNT_EXIST_IN_ROOM.getValue())))*/
+                        .flatMap(liveRoom -> userUseCase.getUserById(requestDto.getFanUserId())
+                                .filter(fanUser -> fanUser.getBeans() > requestDto.getGiftBeans())
+                                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, ExceptionMessages.INSUFFICIENT_BEANS.getValue())))
+                                .flatMap(fanUser -> Mono.zip(Mono.just(liveRoom), Mono.just(fanUser), metaPropertyUseCase.getMetaPropertyByDescription(MetaPropertyEnums.INDEX_META_PROPERTY.getValue()))))
+                        .flatMap(tuple3 -> this.updateFanAndHostBeansCountGemsCountLevelPercentage(tuple3, requestDto))
+                        .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "Gift Sent Successfully")));
     }
 
     @Override
@@ -847,26 +853,26 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .filter(user -> liveRoom.getViewerIds().contains(user.getId()) || liveRoom.getUserId().equals(user.getId()))
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom. Cannot comment.")))
                         .flatMap(user -> levelUseCase.getLevelDomainByLevel(user.getUserLevel())
-                            .map(level -> {
-                                ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
-                                Announcement announcement = Announcement
-                                    .builder()
-                                    .announcementId(UUID.randomUUID().toString())
-                                    .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue())
-                                    .time(ZonedDateTime.now(ZoneOffset.UTC).toInstant().toString())
-                                    .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue()) + requestDto.getComment())
-                                    .publisher(AnnouncementUser
+                                .map(level -> {
+                                    ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                                    Announcement announcement = Announcement
                                             .builder()
-                                            .userId(user.getId())
-                                            .name(user.getDisplayName())
+                                            .announcementId(UUID.randomUUID().toString())
+                                            .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue())
+                                            .time(ZonedDateTime.now(ZoneOffset.UTC).toInstant().toString())
+                                            .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_COMMENT.getValue()) + requestDto.getComment())
+                                            .publisher(AnnouncementUser
+                                                    .builder()
+                                                    .userId(user.getId())
+                                                    .name(user.getDisplayName())
 //                                            .levelUrl(level.getLevelBadgeUrl())
-                                            .levelUrl(imageResource.getResourceUrl())
-                                            .build())
-                                    .build();
+                                                    .levelUrl(imageResource.getResourceUrl())
+                                                    .build())
+                                            .build();
 
-                                liveRoom.setAnnouncement(announcement);
-                                return liveRoom;
-                            })))
+                                    liveRoom.setAnnouncement(announcement);
+                                    return liveRoom;
+                                })))
                 .doOnNext(liveRoom1 -> cachePort.updateForComment(liveRoom1)
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
@@ -890,15 +896,15 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<LiveRoomJoinPermissionResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO) {
         return port.getLiveRoomById(requestDTO.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,"LiveRoom does not exist by the given id")))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom does not exist by the given id")))
                 .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDTO.getKeycloakId())
-                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
-                            .map(User::getId)
-                            .doOnSuccess(userId -> log.info("User Id : {}", userId))
-                            .filter(userId -> liveRoom.getUserId().equals(userId))
-                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"User must be the host of the LiveRoom to set the permission")))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .map(User::getId)
+                        .doOnSuccess(userId -> log.info("User Id : {}", userId))
+                        .filter(userId -> liveRoom.getUserId().equals(userId))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be the host of the LiveRoom to set the permission")))
                         .thenReturn(liveRoom))
                 .flatMap(liveRoom -> {
                     List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
@@ -914,58 +920,58 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
-                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom,"Join call setting updated successfully."))
+                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom, "Join call setting updated successfully."))
                 .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
 
     @Override
     public Mono<JoinCallResponseDto> requestJoinCall(JoinCallRequestDto requestDto) {
-         return port.getLiveRoomById(requestDto.getLiveRoomId()).zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId()))
-                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom or User not found")))
-                 .filter(tupleOfLiveRoomAndUser -> tupleOfLiveRoomAndUser.getT2().getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
-                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user is the host of the LiveRoom and cannot join as a participant.")))
-                    .flatMap(tupleOfLiveRoomAndUser -> {
-                        LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
-                        User user = tupleOfLiveRoomAndUser.getT2();
-                        boolean isUserKickedOut = liveRoom.getKickedOutUserIds().stream()
-                                .anyMatch(s -> s.equalsIgnoreCase(user.getId()));
-                        if (isUserKickedOut) {
-                            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user has been kicked out of the LiveRoom and cannot rejoin as a participant."));
-                        }
-                        else return Mono.just(tupleOfLiveRoomAndUser); // Allows the liveRoom to pass through the filter if the user is not kicked out
-                    })
-                 .filter(liveRoomUserTuple2 -> Objects.nonNull(liveRoomUserTuple2.getT1().getEnableJoin()) && Constants.STATUS_YES.getValue().equalsIgnoreCase(liveRoomUserTuple2.getT1().getEnableJoin()))
-                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"Join call is not enabled for the LiveRoom")))
-                 .filter(liveRoomUserTuple2 -> liveRoomUserTuple2.getT1().getStatus().equals(Constants.STATUS_LIVE.getValue()))
-                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
-                 .filter(liveRoomUserTuple2 ->   liveRoomUserTuple2.getT1().getViewerIds() != null
-                         && !liveRoomUserTuple2.getT1().getViewerIds().isEmpty()
-                         && liveRoomUserTuple2.getT1().getViewerIds().stream().anyMatch(s -> s.equalsIgnoreCase(liveRoomUserTuple2.getT2().getId())))
-                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant.")))
-                 .flatMap(tupleOfLiveRoomAndUser ->
-                 {
-                     log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
-                     return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto)
-                             .flatMap(joinRequests -> {
-                                 LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
-                                 liveRoom.setJoinRequests(joinRequests);
-                                 return port.saveLiveRoom(liveRoom).zipWith(Mono.just(tupleOfLiveRoomAndUser.getT2()));
+        return port.getLiveRoomById(requestDto.getLiveRoomId()).zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom or User not found")))
+                .filter(tupleOfLiveRoomAndUser -> tupleOfLiveRoomAndUser.getT2().getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user is the host of the LiveRoom and cannot join as a participant.")))
+                .flatMap(tupleOfLiveRoomAndUser -> {
+                    LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
+                    User user = tupleOfLiveRoomAndUser.getT2();
+                    boolean isUserKickedOut = liveRoom.getKickedOutUserIds().stream()
+                            .anyMatch(s -> s.equalsIgnoreCase(user.getId()));
+                    if (isUserKickedOut) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user has been kicked out of the LiveRoom and cannot rejoin as a participant."));
+                    } else
+                        return Mono.just(tupleOfLiveRoomAndUser); // Allows the liveRoom to pass through the filter if the user is not kicked out
+                })
+                .filter(liveRoomUserTuple2 -> Objects.nonNull(liveRoomUserTuple2.getT1().getEnableJoin()) && Constants.STATUS_YES.getValue().equalsIgnoreCase(liveRoomUserTuple2.getT1().getEnableJoin()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join call is not enabled for the LiveRoom")))
+                .filter(liveRoomUserTuple2 -> liveRoomUserTuple2.getT1().getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live")))
+                .filter(liveRoomUserTuple2 -> liveRoomUserTuple2.getT1().getViewerIds() != null
+                        && !liveRoomUserTuple2.getT1().getViewerIds().isEmpty()
+                        && liveRoomUserTuple2.getT1().getViewerIds().stream().anyMatch(s -> s.equalsIgnoreCase(liveRoomUserTuple2.getT2().getId())))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant.")))
+                .flatMap(tupleOfLiveRoomAndUser ->
+                {
+                    log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
+                    return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto)
+                            .flatMap(joinRequests -> {
+                                LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
+                                liveRoom.setJoinRequests(joinRequests);
+                                return port.saveLiveRoom(liveRoom).zipWith(Mono.just(tupleOfLiveRoomAndUser.getT2()));
 
-                             });
-                 })
-                 .doOnNext(liveRoomUserTuple2 -> cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
-                         .doOnNext(liveRoomEntity -> log.info("LiveRoom  updated into firebase successfully"))
-                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                         .subscribeOn(Schedulers.boundedElastic())
-                         .subscribe())
-                 .flatMap(roomUserTuple2 -> buildJoinRequestResponse(roomUserTuple2.getT1(), roomUserTuple2.getT2(), requestDto))
-                 .map(liveRoomJoinRequestInfo -> JoinCallResponseDto
-                         .builder()
-                         .message("Join call request placed successfully.")
-                         .data(liveRoomJoinRequestInfo)
-                         .count(1)
-                         .error(false)
-                         .build());
+                            });
+                })
+                .doOnNext(liveRoomUserTuple2 -> cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom  updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
+                .flatMap(roomUserTuple2 -> buildJoinRequestResponse(roomUserTuple2.getT1(), roomUserTuple2.getT2(), requestDto))
+                .map(liveRoomJoinRequestInfo -> JoinCallResponseDto
+                        .builder()
+                        .message("Join call request placed successfully.")
+                        .data(liveRoomJoinRequestInfo)
+                        .count(1)
+                        .error(false)
+                        .build());
 
     }
 
@@ -1040,10 +1046,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                         })
                         .map(liveRoomEntity -> liveRoom))
                 .doOnNext(liveRoom -> cachePort.updateForProcessingJoinCall(liveRoom, requestDto)
-                            .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                            .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .subscribe())
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
                 .map(liveRoom -> buildJoinCallProcessData(liveRoom, requestDto, requestDto.getAction()))
                 .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
                         .message("Join call request processed successfully.")
@@ -1124,10 +1130,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> {
                     LiveRoomJoinRequestInfo closeJoinRequestDto = buildJoinCallProcessData(liveRoom, requestDto, Status.STATUS_CLOSED.getValue());
                     return this.getAgoraToken(liveRoom.getId(), AgoraTokenTypeEnum.ROLE_SUBSCRIBER.getValue(), userMaxId.get(), AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())
-                           .map(agoraToken -> {
-                               closeJoinRequestDto.setAgoraToken(agoraToken);
-                               return closeJoinRequestDto;
-                           });
+                            .map(agoraToken -> {
+                                closeJoinRequestDto.setAgoraToken(agoraToken);
+                                return closeJoinRequestDto;
+                            });
                 })
                 .doOnError(throwable -> log.error("Error happened while generating Agora Token: {}", throwable.getMessage()))
                 .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
@@ -1270,15 +1276,15 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<LiveRoomJoinPermissionResponseDto> setEnableAutoJoinAudioStream(JoinPermissionRequestDTO requestDTO) {
         return port.getLiveRoomById(requestDTO.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,"LiveRoom does not exist by the given id")))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom does not exist by the given id")))
                 .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"LiveRoom is not live")))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDTO.getKeycloakId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
                         .map(User::getId)
                         .doOnSuccess(userId -> log.info("User Id : {}", userId))
                         .filter(userId -> liveRoom.getUserId().equals(userId))
-                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"User must be the host of the LiveRoom to set the permission")))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be the host of the LiveRoom to set the permission")))
                         .thenReturn(liveRoom))
                 .flatMap(liveRoom -> {
                     List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
@@ -1294,7 +1300,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
-                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom,"Auto Join AudioStream updated successfully."))
+                .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom, "Auto Join AudioStream updated successfully."))
                 .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
 
@@ -1420,20 +1426,20 @@ public class LiveRoomService implements LiveRoomUseCase {
 
         return rxtx.transactional(
                 userUseCase.saveUser(fanUser)
-                .flatMap(user -> port.saveLiveRoom(liveRoom))
-                /*.flatMap(updatedLiveRoom -> userUseCase.getUserById(updatedLiveRoom.getUserId())
-                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, ExceptionMessages.USER_NOT_FOUND.getValue())))
-                        .flatMap(host -> {
-                            host.setGems(host.getGems() == 0
-                                    ? requestDto.getGiftBeans()
-                                    : host.getGems() + requestDto.getGiftBeans());
-                            *//*host.setGemsCount(host.getGemsCount() == null
+                        .flatMap(user -> port.saveLiveRoom(liveRoom))
+                        /*.flatMap(updatedLiveRoom -> userUseCase.getUserById(updatedLiveRoom.getUserId())
+                                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, ExceptionMessages.USER_NOT_FOUND.getValue())))
+                                .flatMap(host -> {
+                                    host.setGems(host.getGems() == 0
+                                            ? requestDto.getGiftBeans()
+                                            : host.getGems() + requestDto.getGiftBeans());
+                                    *//*host.setGemsCount(host.getGemsCount() == null
                                     ? (long)(requestDto.getGiftBeans() * (metaProperty.getGemsConversionRate() / 100))
                                     : host.getGemsCount() + (long)(requestDto.getGiftBeans() * (metaProperty.getGemsConversionRate() / 100)));*//*
                             return userUseCase.saveUser(host)
                                     .thenReturn(updatedLiveRoom);
                         }))*/
-                .map(updatedLiveRoom -> modelMapper.map(updatedLiveRoom, LiveRoomResponse.class)));
+                        .map(updatedLiveRoom -> modelMapper.map(updatedLiveRoom, LiveRoomResponse.class)));
     }
 
 
@@ -1628,23 +1634,23 @@ public class LiveRoomService implements LiveRoomUseCase {
 
 
     private Mono<LiveRoom> updateLiveRoomForFanLeave(LiveRoom liveRoom, User user) {
-       if (liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().contains(user.getId())) {
-           return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User doesn't exist in Stream! Can't Leave."));
-       }
+        if (liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().contains(user.getId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User doesn't exist in Stream! Can't Leave."));
+        }
 
 
-       if (liveRoom.getViewerIds() != null) {
-           liveRoom.getViewerIds().remove(user.getId());
-           liveRoom.setViewerCount(liveRoom.getViewerIds().size());
-       }
+        if (liveRoom.getViewerIds() != null) {
+            liveRoom.getViewerIds().remove(user.getId());
+            liveRoom.setViewerCount(liveRoom.getViewerIds().size());
+        }
 
-       if (liveRoom.getAudioParticipants() != null && !liveRoom.getAudioParticipants().isEmpty()) {
-              liveRoom.getAudioParticipants().removeIf(viewer -> viewer.getUserId().equals(user.getId()));
-       }
+        if (liveRoom.getAudioParticipants() != null && !liveRoom.getAudioParticipants().isEmpty()) {
+            liveRoom.getAudioParticipants().removeIf(viewer -> viewer.getUserId().equals(user.getId()));
+        }
 
-       if (liveRoom.getJoinRequests() != null && !liveRoom.getJoinRequests().isEmpty()) {
-           liveRoom.getJoinRequests().removeIf(joinRequests -> joinRequests.getUserId().equals(user.getId()));
-       }
+        if (liveRoom.getJoinRequests() != null && !liveRoom.getJoinRequests().isEmpty()) {
+            liveRoom.getJoinRequests().removeIf(joinRequests -> joinRequests.getUserId().equals(user.getId()));
+        }
 
         Viewer viewer = Viewer
                 .builder()
@@ -1673,7 +1679,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     private Mono<LiveRoom> buildLiveRoomDomain(Host host, LiveRoomRequestDto requestDto) {
         return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
-                    .map(dailyReceivedGems -> LiveRoom
+                .map(dailyReceivedGems -> LiveRoom
                         .builder()
                         .id(UUID.randomUUID().toString())
                         .thumbnailId(Strings.isNotNullAndNotEmpty(requestDto.getThumbnailId()) ? requestDto.getThumbnailId() : host.getProfileImageId())
@@ -1780,8 +1786,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                 })
                 .doOnError(e -> log.error("Error computing user earnings for keycloakId {}: {}", keycloakId, e.getMessage()));
     }
-
-
 
 
 }
