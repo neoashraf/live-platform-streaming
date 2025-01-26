@@ -239,11 +239,17 @@ public class LeaderboardService implements LeaderboardUseCase {
 
     @Override
     public Mono<LeaderBoardResponseDto> getHostLeaderBoard(LeaderboardRequestDto requestDto) {
-        requestDto.setLimit(requestDto.getLimit() == null || requestDto.getLimit() < 10
-                ? 10
-                : Math.min(requestDto.getLimit(), 100));
 
-        return giftSummaryUseCase.getHostGiftSummariesByDate(requestDto.getCreatedAfter(), requestDto.getCreatedBefore(), requestDto.getLimit())
+//        System.out.println("\n\n"+requestDto.getLimit()+"===>"+requestDto.getOffset()+"\n\n");
+
+//        requestDto.setLimit(requestDto.getLimit() < 10
+//                ? 10
+//                : Math.min(requestDto.getLimit(), 100));
+
+//        if(requestDto.getLimit() > 10)
+//            requestDto.setLimit(Math.min(requestDto.getLimit(), 100));
+
+        return giftSummaryUseCase.getHostGiftSummariesByDate(requestDto.getCreatedAfter(), requestDto.getCreatedBefore(), requestDto.getLimit(), requestDto.getOffset(),requestDto.getAgencyMaxId())
                 .flatMap(userBeanSummaries -> {
                     // Map userId to total beans
                     Map<String, Double> userIdToBeansMap = userBeanSummaries.stream()

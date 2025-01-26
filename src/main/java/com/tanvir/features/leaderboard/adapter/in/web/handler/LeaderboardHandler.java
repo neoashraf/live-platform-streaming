@@ -83,7 +83,8 @@ public class LeaderboardHandler {
 
     private Mono<LeaderboardRequestDto> buildBeanTransactionRequestDto(ServerRequest serverRequest) {
         int limit = Integer.parseInt(serverRequest.queryParam(QueryParams.LIMIT.getValue()).orElse("10"));
-        String agencyMaxId = serverRequest.queryParam(QueryParams.AGENCY_MAX_ID.getValue()).orElse("");
+        int offset = Integer.parseInt(serverRequest.queryParam(QueryParams.OFFSET.getValue()).orElse("0"));
+        String agencyMaxId = serverRequest.queryParam(QueryParams.AGENCY_MAX_ID.getValue()).orElse("*");
         String createdAfterString = serverRequest.queryParam(QueryParams.CREATED_AFTER.getValue()).orElseThrow(() -> new IllegalArgumentException("createdAfter is required"));
         String createdBeforeString = serverRequest.queryParam(QueryParams.CREATED_BEFORE.getValue()).orElseThrow(() -> new IllegalArgumentException("createdBefore is required"));
 
@@ -100,6 +101,7 @@ public class LeaderboardHandler {
                 .createdAfter(createdAfter)
                 .createdBefore(createdBefore)
                 .limit(limit)
+                .offset(offset)
                 .build());
 
     }

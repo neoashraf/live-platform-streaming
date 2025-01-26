@@ -7,7 +7,6 @@ import com.tanvir.features.gifttransaction.domain.GiftTransaction;
 import com.tanvir.features.leaderboard.domain.UserBeanSummary;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
@@ -108,8 +107,8 @@ public class GiftSummaryService implements GiftSummaryUseCase {
     }
 
     @Override
-    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit) {
-        return port.getHostGiftSummariesByDate(createdAfter, createdBefore, limit);
+    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit, Integer offset, String agencyMaxId) {
+        return port.getHostGiftSummariesByDate(createdAfter, createdBefore, limit,offset,agencyMaxId);
     }
 
     @Override

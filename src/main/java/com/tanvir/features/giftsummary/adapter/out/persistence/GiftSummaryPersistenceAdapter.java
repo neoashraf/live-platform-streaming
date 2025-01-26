@@ -8,8 +8,6 @@ import com.tanvir.features.leaderboard.domain.UserBeanSummary;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Component;
-import org.springframework.ui.ModelMap;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -38,8 +36,9 @@ public class GiftSummaryPersistenceAdapter implements GiftSummaryPersistencePort
     }
 
     @Override
-    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit) {
-        return repository.findTopUsersByBeansInDateRange(createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC), limit)
+    public Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit, Integer offset, String agencyMaxId) {
+
+        return customRepository.findTopUsersByBeansInDateRangeWithDynamicPipeline(createdAfter.toInstant(ZoneOffset.UTC), createdBefore.toInstant(ZoneOffset.UTC), limit, limit*offset, agencyMaxId)
 //                .map(giftSummaryEntity -> modelMapper.map(giftSummaryEntity, GiftSummary.class))
                 .collectList();
     }

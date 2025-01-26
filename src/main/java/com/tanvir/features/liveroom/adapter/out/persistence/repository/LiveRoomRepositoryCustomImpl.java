@@ -1,5 +1,6 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.repository;
 
+import com.tanvir.features.giftsummary.adapter.out.persistence.repository.GiftSummaryRepository;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;

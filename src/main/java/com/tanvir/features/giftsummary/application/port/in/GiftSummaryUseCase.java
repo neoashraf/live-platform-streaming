@@ -12,7 +12,7 @@ public interface GiftSummaryUseCase {
     Mono<GiftSummary> saveGiftSummary(GiftSummary giftSummary);
     Mono<GiftTransaction> processGiftSummary(GiftTransaction giftTransaction);
     Mono<List<GiftSummary>> getGiftSummaryByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore);
-    Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit);
+    Mono<List<UserBeanSummary>> getHostGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit, Integer offset, String agencyMaxId);
     Mono<List<UserBeanSummary>> getAgencyGiftSummariesByDate(LocalDateTime createdAfter, LocalDateTime createdBefore, Integer limit);
     Mono<Double> getTotalGiftAmountByUserIdAndDate(String userId, LocalDateTime createdAfter, LocalDateTime createdBefore);
 }

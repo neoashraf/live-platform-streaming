@@ -2,9 +2,12 @@ package com.tanvir.features.giftsummary.adapter.out.persistence.repository;
 
 import com.tanvir.features.giftsummary.adapter.out.persistence.entity.GiftSummaryEntity;
 import com.tanvir.features.gifttransaction.adapter.out.persistence.entity.GiftTransactionEntity;
+import com.tanvir.features.leaderboard.domain.UserBeanSummary;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
@@ -151,5 +154,32 @@ public class GiftSummaryRepositoryCustomImpl implements GiftSummaryRepositoryCus
         return reactiveMongoTemplate.find(query, GiftSummaryEntity.class)
                 .map(GiftSummaryEntity::getBeans)
                 .reduce(0.0, Double::sum);
+    }
+
+    @Override
+    public Flux<UserBeanSummary> findTopUsersByBeansInDateRangeWithDynamicPipeline(Instant startDate, Instant endDate, int limit, Integer offset, String agencyMaxId) {
+
+        System.out.println("\n\n Offset : "+offset+"\n\n");
+
+        List<AggregationOperation> pipeline = new ArrayList<>();
+
+        pipeline.add(Aggregation.match(Criteria.where("createdOn").gte(startDate).lte(endDate)));
+
+        // Conditionally add agencyId filter if agencyMaxId is not "*"
+        if (!"*".equals(agencyMaxId)) {
+            System.out.println("Entered");
+            pipeline.add(Aggregation.match(Criteria.where("agencyId").is(agencyMaxId)));
+        }
+
+        pipeline.add(Aggregation.group("userId").sum("beans").as("totalBeans"));
+
+        pipeline.add(Aggregation.sort(Sort.by(Sort.Order.desc("totalBeans"))));
+
+        pipeline.add(Aggregation.skip(offset));
+
+        pipeline.add(Aggregation.limit(limit));
+
+        Aggregation aggregation = Aggregation.newAggregation(pipeline);
+        return reactiveMongoTemplate.aggregate(aggregation, "gift_summary", UserBeanSummary.class);
     }
 }

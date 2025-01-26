@@ -23,6 +23,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @Document(collection = "gift_summary")
 public class GiftSummaryEntity implements Persistable<String> {
+
     @Id
     private String id;
     private List<String> giftTransactionIds;

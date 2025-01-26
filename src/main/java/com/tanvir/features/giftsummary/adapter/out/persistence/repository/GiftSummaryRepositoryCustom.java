@@ -5,6 +5,8 @@ import com.tanvir.features.gifttransaction.adapter.out.persistence.entity.GiftTr
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import com.tanvir.features.leaderboard.domain.UserBeanSummary;
+
 
 import java.time.Instant;
 
@@ -14,4 +16,9 @@ public interface GiftSummaryRepositoryCustom {
     Mono<Long> getCountByFilters(String senderOid, String receiverOid, String searchKey, Instant fromDate, Instant toDate);
 
     Mono<Double> getTotalBeansByUserIdAndDate(String userId, Instant createdAfter, Instant createdBefore);
+
+    Flux<UserBeanSummary> findTopUsersByBeansInDateRangeWithDynamicPipeline(
+                Instant startDate, Instant endDate, int limit, Integer offset, String agencyMaxId);
+
+
 }
