@@ -103,7 +103,7 @@ deploy_dev:
     - git push
 
 build_prod:
-  stage: build_dev
+  stage: build_prod
   tags:
     - max-live
   only:
