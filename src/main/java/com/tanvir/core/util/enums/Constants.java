@@ -18,6 +18,9 @@ public enum Constants {
     STATUS_APPROVED("Approved"),
     STATUS_DECLINE("Declined"),
     STATUS_STARTED("Started"),
+
+    CAMERA_VIEW_FRONT("Front"),
+    CAMERA_VIEW_BACK("Back"),
     ;
     private final String value;
 

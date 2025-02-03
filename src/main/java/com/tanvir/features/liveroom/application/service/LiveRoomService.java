@@ -1787,5 +1787,60 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .doOnError(e -> log.error("Error computing user earnings for keycloakId {}: {}", keycloakId, e.getMessage()));
     }
 
+    @Override
+    public Mono<JoinCallResponseDto> updateJoinCall(JoinCallRequestUpdateDto requestDto) {
+        List<String> validValue = List.of(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
+        List<String> validCameraViewValue = List.of(Constants.CAMERA_VIEW_FRONT.getValue(), Constants.CAMERA_VIEW_BACK.getValue());
+
+        if (Strings.isNotNullAndNotEmpty(requestDto.getCameraOn()) && !validValue.contains(requestDto.getCameraOn())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid CameraOn value"));
+        } else if (Strings.isNotNullAndNotEmpty(requestDto.getMicOn()) && !validValue.contains(requestDto.getMicOn())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid MicOn value"));
+        } else if (Strings.isNotNullAndNotEmpty(requestDto.getCameraOn())
+                && requestDto.getCameraOn().equals(Constants.STATUS_YES.getValue())
+                && !validCameraViewValue.contains(requestDto.getCameraView())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid CameraView value"));
+        } else if (Strings.isNotNullAndNotEmpty(requestDto.getCameraView()) && requestDto.getCameraOn().equals(Constants.STATUS_NO.getValue())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid CameraView value"));
+        }
+
+        return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not Found!")))
+                .zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not Found!"))))
+                .filter(liveRoomUserTuple2 -> liveRoomUserTuple2.getT1().getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live")))
+                .flatMap(tupleOfLiveRoomAndUser -> {
+                    return cachePort.getLiveRoomById(requestDto.getLiveRoomId())
+                            .map(LiveRoomFirebaseEntity::getJoinRequests)
+                            .flatMap(joinRequests -> {
+                                if (joinRequests == null || joinRequests.isEmpty()) {
+                                    return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No Join Requests found for the LiveRoom"));
+                                } else if (joinRequests.stream().noneMatch(joinRequest -> joinRequest.getUserId().equals(tupleOfLiveRoomAndUser.getT2().getId()))) {
+                                    return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join Request not found for the User"));
+                                }
+
+                                return Mono.just(tupleOfLiveRoomAndUser);
+                            });
+                })
+                .flatMap(liveRoomUserTuple2 -> cachePort.updateJoinedCall(liveRoomUserTuple2.getT1(), requestDto)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom  updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage())))
+                .map(liveRoom -> JoinCallResponseDto
+                        .builder()
+                        .message("Join call request updated successfully.")
+                        .data(LiveRoomJoinRequestInfo
+                                .builder()
+                                .roomId(liveRoom.getId())
+                                .requestId(requestDto.getRequestId())
+                                .micOn(requestDto.getMicOn())
+                                .cameraOn(requestDto.getCameraOn())
+                                .cameraView(requestDto.getCameraView())
+                                .build())
+                        .count(1)
+                        .error(false)
+                        .build());
+    }
+
 
 }

@@ -3,6 +3,7 @@ package com.tanvir.features.liveroom.application.port.out;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestDto;
+import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestUpdateDto;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import reactor.core.publisher.Mono;
 
@@ -21,6 +22,7 @@ public interface CachePort {
     Mono<LiveRoom> updateForProcessingJoinCall(LiveRoom liveRoom, JoinCallRequestDto joinCallRequestDto);
     Mono<LiveRoom> updateForStartingJoinCall(LiveRoom liveRoom, JoinCallRequestDto joinCallRequestDto);
     Mono<LiveRoom> updateForClosingJoinedCall(LiveRoom liveRoom, JoinCallRequestDto joinCallRequestDto);
+    Mono<LiveRoom> updateJoinedCall(LiveRoom liveRoom, JoinCallRequestUpdateDto joinCallRequestUpdateDto);
 
     Mono<LiveRoomFirebaseEntity> getLiveRoomById(String id);
 }

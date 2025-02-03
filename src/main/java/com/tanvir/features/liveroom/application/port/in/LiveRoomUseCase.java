@@ -27,10 +27,11 @@ public interface LiveRoomUseCase {
     Mono<JoinCallResponseDto> processJoinCall(JoinCallRequestDto requestDto);
     Mono<JoinCallResponseDto> startJoinCall(JoinCallRequestDto requestDto);
     Mono<JoinCallResponseDto> closeJoinedCall(JoinCallRequestDto requestDto);
-
     Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto);
+
     Mono<StreamResponseDto> joinAudioStream(LiveRoomViewerRequestDto requestDto);
     Mono<LiveRoomJoinPermissionResponseDto> setEnableAutoJoinAudioStream(JoinPermissionRequestDTO requestDTO);
     Mono<Earning> userEarning(String keycloakId);
+    Mono<JoinCallResponseDto> updateJoinCall(JoinCallRequestUpdateDto requestDto);
 
 }

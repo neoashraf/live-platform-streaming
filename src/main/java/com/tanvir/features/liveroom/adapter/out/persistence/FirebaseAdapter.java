@@ -8,6 +8,7 @@ import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntit
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseRepository;
 import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestDto;
+import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestUpdateDto;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
@@ -346,6 +347,38 @@ public class FirebaseAdapter implements CachePort {
                             () -> Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found")));
 
                     return firebaseEntity;
+                })
+                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity after processing join call: {}", firebaseEntity))
+                .flatMap(firebaseRepository::update)
+                .map(firebaseReturnedEntity -> liveRoom);
+    }
+
+    @Override
+    public Mono<LiveRoom> updateJoinedCall(LiveRoom liveRoom, JoinCallRequestUpdateDto joinCallRequestUpdateDto) {
+        return firebaseRepository.read(liveRoom.getId())
+                .doOnRequest(l -> log.info("Request received to get  firebase entity for processing join call with id: {}", liveRoom.getId()))
+                .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity for processing join call  with id: {}", firebaseEntity))
+                .flatMap(firebaseEntity -> {
+                    Optional<JoinRequests> optionalJoinRequests = firebaseEntity.getJoinRequests().stream()
+                            .filter(joinRequests -> joinRequests.getRequestId().equals(joinCallRequestUpdateDto.getRequestId()))
+                            .findFirst();
+
+                    if (optionalJoinRequests.isEmpty()) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
+                    } else if (!optionalJoinRequests.get().getStatus().equals(Constants.STATUS_STARTED.getValue())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join request is not Started"));
+                    }
+
+                    optionalJoinRequests.ifPresentOrElse(joinRequests -> {
+                                joinRequests.setCameraOn(joinCallRequestUpdateDto.getCameraOn());
+                                joinRequests.setMicOn(joinCallRequestUpdateDto.getMicOn());
+                                joinRequests.setCameraView(joinCallRequestUpdateDto.getCameraView());
+                            },
+                            () -> Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"))
+                    );
+
+
+                    return Mono.just(firebaseEntity);
                 })
                 .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
