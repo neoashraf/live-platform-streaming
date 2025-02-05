@@ -60,7 +60,9 @@ public class UserEntity {
     private String keycloakId;
 
     private String rideId;
+    private String rideUrl;
     private String entryCardId;
+    private String entryCardUrl;
 
 
 

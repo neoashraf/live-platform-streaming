@@ -50,7 +50,9 @@ public class User {
     private String profileDescription;
     private String keycloakId;
     private String rideId;
+    private String rideUrl;
     private String entryCardId;
+    private String entryCardUrl;
 
     // Follow features
     private List<String> followers;
