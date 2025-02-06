@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.tanvir.core.util.enums.*;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.commonbusiness.CommonBusiness;
+import com.tanvir.features.content.domain.Content;
 import com.tanvir.features.gift.application.port.in.GiftUseCase;
 import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.giftsummary.application.port.in.GiftSummaryUseCase;
@@ -334,6 +335,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                     .build())
                             .gift(Announcement.Gift
                                     .builder()
+                                    .id(giftTransaction.getGift().getId())
+                                    .name(giftTransaction.getGift().getName())
                                     .quantity(giftTransaction.getQuantity())
                                     .resource(Announcement.Resource
                                             .builder()
@@ -347,6 +350,23 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                     log.info("Gift Announcement Built : {}", announcement);
                     return announcement;
                 });
+    }
+
+    public static List<Announcement.Resources> buildResourceCollectionRide(Content content) {
+
+        return content.getResourceFormats().stream()
+                .filter(resourceFormat -> resourceFormat.getResourceType().equals(ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue())
+                        || resourceFormat.getResourceType().equals(ResourceTypeEnum.RESOURCE_TYPE_ANIMATION.getValue())
+                )
+                .map(resourceFormat -> Announcement.Resources.builder()
+                        .id(resourceFormat.getResourceId())
+                        .type(resourceFormat.getResourceType())
+                        .url(resourceFormat.getResourceUrl())
+                        .name(content.getName())
+                        .thumbnailUrl(resourceFormat.getThumbnailUrl())
+                        .build()
+                )
+                .toList();
     }
 
     private List<Announcement.Resources> buildResourceCollection(List<ResourceFormat> resourceFormats, GiftTransaction giftTransaction) {

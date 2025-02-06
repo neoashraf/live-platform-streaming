@@ -9,6 +9,7 @@ import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.content.application.port.in.ContentUseCase;
 import com.tanvir.features.gifttransaction.application.port.in.GiftTransactionUseCase;
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
+import com.tanvir.features.gifttransaction.application.service.GiftTransactionService;
 import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
@@ -508,17 +509,42 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     announcement.setMessageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue()));
                                     announcement.setType(AnnouncementEnum.ANNOUNCEMENT_TYPE_JOIN_RIDE.getValue());
                                     announcement.setTime(ZonedDateTime.now(ZoneOffset.UTC).toString());
-                                    List<String> imageUrlList = content.getResourceFormats()
-                                            .stream()
-                                            .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
-                                            .map(ResourceFormat::getThumbnailUrl).toList();
-                                    announcement.setResource(
-                                            Announcement.Resource
+
+                                    List<String> imageUrlList =
+                                            content.getResourceFormats() != null
+                                                    ?
+                                                    content.getResourceFormats()
+                                                            .stream()
+                                                            .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
+                                                            .map(ResourceFormat::getThumbnailUrl).toList()
+                                                    :
+                                                    List.of();
+
+                                    Announcement.Resource resource = Announcement.Resource
+                                            .builder()
+                                            .name(content.getName())
+                                            .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
+                                            .build();
+
+                                    List<Announcement.Resources> resources = GiftTransactionService.buildResourceCollectionRide(content);
+
+                                    announcement.setRide(
+                                            Announcement.Ride
                                                     .builder()
+                                                    .id(content.getId())
                                                     .name(content.getName())
-                                                    .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
+                                                    .resource(resource)
+                                                    .resources(resources)
                                                     .build()
                                     );
+
+//                                    announcement.setResource(
+//                                            Announcement.Resource
+//                                                    .builder()
+//                                                    .name(content.getName())
+//                                                    .imageUrl(!imageUrlList.isEmpty() ? imageUrlList.get(0) : null)
+//                                                    .build()
+//                                    );
                                     return Tuples.of(announcement, user);
                                 });
                     } else if (Strings.isNotNullAndNotEmpty(user.getEntryCardId())) {

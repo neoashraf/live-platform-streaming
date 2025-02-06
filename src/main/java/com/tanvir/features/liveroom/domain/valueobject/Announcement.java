@@ -21,6 +21,7 @@ public class Announcement {
     private AnnouncementUser mentionedUser;
     private Gift gift;
     private Resource resource;
+    private Ride ride;
     private String time;
 
     @Data
@@ -28,7 +29,20 @@ public class Announcement {
     @AllArgsConstructor
     @NoArgsConstructor
     public static class Gift {
+        private String id;
+        private String name;
         private int quantity;
+        private Resource resource;
+        private List<Resources> resources;
+    }
+
+    @Data
+    @Builder
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class Ride {
+        private String id;
+        private String name;
         private Resource resource;
         private List<Resources> resources;
     }
