@@ -19,7 +19,11 @@ public enum OfficialIdEnum {
             "10000999",
             "10001000",
             "10000465",
-            "10000475")),;
+            "10000475")),
+
+    SUPER_USER_IDS(List.of(
+            "10000001",
+            "10000475"));
 
     private final List<String> value;
 
