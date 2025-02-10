@@ -98,7 +98,8 @@ public class GiftSummaryService implements GiftSummaryUseCase {
                     // Save the new summary back to the database
                     return reactiveMongoTemplate.save(newSummary)
                             .then(Mono.just(transaction)); // Return the transaction wrapped in Mono
-                }));
+                }))
+                .doOnError(throwable -> log.error("Error while updating gift summary"));
     }
 
     @Override

@@ -13,4 +13,5 @@ public interface UserMongoRepository extends ReactiveMongoRepository<UserEntity,
     Mono<UserEntity> getUserEntityByKeycloakId(String keycloakId);
     Mono<UserEntity> getUserEntityByKeycloakIdOrEmail(String keycloakId, String email);
     Flux<UserEntity> findAllByIdIn(List<String> userIdList);
+
 }

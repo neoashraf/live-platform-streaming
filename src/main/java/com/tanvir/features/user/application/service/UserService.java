@@ -135,8 +135,8 @@ public class UserService implements UserUseCase {
     }
 
     @Override
-    public Mono<User> updateUser(User user) {
-        return userPort.getById(user.getId())
+    public Mono<User> updateUser(User user, Map<String, Object> updatedFields) {
+        return /*userPort.getById(user.getId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, ExceptionMessages.USER_NOT_FOUND.getValue())))
                 .map(user1 -> {
                     user1.setBeans(user.getBeans());
@@ -150,7 +150,8 @@ public class UserService implements UserUseCase {
                     user1.setUpdatedOn(LocalDateTime.now());
                     return user1;
                 })
-                .flatMap(userPort::save)
+                .flatMap(userPort::save)*/
+                userPort.updateUserFields(user.getId(), updatedFields)
                 .doOnRequest(l -> log.info("Request received to update user"))
                 .doOnNext(user1 -> log.info("User updated successfully: {}", user))
                 .doOnError(throwable -> log.error("Error while updating user profile: {}", throwable.getMessage()))
@@ -223,7 +224,7 @@ public class UserService implements UserUseCase {
                     // Update the gems
                     user.setGems(user.getGems() + gemsAmount);
                     log.info("Updating gems for user with maxId {}. New gems count: {}", maxId, user.getGems());
-                    return this.updateUser(user); // Save the updated user
+                    return this.updateUser(user, Map.of("gems", user.getGems() + gemsAmount)); // Save the updated user
                 })
                 .doOnSuccess(updatedUser -> log.info("Successfully updated user gems for userId: {}", updatedUser.getId()))
                 .doOnError(error -> log.error("Error updating gems for user with maxId {}", maxId, error));

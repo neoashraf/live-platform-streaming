@@ -6,6 +6,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import java.util.Map;
 
 public interface DatabasePort {
 
@@ -21,4 +22,5 @@ public interface DatabasePort {
     Mono<User> getUserByKeyCloakIdOrEmail(String keycloakId, String email);
 
     Flux<User> getUsersByIds(List<String> userIdList);
+    Mono<User> updateUserFields(String id, Map<String, Object> updatedFields);
 }

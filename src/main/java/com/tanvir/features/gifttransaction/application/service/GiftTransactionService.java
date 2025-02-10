@@ -41,7 +41,9 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -86,33 +88,28 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     @Override
     public Mono<SendGiftResponseDto> sendGifts(SendGiftRequestDto requestDto) {
         return validateSenderReceiver(requestDto)
-                .doOnError(throwable -> log.error("Error while validating sender and receiver"))
                 .flatMap(giftTransaction -> this.calculateGiftAmount(giftTransaction, requestDto))
-                .doOnError(throwable -> log.error("Error while calculating gift amount"))
                 .flatMap(giftTransaction -> this.validateGiftAmount(giftTransaction, requestDto))
-                .doOnError(throwable -> log.error("Error while validating gift amount"))
                 .flatMap(giftTransaction -> this.buildGiftTransaction(giftTransaction, requestDto))
-                .doOnError(throwable -> log.error("Error while building gift transaction"))
                 .flatMap(giftTransaction -> port.saveTransaction(giftTransaction)
+                        .doOnError(throwable -> log.error("Error while saving gift transaction"))
                         .map(savedTransaction -> {
                             giftTransaction.setId(savedTransaction.getId());
                             return giftTransaction;
                         }))
-                .doOnError(throwable -> log.error("Error while saving gift transaction"))
                 .flatMap(this::updateUserForGiftTransaction)
                 .flatMap(giftSummaryUseCase::processGiftSummary)
-                .doOnError(throwable -> log.error("Error while updating gift summary"))
                 .flatMap(this::calculateHostDailyStarProgress)
-                .doOnError(throwable -> log.error("Error while calculating host daily star progress"))
                 .doOnNext(giftTransaction1 -> announceToFirebaseIfLiveSession(giftTransaction1)
                         .subscribeOn(Schedulers.boundedElastic()).subscribe())
-                .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 .doOnNext(giftTransaction -> log.info("sender level : {}", giftTransaction.getSenderReceiverDto().getSender().getUserLevel()))
-                .flatMap(giftTransaction -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getSender())
+                .flatMap(giftTransaction -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getSender(),
+                                giftTransaction.getSenderReceiverDto().getSenderUpdatedFields())
                         .doOnError(throwable -> log.error("Error while updating sender user"))
-                        .flatMap(user -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getReceiver()))
+                        .flatMap(user -> userUseCase.updateUser(giftTransaction.getSenderReceiverDto().getReceiver(),
+                                giftTransaction.getSenderReceiverDto().getReceiverUpdatedFields())
                         .doOnError(throwable -> log.error("Error while updating receiver user"))
-                        .thenReturn(giftTransaction))
+                        .thenReturn(giftTransaction)))
                 .map(giftTransaction -> this.buildSendGiftResponseDto(giftTransaction, "Gift sent successfully"))
                 .as(transactionalOperator::transactional);
     }
@@ -132,7 +129,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                         .thenReturn(giftTransaction);
                             })
                             : Mono.just(giftTransaction);
-                });
+                })
+                .doOnError(throwable -> log.error("Error while calculating host daily star progress"));
     }
 
     private DailyStarProgress calculateStarProgress(double currentGems) {
@@ -225,7 +223,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .map(senderReceiverDto -> GiftTransaction
                         .builder()
                         .senderReceiverDto(senderReceiverDto)
-                        .build());
+                        .build())
+                .doOnError(throwable -> log.error("Error while validating sender and receiver"));
     }
 
     private Mono<GiftTransaction> calculateGiftAmount(GiftTransaction giftTransaction, SendGiftRequestDto requestDto) {
@@ -239,13 +238,15 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                     giftTransaction.setBeans(giftAmount);
                     giftTransaction.setGift(gift);
                     return Mono.just(giftTransaction);
-                });
+                })
+                .doOnError(throwable -> log.error("Error while calculating gift amount"));
     }
 
     private Mono<GiftTransaction> validateGiftAmount(GiftTransaction giftTransaction, SendGiftRequestDto requestDto) {
         return Mono.just(giftTransaction)
                 .filter(giftTransaction1 -> giftTransaction1.getSenderReceiverDto().getSender().getBeans() - giftTransaction1.getBeans() >= 0)
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Insufficient Beans!")));
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Insufficient Beans!")))
+                .doOnError(throwable -> log.error("Error while validating gift amount"));
     }
 
     private Mono<GiftTransaction> buildGiftTransaction(GiftTransaction giftTransaction, SendGiftRequestDto requestDto) {
@@ -270,7 +271,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .senderReceiverDto(giftTransaction.getSenderReceiverDto())
                             .gift(giftTransaction.getGift())
                             .agencyId(giftTransaction.getAgencyId())
-                            .build());
+                            .build())
+                    .doOnError(throwable -> log.error("Error while building gift transaction"));
         }
 
         return Mono.just(GiftTransaction
@@ -305,17 +307,13 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             return cachePort.updateForGift(liveRoom)
                                     .thenReturn(giftTransaction);
                         }))
+                .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 : Mono.just(giftTransaction);
     }
 
     private Mono<Announcement> buildGiftAnnouncement(GiftTransaction giftTransaction) {
         return levelUseCase.getLevelDomainByLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel())
                 .map(level -> {
-                   /* List<String> imageUrlList = giftTransaction.getGift().getResourceFormats()
-                            .stream()
-                            .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
-                            .map(ResourceFormat::getThumbnailUrl).toList();*/
-
                     ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(giftTransaction.getGift().getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
                     ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
 
@@ -393,12 +391,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         dataDto.setSenderId(giftTransaction.getSenderId());
         dataDto.setQuantity(giftTransaction.getQuantity());
         dataDto.setSentOn(giftTransaction.getCreatedOn().toString());
-        dataDto.setBeans(giftTransaction.getSenderReceiverDto().getSender().getBeans());
-        dataDto.setBeansValue(CommonBusiness.convertToShortName(giftTransaction.getSenderReceiverDto().getSender().getBeans()));
-//        dataDto.setSentOn(giftTransaction.getCreatedOn().toString());
-        /*dataDto.setSentOn(giftTransaction.getCreatedOn()
-                .atOffset(ZoneOffset.ofHours(6)) // Attach the UTC+6 offset without adjusting the actual time
-                .toString());*/
+        dataDto.setBeans((Double) giftTransaction.getSenderReceiverDto().getSenderUpdatedFields().getOrDefault("beans",
+                giftTransaction.getSenderReceiverDto().getSender().getBeans()));
+        dataDto.setBeansValue(CommonBusiness.convertToShortName(dataDto.getBeans()));
 
         dataDto.setSenderLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel());
         dataDto.setLevelBadgeUrl(giftTransaction.getSenderReceiverDto().getSender().getLevelBadgeUrl());
@@ -414,29 +409,42 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     private Mono<GiftTransaction> updateUserForGiftTransaction(GiftTransaction giftTransaction) {
         User sender = giftTransaction.getSenderReceiverDto().getSender();
         User receiver = giftTransaction.getSenderReceiverDto().getReceiver();
+        Map<String, Object> senderUpdatedFields = giftTransaction.getSenderReceiverDto().getSenderUpdatedFields() == null
+                ? new HashMap<>()
+                : giftTransaction.getSenderReceiverDto().getSenderUpdatedFields();
+        Map<String, Object> receiverUpdatedFields = giftTransaction.getSenderReceiverDto().getReceiverUpdatedFields() == null
+                ? new HashMap<>()
+                : giftTransaction.getSenderReceiverDto().getReceiverUpdatedFields();
 
-        sender.setBeans(sender.getBeans() - giftTransaction.getBeans());
-//        receiver.setBeans(receiver.getBeans() + giftTransaction.getBeans());
-        receiver.setGems(receiver.getGems() + giftTransaction.getBeans());
-        sender.setBeansGifted(sender.getBeansGifted() + giftTransaction.getBeans());
         sender.setSender(true);
 
         if (sender.getId().equals(receiver.getId())) {
-            receiver.setBeans(sender.getBeans());
+            receiverUpdatedFields.put("beans", sender.getBeans() - giftTransaction.getBeans());
         }
+
+
+        senderUpdatedFields.put("beans", sender.getBeans() - giftTransaction.getBeans());
+        receiverUpdatedFields.put("gems", receiver.getGems() + giftTransaction.getBeans());
+        senderUpdatedFields.put("beansGifted", sender.getBeansGifted() + giftTransaction.getBeans());
+
 
         return levelUseCase.getAllLevels()
                 .flatMap(levels -> {
                     double beansGifted = sender.getBeansGifted();
                     int level = CommonBusiness.calculateLevel(beansGifted, levels);
                     sender.setUserLevel(level);
+                    senderUpdatedFields.put("level", level);
                     return commonBusiness.setUserLevelUrl(sender)
                             .map(user -> {
-                                giftTransaction.getSenderReceiverDto().getSender().setLevelBadgeUrl(user.getLevelBadgeUrl());
+                                senderUpdatedFields.put("levelBadgeUrl", user.getLevelBadgeUrl());
                                 return user;
                             });
                 })
-                .map(userMono -> giftTransaction)
+                .map(userMono -> {
+                    giftTransaction.getSenderReceiverDto().setSenderUpdatedFields(senderUpdatedFields);
+                    giftTransaction.getSenderReceiverDto().setReceiverUpdatedFields(receiverUpdatedFields);
+                    return giftTransaction;
+                })
                 .doOnError(throwable -> log.error("Error while updating user for gift transaction : {}", throwable.getMessage()));
     }
 

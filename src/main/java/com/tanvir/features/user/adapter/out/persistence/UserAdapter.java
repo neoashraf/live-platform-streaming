@@ -1,4 +1,5 @@
 package com.tanvir.features.user.adapter.out.persistence;
+import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserEntity;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserMongoRepository;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserRepositoryCustomImpl;
@@ -9,12 +10,24 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.convention.MatchingStrategies;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.lang.reflect.Field;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.aspectj.lang.reflect.DeclareAnnotation.Kind.Field;
 
 @Slf4j
 @Component
@@ -24,6 +37,7 @@ public class UserAdapter implements DatabasePort {
     private final UserMongoRepository repository;
     private final ModelMapper modelMapper;
     private final UserRepositoryCustomImpl userRepositoryCustom;
+    private final ReactiveMongoTemplate reactiveMongoTemplate;
 
     @Override
     public Mono<User> getById(String id) {
@@ -111,6 +125,41 @@ public class UserAdapter implements DatabasePort {
         return repository.findAllByIdIn(userIdList)
                 .map(userEntity -> modelMapper.map(userEntity, User.class));
     }
+
+    public Mono<User> updateUserFields(String id, Map<String, Object> updatedFields) {
+        // Get valid field names from the entity
+        Set<String> validFields = getValidFieldNames(UserEntity.class);
+
+        // Filter out invalid fields
+        Map<String, Object> validUpdates = updatedFields.entrySet().stream()
+                .filter(entry -> validFields.contains(entry.getKey())) // Only keep valid fields
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+        // If no valid fields remain, return empty Mono (no update needed)
+        if (validUpdates.isEmpty()) {
+            return Mono.empty();
+        }
+
+        Update update = new Update();
+        validUpdates.forEach(update::set);
+        update.set("updatedOn", LocalDateTime.now()); // Always update timestamp
+
+        return reactiveMongoTemplate.updateFirst(
+                        Query.query(Criteria.where("id").is(id)), update, UserEntity.class)
+                .flatMap(updateResult -> repository.findById(id)
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .map(entity -> modelMapper.map(entity, User.class)));
+    }
+
+    /**
+     * Extracts valid field names from an entity class using Reflection.
+     */
+    private Set<String> getValidFieldNames(Class<?> clazz) {
+        return Arrays.stream(clazz.getDeclaredFields())
+                .map(java.lang.reflect.Field::getName)
+                .collect(Collectors.toSet());
+    }
+
 
     private UserEntity mapDomainToEntity(User user) {
         modelMapper.getConfiguration()
