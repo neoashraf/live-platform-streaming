@@ -4,6 +4,8 @@ import lombok.Getter;
 
 @Getter
 public enum Constants {
+
+    HOST_TYPE("host"),
     STATUS_YES("Yes"),
     STATUS_NO("No"),
     LIVE_ROOM_TYPE_VIDEO("Video"),
@@ -16,6 +18,8 @@ public enum Constants {
     STATUS_OFFLINE("Offline"),
     STATUS_PENDING("Pending"),
     STATUS_APPROVED("Approved"),
+    STATUS_REJECTED("Rejected"),
+    STATUS_CLOSED("Closed"),
     STATUS_DECLINE("Declined"),
     STATUS_STARTED("Started"),
 

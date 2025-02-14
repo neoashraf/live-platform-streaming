@@ -62,7 +62,7 @@ public class GiftTransactionAdapter implements GiftTransactionPersistencePort {
         GiftTransactionEntity entity = modelMapper.map(giftTransaction, GiftTransactionEntity.class);
         return repository
                 .save(entity)
-                .doOnSuccess(giftTransactionEntity -> log.info("Transaction saved successfully: {}", giftTransactionEntity))
+//                .doOnSuccess(giftTransactionEntity -> log.info("Transaction saved successfully: {}", giftTransactionEntity))
                 .doOnError(throwable -> log.error("Error occurred while saving transaction: {}", throwable.getMessage()))
                 .map(giftTransactionEntity -> modelMapper.map(giftTransactionEntity, GiftTransaction.class));
     }

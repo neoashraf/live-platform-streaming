@@ -50,8 +50,8 @@ public class UserAdapter implements DatabasePort {
                     return user;
                 })*/
             .doOnRequest(value -> log.info("Getting user from mongo wih id {}", id))
-            .doOnError(throwable -> log.error("Error while getting user from mongo: {}", throwable.getMessage()))
-            .doOnSuccess(user -> log.info("Got user from mongo {}", user));
+            .doOnError(throwable -> log.error("Error while getting user from mongo: {}", throwable.getMessage()));
+//            .doOnSuccess(user -> log.info("Got user from mongo {}", user));
     }
 
     @Override
@@ -98,8 +98,8 @@ public class UserAdapter implements DatabasePort {
         entity.setCreatedOn(LocalDateTime.now());
         return repository.save(entity)
             .map(savedEntity -> modelMapper.map(savedEntity, User.class))
-            .doOnError(throwable -> log.error("Error while saving user in mongo : {}", user))
-            .doOnSuccess(savedEntity -> log.info("User saved in mongo : {}", savedEntity));
+            .doOnError(throwable -> log.error("Error while saving user in mongo : {}", user));
+//            .doOnSuccess(savedEntity -> log.info("User saved in mongo : {}", savedEntity));
     }
 
     @Override

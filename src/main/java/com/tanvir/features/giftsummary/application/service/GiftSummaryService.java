@@ -44,7 +44,7 @@ public class GiftSummaryService implements GiftSummaryUseCase {
         // Parse the transactionDate string to LocalDate
         LocalDate transactionDate = transactionDateStr != null
                 ? LocalDate.parse(transactionDateStr)
-                : LocalDate.now(ZoneOffset.UTC);
+                 : LocalDate.now(ZoneOffset.UTC);
 
         // Query for existing GiftSummaryEntity by userId and transactionDate
         Query query = new Query();

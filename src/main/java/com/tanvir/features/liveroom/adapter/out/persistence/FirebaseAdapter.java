@@ -54,12 +54,22 @@ public class FirebaseAdapter implements CachePort {
     }
 
 
-
     @Override
     public Mono<LiveRoomEntity> update(LiveRoomEntity entity) {
 //        entity.getFans().values().forEach(fan -> fan.setEntryTime(null));
         return firebaseRepository.update(modelMapper.map(entity, LiveRoomFirebaseEntity.class), entity.getId())
                 .map(firebaseReturnedEntity -> modelMapper.map(firebaseReturnedEntity, LiveRoomEntity.class));
+    }
+
+    @Override
+    public Mono<LiveRoomEntity> updateForCurrentLiveRoomGiftReceived(LiveRoomFirebaseEntity liveRoomFirebaseEntity, String liveRoomId) {
+
+//        System.out.println(" \nLiveRoomFireBaseEntity join req in firebase adapter : "+liveRoomFirebaseEntity.getJoinRequests()+"\n\n");
+//        System.out.println("\n LiveRoom id : "+liveRoomId+"\n\n");
+        return firebaseRepository.update(liveRoomFirebaseEntity, liveRoomId)
+                .map(liveRoomFirebaseEntity1 -> modelMapper.map(liveRoomFirebaseEntity1, LiveRoomEntity.class))
+                .doOnSuccess(updated -> System.out.println("Firebase Update Successful!"))
+                .doOnError(error -> System.err.println("Firebase Update Error: " + error.getMessage()));
     }
 
     @Override
@@ -223,16 +233,25 @@ public class FirebaseAdapter implements CachePort {
                 .map(firebaseEntity -> {
 
                     // add announcement to announcements list
-                    List<Announcement> currentAnnouncementsInFirebase = new ArrayList<>(firebaseEntity.getAnnouncements() != null ? firebaseEntity.getAnnouncements() : new ArrayList<>());
+                    List<Announcement> currentAnnouncementsInFirebase = new ArrayList<>(
+                            firebaseEntity.getAnnouncements() != null
+                                    ? firebaseEntity.getAnnouncements()
+                                    : new ArrayList<>()
+                    );
+
                     if (currentAnnouncementsInFirebase.size() >= 10) {
                         currentAnnouncementsInFirebase = currentAnnouncementsInFirebase.subList(currentAnnouncementsInFirebase.size() - 9, currentAnnouncementsInFirebase.size());
                     }
                     currentAnnouncementsInFirebase.add(liveRoom.getAnnouncement());
                     firebaseEntity.setAnnouncements(currentAnnouncementsInFirebase);
 
-                    firebaseEntity.getHost().setDailyStarProgress(liveRoom.getDailyStarProgress());
-                    firebaseEntity.getHost().setGems(liveRoom.getHostTotalGems());
-                    firebaseEntity.getHost().setGemsValue(liveRoom.getHostGemsValue());
+                    if (liveRoom.getDailyStarProgress() != null)
+                        firebaseEntity.getHost().setDailyStarProgress(liveRoom.getDailyStarProgress());
+                    if (liveRoom.getDailyStarProgress() != null)
+                        firebaseEntity.getHost().setGems(liveRoom.getHostTotalGems());
+                    if (liveRoom.getDailyStarProgress() != null)
+                        firebaseEntity.getHost().setGemsValue(liveRoom.getHostGemsValue());
+
                     return firebaseEntity;
                 })
 //                .doOnNext(firebaseEntity -> log.info("Firebase entity to be updated: {}", firebaseEntity))
@@ -252,7 +271,8 @@ public class FirebaseAdapter implements CachePort {
                 })
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
-                .map(firebaseReturnedEntity -> liveRoom);    }
+                .map(firebaseReturnedEntity -> liveRoom);
+    }
 
     @Override
     public Mono<LiveRoom> updateForJoinRequest(LiveRoom liveRoom) {
@@ -262,11 +282,29 @@ public class FirebaseAdapter implements CachePort {
                 .map(firebaseEntity -> {
                     List<JoinRequests> currentJoinRequestsInFirebase = Optional.ofNullable(firebaseEntity.getJoinRequests())
                             .orElseGet(ArrayList::new);
-                    currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
+
+                    if (!currentJoinRequestsInFirebase.isEmpty()) {
+                        Optional<JoinRequests> userJoinRequestExists = currentJoinRequestsInFirebase.stream()
+                                .filter(joinRequests -> joinRequests.getUserId().equals(liveRoom.getJoinRequests().get(0).getUserId()))
+                                .findFirst();
+                        userJoinRequestExists.ifPresentOrElse(joinRequests -> {
+                            joinRequests.setStatus(Constants.STATUS_PENDING.getValue());
+                            joinRequests.setCameraOn(liveRoom.getJoinRequests().get(0).getCameraOn());
+                            joinRequests.setCameraView(liveRoom.getJoinRequests().get(0).getCameraView());
+                            joinRequests.setMicOn(liveRoom.getJoinRequests().get(0).getMicOn());
+                            joinRequests.setProfileLevelUrl(liveRoom.getJoinRequests().get(0).getProfileLevelUrl());
+                            joinRequests.setProfileImageUrl(liveRoom.getJoinRequests().get(0).getProfileImageUrl());
+                            joinRequests.setDisplayName(liveRoom.getJoinRequests().get(0).getDisplayName());
+                        }, () -> {
+                            currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
+                        });
+                    } else {
+                        currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
+                    }
                     firebaseEntity.setJoinRequests(currentJoinRequestsInFirebase);
                     return firebaseEntity;
                 })
-                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Updated firebase entity: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
@@ -280,7 +318,7 @@ public class FirebaseAdapter implements CachePort {
                     firebaseEntity.setStatus(Constants.STATUS_OFFLINE.getValue());
                     return firebaseEntity;
                 })
-                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Updated firebase entity: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
@@ -288,6 +326,10 @@ public class FirebaseAdapter implements CachePort {
     @Override
     public Mono<LiveRoom> updateForProcessingJoinCall(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
         return firebaseRepository.read(liveRoom.getId())
+                .map(entity-> {
+//                    System.out.println("\n\n\n Join req : "+entity.getJoinRequests().get(0).toString()+"\n\n\n");
+                    return entity;
+                })
                 .doOnRequest(l -> log.info("Request received to get  firebase entity for processing join call with id: {}", liveRoom.getId()))
                 .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity for processing join call  with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
@@ -304,7 +346,7 @@ public class FirebaseAdapter implements CachePort {
 
                     return firebaseEntity;
                 })
-                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity after processing join call: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
@@ -327,7 +369,7 @@ public class FirebaseAdapter implements CachePort {
 
                     return firebaseEntity;
                 })
-                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity after processing join call: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
@@ -343,12 +385,12 @@ public class FirebaseAdapter implements CachePort {
                             .findFirst();
 
                     optionalJoinRequests.ifPresentOrElse(joinRequests ->
-                            joinRequests.setStatus(Status.STATUS_CLOSED.getValue()),
+                                    joinRequests.setStatus(Status.STATUS_CLOSED.getValue()),
                             () -> Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found")));
 
                     return firebaseEntity;
                 })
-                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity after processing join call: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }

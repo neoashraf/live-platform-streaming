@@ -33,7 +33,7 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
         LiveRoomEntity entity = modelMapper.map(liveRoom, LiveRoomEntity.class);
         return repository.save(entity)
                 .doOnRequest(l -> log.info("Request received to save LiveRoom entity to DB"))
-                .doOnSuccess(liveRoomEntity -> log.info("LiveRoom entity successfully persisted into db : {}", liveRoomEntity))
+//                .doOnSuccess(liveRoomEntity -> log.info("LiveRoom entity successfully persisted into db : {}", liveRoomEntity))
                 .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class));
     }
 

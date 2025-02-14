@@ -23,8 +23,8 @@ public class LevelService implements LevelUseCase {
     @Override
     public Mono<Level> getLevelDomainByLevel(int level) {
         return port.getLevelDomainByLevel(level)
-                .doOnRequest(l -> log.info("Fetching level from mongo for level: {}", level))
-                .doOnSuccess(level1 -> log.info("Successfully fetched level from mongo: {}", level1))
+//                .doOnRequest(l -> log.info("Fetching level from mongo for level: {}", level))
+//                .doOnSuccess(level1 -> log.info("Successfully fetched level from mongo: {}", level1));
                 .doOnError(err -> log.error("Error while fetching level from mongo: {}", err.getMessage()));
     }
 

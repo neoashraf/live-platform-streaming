@@ -11,6 +11,7 @@ public interface CachePort {
     Mono<LiveRoomFirebaseEntity> create(LiveRoomFirebaseEntity entity);
     Mono<String> delete(String id);
     Mono<LiveRoomEntity> update(LiveRoomEntity entity);
+    Mono<LiveRoomEntity> updateForCurrentLiveRoomGiftReceived(LiveRoomFirebaseEntity liveRoomFirebaseEntity, String liveRoomId);
     Mono<LiveRoom> update(LiveRoom liveRoom);
     Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom);
     Mono<LiveRoom> updateForViewerKick(LiveRoom liveRoom);

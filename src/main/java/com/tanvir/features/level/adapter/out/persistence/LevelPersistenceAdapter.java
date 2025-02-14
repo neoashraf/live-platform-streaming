@@ -27,7 +27,7 @@ public class LevelPersistenceAdapter implements LevelPersistencePort {
         return repository.findByLevel(level)
                 .map(levelEntity -> modelMapper.map(levelEntity, Level.class))
                 .doOnRequest(l -> log.info("Fetching level from mongo for level: {}", level))
-                .doOnSuccess(level1 -> log.info("Successfully fetched level from mongo: {}", level1))
+//                .doOnSuccess(level1 -> log.info("Successfully fetched level from mongo: {}", level1))
                 .doOnError(err -> log.error("Error while fetching level from mongo: {}", err.getMessage()));
     }
 

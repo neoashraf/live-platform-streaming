@@ -19,6 +19,7 @@ public class Announcement {
     private String messageTemplate;
     private AnnouncementUser publisher;
     private AnnouncementUser mentionedUser;
+    private AnnouncementUser receiverUser;
     private Gift gift;
     private Resource resource;
     private Ride ride;

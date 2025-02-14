@@ -242,6 +242,10 @@ public class ReactiveFirebaseRepository<T extends BaseFirebaseEntity> {
     }
 
     public Mono<T> update(T entity, String key) {
+
+        System.out.println("\n Key : "+key+"\n\n");
+//        System.out.println("Data being sent: " + mapper.convertValue(entity, Map.class).toString()+"\n\n"); // Debugging
+
         return Mono.create(sink -> {
             databaseReference.child(key).setValue(mapper.convertValue(entity, Map.class), (databaseError, databaseReference) -> {
                 if (databaseError != null) {
@@ -250,6 +254,7 @@ public class ReactiveFirebaseRepository<T extends BaseFirebaseEntity> {
                     sink.success(entity);
                 }
             });
+
         });
     }
 

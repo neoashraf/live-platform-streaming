@@ -3,6 +3,7 @@ package com.tanvir.features.gifttransaction.domain;
 import com.tanvir.core.util.CommonFunctions;
 import com.tanvir.features.gift.domain.Gift;
 import com.tanvir.features.gifttransaction.domain.valueobjects.SenderReceiverDto;
+import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.DailyStarProgress;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -37,6 +38,7 @@ public class GiftTransaction {
     private Gift gift;
     private String agencyId;
     private DailyStarProgress dailyStarProgress;
+    private LiveRoom liveRoom;
 
     @Override
     public String toString() {

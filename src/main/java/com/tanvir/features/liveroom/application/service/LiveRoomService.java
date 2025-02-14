@@ -976,13 +976,12 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant.")))
                 .flatMap(tupleOfLiveRoomAndUser ->
                 {
-                    log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
+//                    log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
                     return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto)
                             .flatMap(joinRequests -> {
                                 LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
                                 liveRoom.setJoinRequests(joinRequests);
                                 return port.saveLiveRoom(liveRoom).zipWith(Mono.just(tupleOfLiveRoomAndUser.getT2()));
-
                             });
                 })
                 .doOnNext(liveRoomUserTuple2 -> cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
@@ -1262,7 +1261,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             liveRoom.setViewer(viewer);
                             liveRoom.setViewerCount(liveRoom.getViewerCount() + 1);
 
-                            log.info("audio participants size : {}", liveRoom.getAudioParticipants().size());
+//                            log.info("audio participants size : {}", liveRoom.getAudioParticipants().size());
                             if (liveRoom.getAudioParticipants().size() < liveRoom.getMaxAudioParticipants()) {
                                 List<Viewer> updatedAudioParticipants = new ArrayList<>(liveRoom.getAudioParticipants());
                                 updatedAudioParticipants.add(viewer);

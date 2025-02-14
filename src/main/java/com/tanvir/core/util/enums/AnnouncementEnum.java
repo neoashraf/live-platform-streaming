@@ -10,6 +10,9 @@ public enum AnnouncementEnum {
     ANNOUNCEMENT_MESSAGE_KICK("{{publisher}} kicked {{mentionedUser}}"),
     ANNOUNCEMENT_MESSAGE_COMMENT("{{publisher}}: "),
     ANNOUNCEMENT_MESSAGE_GIFT("{{mentionedUser}} sent {{gift.quantity}} x {{gift.resource}}"),
+
+    ANNOUNCEMENT_MESSAGE_GIFT_UPDATE("{{mentionedUser}} sent {{receiverUser}} {{gift.quantity}} x {{gift.resource}}"),
+
     ANNOUNCEMENT_MESSAGE_WELCOME("{{publisher}}: {{mentionedUser}} "),
 
     ANNOUNCEMENT_TYPE_JOIN_CASUAL("ENTRY"),
@@ -18,7 +21,9 @@ public enum AnnouncementEnum {
 
     ANNOUNCEMENT_TYPE_KICK("KICK"),
     ANNOUNCEMENT_TYPE_COMMENT("COMMENT"),
-    ANNOUNCEMENT_TYPE_GIFT("GIFT")
+    ANNOUNCEMENT_TYPE_GIFT("GIFT"),
+
+    ANNOUNCEMENT_TYPE_GIFT_UPDATE("GIFT_UPDATE")
     ;
     private final String value;
 

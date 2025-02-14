@@ -22,4 +22,5 @@ public class HostSummary {
     private double gems;
     private String gemsValue;
     private DailyStarProgress dailyStarProgress;
+    private double giftsReceivedInThisSession;
 }

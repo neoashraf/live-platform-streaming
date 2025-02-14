@@ -21,7 +21,7 @@ public class LiveRoomActivityService {
 
         return liveroomActivityRepository.findByUserId(userId)
                 .doOnRequest(l -> log.info("Request received to update daily received gems for user : {}", userId))
-                .doOnSuccess(activity -> log.info("Got activity for user : {}", activity))
+//                .doOnSuccess(activity -> log.info("Got activity for user : {}", activity))
                 .flatMap(activity -> {
                     Instant activityEndTime = activity.getEndTime(); // Get the stored endTime in UTC
                     log.info("now : {}, activityEndTime : {}", now, activityEndTime);
@@ -31,7 +31,8 @@ public class LiveRoomActivityService {
                         log.info("Updating dailyReceivedGems for the same day for user : {}", userId);
                         activity.setDailyReceivedGems(activity.getDailyReceivedGems() + gemsReceived);
                         activity.setUpdatedOn(now);
-                    } else {
+                    }
+                    else {
                         // If `now` is after `endTime`, reset the gems
                         log.info("Resetting dailyReceivedGems for user : {}", userId);
                         activity.setDailyReceivedGems(gemsReceived); // Reset to the current gems received
