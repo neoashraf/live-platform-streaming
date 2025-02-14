@@ -44,31 +44,21 @@ public class CommonBusiness {
 
     public static String convertToShortName(Double value) {
         if (value >= 1e9) {
-            // For billions
             return formatValue(value / 1e9, "B");
         } else if (value >= 1e6) {
-            // For millions
             return formatValue(value / 1e6, "M");
         } else if (value >= 1e3) {
-            // For thousands
             return formatValue(value / 1e3, "K");
         } else {
-            // For values below 1,000, avoid decimal if whole number
             return formatValue(value, "");
         }
     }
 
-
-    private static String formatValue(double value, String suffix) {
-        if (value == Math.floor(value)) {
-            // If it's a whole number, format without decimal places
-            return String.format("%.0f%s", value, suffix);
-        } else if (value * 10 == Math.floor(value * 10)) {
-            // Format with 1 decimal if there's only one non-zero decimal place
-            return String.format("%.1f%s", value, suffix);
+    private static String formatValue(Double value, String suffix) {
+        if (value % 1 == 0) {
+            return String.format("%.0f%s", value, suffix); // No decimals for whole numbers
         } else {
-            // Format with up to 2 decimal places for other cases
-            return String.format("%.2f%s", value, suffix);
+            return String.format("%.2f%s", Math.floor(value * 100) / 100, suffix); // Truncate to 2 decimal places
         }
     }
 
