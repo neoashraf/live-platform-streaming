@@ -18,7 +18,6 @@ import java.util.List;
 @Data
 @Document(collection = "users")
 public class UserEntity {
-
     @Id
     private String id;
     private LocalDateTime createdOn;
@@ -26,7 +25,6 @@ public class UserEntity {
     private LocalDateTime updatedOn;
     private String updatedBy;
     private LocalDateTime statusUpdatedAt;
-
     @Indexed(unique = true)
     private String maxId;
     private String firstName;
@@ -48,31 +46,23 @@ public class UserEntity {
     private List<String> roles;
     private String userType;
     private String active;
-
+    private String remarks;
+    private String markedAsDeleted;
     private int userLevel;
     private String levelBadgeUrl;
     private double beans;
     private double gems;
     private double beansGifted;
-
     private String profileDescription;
     @Indexed(unique = true)
     private String keycloakId;
-
     private String rideId;
     private String rideUrl;
     private String entryCardId;
     private String entryCardUrl;
-
-
-
-
-    // Follow features
     private List<String> followers;
     private List<String> followings;
     private List<String> friends;
-
-
 
     @Override
     public String toString() {

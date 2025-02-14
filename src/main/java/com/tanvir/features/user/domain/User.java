@@ -40,27 +40,23 @@ public class User {
     private List<String> roles;
     private String userType;
     private String active;
-
     private int userLevel;
     private String levelBadgeUrl;
     private double beans;
     private double gems;
     private double beansGifted;
-
     private String profileDescription;
     private String keycloakId;
     private String rideId;
     private String rideUrl;
     private String entryCardId;
     private String entryCardUrl;
-
-    // Follow features
     private List<String> followers;
     private List<String> followings;
     private List<String> friends;
-
-    // for send gifts
     private boolean isSender;
+    private String remarks;
+    private String markedAsDeleted;
 
 
 	@Override
