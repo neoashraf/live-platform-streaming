@@ -20,6 +20,8 @@ public class JoinRequests {
     private String micOn;
     private String profileImageUrl;
     private String profileLevelUrl;
+    private String profileFrameId;
+    private String profileFrameUrl;
     private String status;
     private String reason;
     private String gender;

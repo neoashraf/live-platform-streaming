@@ -17,6 +17,8 @@ public class HostSummary {
     private String gender;
     private String profileImageId;
     private String profileImageUrl;
+    private String profileFrameId;
+    private String profileFrameUrl;
     private int userLevel;
     private String levelBadgeUrl;
     private double gems;

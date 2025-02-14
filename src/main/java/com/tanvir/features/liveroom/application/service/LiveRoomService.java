@@ -7,14 +7,12 @@ import com.tanvir.features.agora.service.AgoraService;
 import com.tanvir.features.agora.service.AgoraTokenRequestDto;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.content.application.port.in.ContentUseCase;
-import com.tanvir.features.gifttransaction.application.port.in.GiftTransactionUseCase;
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.application.service.GiftTransactionService;
 import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
-import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
@@ -29,7 +27,6 @@ import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
 import com.tanvir.features.liveroomsummary.adapter.out.persistence.entity.LiveRoomSummaryEntity;
 import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
 import com.tanvir.features.liveroomsummary.application.service.LiveRoomSummaryService;
-import com.tanvir.features.liveroomsummary.domain.LiveRoomSummary;
 import com.tanvir.features.metaproperty.application.port.in.MetaPropertyUseCase;
 import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.application.port.in.UserUseCase;
@@ -40,14 +37,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.testng.util.Strings;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
 import java.text.DecimalFormat;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
@@ -112,8 +107,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                                 liveRoom.getId() != null
                                                         ? Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already has an active LiveRoom."))
                                                         : Mono.just(liveRoom))
-                                        .thenReturn(host)))
-                .flatMap(host -> this.buildLiveRoomDomain(host, requestDto)
+                                        .thenReturn(Tuples.of(user, host))))
+                .flatMap(userHostTuple2 -> this.buildLiveRoomDomain(userHostTuple2.getT2(), requestDto)
                         .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
                         .flatMap(port::saveLiveRoom)
                         .map(liveRoom -> {
@@ -122,7 +117,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         })
                         .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
                         .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
-                        .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
+                        .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, userHostTuple2.getT2(), userHostTuple2.getT1())
                                 .flatMap(cachePort::create)
                                 .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
                                 .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
@@ -155,7 +150,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
-    private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host) {
+    private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host, User user) {
 
         return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
                 .flatMap(currentGems -> levelUseCase.getLevelDomainByLevel(host.getUserLevel())
@@ -179,6 +174,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .gems(host.getGems())
                                     .gemsValue(CommonBusiness.convertToShortName(host.getGems()))
                                     .dailyStarProgress(starProgress)
+                                    .profileFrameId(user.getProfileFrameId())
+                                    .profileFrameUrl(user.getProfileFrameUrl())
                                     .build();
 
                             return LiveRoomFirebaseEntity
@@ -280,7 +277,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .displayName(user.getDisplayName())
                                     .gender(user.getGender())
                                     .profilePictureUrl(user.getProfileImageUrl())
-                                    .frameUrl(user.getProfileFrameUrl())
+                                    .profileFrameUrl(user.getProfileFrameUrl())
+                                    .profileFrameId(user.getProfileFrameId())
                                     .userLevel(user.getUserLevel())
                                     .levelBadgeUrl(user.getLevelBadgeUrl())
                                     .build();
@@ -789,7 +787,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .displayName(kickedUser.getDisplayName())
                 .gender(kickedUser.getGender())
                 .profilePictureUrl(kickedUser.getProfileImageUrl())
-                .frameUrl(kickedUser.getProfileFrameUrl())
+                .profileFrameUrl(kickedUser.getProfileFrameUrl())
+                .profileFrameId(kickedUser.getProfileFrameId())
                 .userLevel(kickedUser.getUserLevel())
                 .levelBadgeUrl(kickedUser.getLevelBadgeUrl())
                 .build();
@@ -1189,8 +1188,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                         liveRoom.getId() != null
                                                 ? Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already has an active LiveRoom."))
                                                 : Mono.just(liveRoom))
-                                .thenReturn(host)))
-                .flatMap(host -> this.buildAudioLiveRoomDomain(host, requestDto)
+                                .thenReturn(Tuples.of(user, host))))
+                .flatMap(userHostTuple2 -> this.buildAudioLiveRoomDomain(userHostTuple2.getT2(), requestDto)
                         .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
                         .flatMap(port::saveLiveRoom)
                         .map(liveRoom -> {
@@ -1199,7 +1198,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         })
                         .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
                         .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
-                        .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, host)
+                        .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, userHostTuple2.getT2(), userHostTuple2.getT1())
                                 .flatMap(cachePort::create)
                                 .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
                                 .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
@@ -1254,7 +1253,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .displayName(user.getDisplayName())
                                     .gender(user.getGender())
                                     .profilePictureUrl(user.getProfileImageUrl())
-                                    .frameUrl(user.getProfileFrameUrl())
+                                    .profileFrameUrl(user.getProfileFrameUrl())
+                                    .profileFrameId(user.getProfileFrameId())
                                     .userLevel(user.getUserLevel())
                                     .levelBadgeUrl(user.getLevelBadgeUrl())
                                     .build();
@@ -1430,6 +1430,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .profileImageUrl(user.getProfileImageUrl())
                             .status(Constants.STATUS_PENDING.getValue())
                             .gender(user.getGender())
+                            .profileFrameId(user.getProfileFrameId())
+                            .profileFrameUrl(user.getProfileFrameUrl())
                             .build();
                     return List.of(joinRequest);
                 });
@@ -1683,7 +1685,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .displayName(user.getDisplayName())
                 .gender(user.getGender())
                 .profilePictureUrl(user.getProfileImageUrl())
-                .frameUrl(user.getProfileFrameUrl())
+                .profileFrameUrl(user.getProfileFrameUrl())
+                .profileFrameId(user.getProfileFrameId())
                 .userLevel(user.getUserLevel())
                 .build();
         liveRoom.setViewer(viewer);

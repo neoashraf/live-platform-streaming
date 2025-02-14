@@ -295,6 +295,8 @@ public class FirebaseAdapter implements CachePort {
                             joinRequests.setProfileLevelUrl(liveRoom.getJoinRequests().get(0).getProfileLevelUrl());
                             joinRequests.setProfileImageUrl(liveRoom.getJoinRequests().get(0).getProfileImageUrl());
                             joinRequests.setDisplayName(liveRoom.getJoinRequests().get(0).getDisplayName());
+                            joinRequests.setProfileFrameId(liveRoom.getJoinRequests().get(0).getProfileFrameId());
+                            joinRequests.setProfileFrameUrl(liveRoom.getJoinRequests().get(0).getProfileFrameUrl());
                         }, () -> {
                             currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
                         });

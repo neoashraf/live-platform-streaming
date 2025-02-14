@@ -40,6 +40,8 @@ public class HostEntity implements Persistable<String> {
     private String country;
     private String profileImageId;
     private String profileImageUrl;
+    private String profileFrameId;
+    private String profileFrameUrl;
     private String phoneNoCountryCode;
     private String phoneNo;
     private String email;

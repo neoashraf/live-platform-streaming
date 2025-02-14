@@ -6,8 +6,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 @Data
 @Builder
 @AllArgsConstructor
@@ -18,7 +16,8 @@ public class Viewer {
     private String displayName;
     private String gender;
     private String profilePictureUrl;
-    private String frameUrl;
+    private String profileFrameUrl;
+    private String profileFrameId;
     private int userLevel;
     private String levelBadgeUrl;
     private String rideId;
