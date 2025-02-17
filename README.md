@@ -91,3 +91,17 @@ For open source projects, say how it is licensed.
 
 ## Project status
 If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+
+
+### Create Log File
+
+```sh
+sudo mkdir -p /var/log/max-live/home && sudo touch /var/log/max-live/home/home-0.log
+```
+### Set Correct Permissions
+
+```shell
+sudo chown -R $(whoami):$(whoami) /var/log/max-live/home
+sudo chmod -R 755 /var/log/max-live/home
+```
+---
