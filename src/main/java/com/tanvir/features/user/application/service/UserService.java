@@ -153,7 +153,7 @@ public class UserService implements UserUseCase {
                 .flatMap(userPort::save)*/
                 userPort.updateUserFields(user.getId(), updatedFields)
                 .doOnRequest(l -> log.info("Request received to update user"))
-//                .doOnNext(user1 -> log.info("User updated successfully: {}", user))
+                .doOnNext(user1 -> log.info("User updated successfully: {}", user))
                 .doOnError(throwable -> log.error("Error while updating user profile: {}", throwable.getMessage()))
                 .flatMap(user1 ->
                         user.getUserType().equals(UserTypeEnum.USER_TYPE_MAX_USER.getValue())

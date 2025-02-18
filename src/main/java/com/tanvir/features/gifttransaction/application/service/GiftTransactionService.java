@@ -23,6 +23,7 @@ import com.tanvir.features.host.application.port.out.HostPersistencePort;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
+import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.*;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserMongoRepository;
@@ -104,30 +105,34 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                                 }))
                                 .flatMap(this::updateUserForGiftTransaction)
                                 .flatMap(giftSummaryUseCase::processGiftSummary)
+                                .doOnNext(giftTransaction -> log.info("processed gift summary"))
                                 .flatMap(giftTransaction1 -> giftTransaction1.getLiveSession() != null && giftTransaction1.getLiveSession().equals(Constants.STATUS_YES.getValue())
                                         ? liveRoomUseCase.getLiveRoomById(giftTransaction1.getLiveRoomId())
                                             .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
                                             .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
                                             .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Live Room is not live")))
                                             .flatMap(liveRoom -> {
+                                                giftTransaction1.setLiveRoom(liveRoom);
                                                 if (giftTransaction1.getReceiverId().equals(liveRoom.getUserId())) {
                                                     return calculateHostDailyStarProgress(giftTransaction1);
                                                 }
                                                 return Mono.just(giftTransaction1);
                                             })
                                         : Mono.just(giftTransaction1))
+                                .doOnNext(giftTransaction -> log.info("processed host daily star progress"))
                                 .flatMap(this::processGiftTransactionForAudioStream)
                                 .doOnError(throwable -> log.error("Error while calculating host daily star progress"))
                                 .map(giftTransaction -> {
-                                        if (giftTransaction.getLiveRoom().getType()
-                                                        .equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                                                announceToFirebaseForAudioLiveGift(giftTransaction)
-                                                                .subscribeOn(Schedulers.boundedElastic()).subscribe();
+                                    if (giftTransaction.getLiveRoom() != null) {
+                                        if (giftTransaction.getLiveRoom().getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
+                                            announceToFirebaseForAudioLiveGift(giftTransaction)
+                                                    .subscribeOn(Schedulers.boundedElastic()).subscribe();
                                         } else {
-                                                announceToFirebaseIfLiveSession(giftTransaction)
-                                                                .subscribeOn(Schedulers.boundedElastic()).subscribe();
+                                            announceToFirebaseIfLiveSession(giftTransaction)
+                                                    .subscribeOn(Schedulers.boundedElastic()).subscribe();
                                         }
-                                        return giftTransaction;
+                                    }
+                                    return giftTransaction;
                                 })
                                 .doOnNext(giftTransaction -> log.info("sender level : {}",
                                                 giftTransaction.getSenderReceiverDto().getSender().getUserLevel()))
@@ -230,7 +235,13 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                                 giftTransaction.setLiveRoom(liveRoom);
                                                 return liveRoomUseCase
                                                         .updateLiveRoom(liveRoom)
-                                                        .thenReturn(giftTransaction);
+                                                        .flatMap(liveRoom1 ->
+                                                                cachePort.getLiveRoomById(liveRoom1.getId())
+                                                                        .flatMap(liveRoomFirebaseEntity -> {
+                                                                            liveRoomFirebaseEntity.getHost().setDailyStarProgress(starProgress);
+                                                                            return cachePort.updateForCurrentLiveRoomGiftReceived(liveRoomFirebaseEntity, liveRoom1.getId());
+                                                                        })
+                                                        .map(liveRoomEntity -> giftTransaction));
                                         })
                                     : Mono.just(giftTransaction);
                         })
@@ -685,11 +696,14 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
                 sender.setSender(true);
 
+                senderUpdatedFields.put("beans", sender.getBeans() - giftTransaction.getBeans());
                 senderUpdatedFields.put("beansGifted", sender.getBeansGifted() + giftTransaction.getBeans());
+
+                receiverUpdatedFields.put("gems", receiver.getGems() + giftTransaction.getBeans());
 
                 return levelUseCase.getAllLevels()
                                 .flatMap(levels -> {
-                                        double beansGifted = sender.getBeansGifted();
+                                        double beansGifted = sender.getBeansGifted() + giftTransaction.getBeans();
                                         int level = CommonBusiness.calculateLevel(beansGifted, levels);
                                         sender.setUserLevel(level);
                                         senderUpdatedFields.put("level", level);
