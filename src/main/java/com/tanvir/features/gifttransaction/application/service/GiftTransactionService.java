@@ -681,48 +681,47 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                 .build();
         }
 
-        private Mono<GiftTransaction> updateUserForGiftTransaction(GiftTransaction giftTransaction) {
 
-                User sender = giftTransaction.getSenderReceiverDto().getSender();
-                User receiver = giftTransaction.getSenderReceiverDto().getReceiver();
-                Map<String, Object> senderUpdatedFields = giftTransaction.getSenderReceiverDto()
-                                .getSenderUpdatedFields() == null
-                                                ? new HashMap<>()
-                                                : giftTransaction.getSenderReceiverDto().getSenderUpdatedFields();
-                Map<String, Object> receiverUpdatedFields = giftTransaction.getSenderReceiverDto()
-                                .getReceiverUpdatedFields() == null
-                                                ? new HashMap<>()
-                                                : giftTransaction.getSenderReceiverDto().getReceiverUpdatedFields();
+    private Mono<GiftTransaction> updateUserForGiftTransaction(GiftTransaction giftTransaction) {
+        User sender = giftTransaction.getSenderReceiverDto().getSender();
+        User receiver = giftTransaction.getSenderReceiverDto().getReceiver();
+        Map<String, Object> senderUpdatedFields = giftTransaction.getSenderReceiverDto().getSenderUpdatedFields() == null
+                ? new HashMap<>()
+                : giftTransaction.getSenderReceiverDto().getSenderUpdatedFields();
+        Map<String, Object> receiverUpdatedFields = giftTransaction.getSenderReceiverDto().getReceiverUpdatedFields() == null
+                ? new HashMap<>()
+                : giftTransaction.getSenderReceiverDto().getReceiverUpdatedFields();
 
-                sender.setSender(true);
+        sender.setSender(true);
 
-                senderUpdatedFields.put("beans", sender.getBeans() - giftTransaction.getBeans());
-                senderUpdatedFields.put("beansGifted", sender.getBeansGifted() + giftTransaction.getBeans());
-
-                receiverUpdatedFields.put("gems", receiver.getGems() + giftTransaction.getBeans());
-
-                return levelUseCase.getAllLevels()
-                                .flatMap(levels -> {
-                                        double beansGifted = sender.getBeansGifted() + giftTransaction.getBeans();
-                                        int level = CommonBusiness.calculateLevel(beansGifted, levels);
-                                        sender.setUserLevel(level);
-                                        senderUpdatedFields.put("level", level);
-                                        return commonBusiness.setUserLevelUrl(sender)
-                                                        .map(user -> {
-                                                                senderUpdatedFields.put("levelBadgeUrl",
-                                                                                user.getLevelBadgeUrl());
-                                                                return user;
-                                                        });
-                                })
-                                .map(userMono -> {
-                                        giftTransaction.getSenderReceiverDto()
-                                                        .setSenderUpdatedFields(senderUpdatedFields);
-                                        giftTransaction.getSenderReceiverDto()
-                                                        .setReceiverUpdatedFields(receiverUpdatedFields);
-                                        return giftTransaction;
-                                })
-                                .doOnError(throwable -> log.error("Error while updating user for gift transaction : {}",
-                                                throwable.getMessage()));
+        if (sender.getId().equals(receiver.getId())) {
+            receiverUpdatedFields.put("beans", sender.getBeans() - giftTransaction.getBeans());
         }
+
+
+        senderUpdatedFields.put("beans", sender.getBeans() - giftTransaction.getBeans());
+        receiverUpdatedFields.put("gems", receiver.getGems() + giftTransaction.getBeans());
+        senderUpdatedFields.put("beansGifted", sender.getBeansGifted() + giftTransaction.getBeans());
+
+
+        return levelUseCase.getAllLevels()
+                .flatMap(levels -> {
+                    double beansGifted = sender.getBeansGifted();
+                    int level = CommonBusiness.calculateLevel(beansGifted, levels);
+                    sender.setUserLevel(level);
+                    senderUpdatedFields.put("level", level);
+                    return commonBusiness.setUserLevelUrl(sender)
+                            .map(user -> {
+                                senderUpdatedFields.put("levelBadgeUrl", user.getLevelBadgeUrl());
+                                return user;
+                            });
+                })
+                .map(userMono -> {
+                    giftTransaction.getSenderReceiverDto().setSenderUpdatedFields(senderUpdatedFields);
+                    giftTransaction.getSenderReceiverDto().setReceiverUpdatedFields(receiverUpdatedFields);
+                    return giftTransaction;
+                })
+                .doOnError(throwable -> log.error("Error while updating user for gift transaction : {}", throwable.getMessage()));
+    }
 
 }
