@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
@@ -414,9 +415,15 @@ public class FirebaseAdapter implements CachePort {
                     }
 
                     optionalJoinRequests.ifPresentOrElse(joinRequests -> {
-                                joinRequests.setCameraOn(joinCallRequestUpdateDto.getCameraOn());
-                                joinRequests.setMicOn(joinCallRequestUpdateDto.getMicOn());
-                                joinRequests.setCameraView(joinCallRequestUpdateDto.getCameraView());
+                                joinRequests.setCameraOn(Strings.isNotNullAndNotEmpty(joinCallRequestUpdateDto.getCameraOn())
+                                            ? joinCallRequestUpdateDto.getCameraOn()
+                                            : joinRequests.getCameraOn());
+                                joinRequests.setMicOn(Strings.isNotNullAndNotEmpty(joinCallRequestUpdateDto.getMicOn())
+                                            ? joinCallRequestUpdateDto.getMicOn()
+                                            : joinRequests.getMicOn());
+                                joinRequests.setCameraView(Strings.isNotNullAndNotEmpty(joinCallRequestUpdateDto.getCameraView())
+                                            ? joinCallRequestUpdateDto.getCameraView()
+                                            : joinRequests.getCameraView());
                             },
                             () -> Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"))
                     );
