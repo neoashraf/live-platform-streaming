@@ -104,7 +104,18 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                                 }))
                                 .flatMap(this::updateUserForGiftTransaction)
                                 .flatMap(giftSummaryUseCase::processGiftSummary)
-                                .flatMap(this::calculateHostDailyStarProgress)
+                                .flatMap(giftTransaction1 -> giftTransaction1.getLiveSession() != null && giftTransaction1.getLiveSession().equals(Constants.STATUS_YES.getValue())
+                                        ? liveRoomUseCase.getLiveRoomById(giftTransaction1.getLiveRoomId())
+                                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
+                                            .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Live Room is not live")))
+                                            .flatMap(liveRoom -> {
+                                                if (giftTransaction1.getReceiverId().equals(liveRoom.getUserId())) {
+                                                    return calculateHostDailyStarProgress(giftTransaction1);
+                                                }
+                                                return Mono.just(giftTransaction1);
+                                            })
+                                        : Mono.just(giftTransaction1))
                                 .flatMap(this::processGiftTransactionForAudioStream)
                                 .doOnError(throwable -> log.error("Error while calculating host daily star progress"))
                                 .map(giftTransaction -> {
@@ -205,34 +216,25 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
         private Mono<GiftTransaction> calculateHostDailyStarProgress(GiftTransaction giftTransaction) {
                 return liveRoomActivityService
-                                .updateDailyReceivedGems(giftTransaction.getReceiverId(), giftTransaction.getBeans())
-                                .flatMap(liveRoomActivityEntity -> {
-                                        double currentGems = liveRoomActivityEntity.getDailyReceivedGems();
-                                        DailyStarProgress starProgress = this.calculateStarProgress(currentGems);
-                                        giftTransaction.setDailyStarProgress(starProgress);
+                        .updateDailyReceivedGems(giftTransaction.getReceiverId(), giftTransaction.getBeans())
+                        .flatMap(liveRoomActivityEntity -> {
+                                double currentGems = liveRoomActivityEntity.getDailyReceivedGems();
+                                DailyStarProgress starProgress = this.calculateStarProgress(currentGems);
+                                giftTransaction.setDailyStarProgress(starProgress);
 
-                                        return Strings.isNotNullAndNotEmpty(giftTransaction.getLiveSession())
-                                                        && giftTransaction.getLiveSession()
-                                                                        .equals(Constants.STATUS_YES.getValue())
-                                                                                        ? liveRoomUseCase
-                                                                                                        .getLiveRoomById(
-                                                                                                                        giftTransaction.getLiveRoomId())
-                                                                                                        .switchIfEmpty(Mono
-                                                                                                                        .error(new ExceptionHandlerUtil(
-                                                                                                                                        HttpStatus.NOT_FOUND,
-                                                                                                                                        "Live Room not found")))
-                                                                                                        .flatMap(liveRoom -> {
-                                                                                                                liveRoom.setHostDailyGems(
-                                                                                                                                currentGems);
-                                                                                                                giftTransaction.setLiveRoom(
-                                                                                                                                liveRoom);
-                                                                                                                return liveRoomUseCase
-                                                                                                                                .updateLiveRoom(liveRoom)
-                                                                                                                                .thenReturn(giftTransaction);
-                                                                                                        })
-                                                                                        : Mono.just(giftTransaction);
-                                })
-                                .doOnError(throwable -> log.error("Error while calculating host daily star progress"));
+                                return Strings.isNotNullAndNotEmpty(giftTransaction.getLiveSession()) && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
+                                    ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
+                                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
+                                        .flatMap(liveRoom -> {
+                                                liveRoom.setHostDailyGems(currentGems);
+                                                giftTransaction.setLiveRoom(liveRoom);
+                                                return liveRoomUseCase
+                                                        .updateLiveRoom(liveRoom)
+                                                        .thenReturn(giftTransaction);
+                                        })
+                                    : Mono.just(giftTransaction);
+                        })
+                        .doOnError(throwable -> log.error("Error while calculating host daily star progress"));
         }
 
         private DailyStarProgress calculateStarProgress(double currentGems) {
