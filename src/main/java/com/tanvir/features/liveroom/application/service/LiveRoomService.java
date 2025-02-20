@@ -983,11 +983,20 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 return port.saveLiveRoom(liveRoom).zipWith(Mono.just(tupleOfLiveRoomAndUser.getT2()));
                             });
                 })
-                .doOnNext(liveRoomUserTuple2 -> cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
-                        .doOnNext(liveRoomEntity -> log.info("LiveRoom  updated into firebase successfully"))
-                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .subscribe())
+                .flatMap(liveRoomUserTuple2 ->
+                        cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
+                                .zipWith(Mono.just(liveRoomUserTuple2.getT2()), (liveRoomEntity, userEntity) -> {
+                                    log.info("LiveRoom updated into Firebase successfully");
+                                    return Tuples.of(liveRoomEntity, userEntity);
+                                })
+                                .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
+                                .subscribeOn(Schedulers.boundedElastic())
+                )
+//                .doOnNext(liveRoomUserTuple2 -> cachePort.updateForJoinRequest(liveRoomUserTuple2.getT1())
+//                        .doOnNext(liveRoomEntity -> log.info("LiveRoom  updated into firebase successfully"))
+//                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+//                        .subscribeOn(Schedulers.boundedElastic())
+//                        .subscribe())
                 .flatMap(roomUserTuple2 -> buildJoinRequestResponse(roomUserTuple2.getT1(), roomUserTuple2.getT2(), requestDto))
                 .map(liveRoomJoinRequestInfo -> JoinCallResponseDto
                         .builder()
