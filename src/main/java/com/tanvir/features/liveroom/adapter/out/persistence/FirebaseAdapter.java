@@ -112,6 +112,7 @@ public class FirebaseAdapter implements CachePort {
                 .map(firebaseReturnedEntity -> liveRoom);
     }
 
+
     @Override
     public Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
@@ -136,7 +137,9 @@ public class FirebaseAdapter implements CachePort {
                     List<JoinRequests> currentJoinRequests = new ArrayList<>(firebaseEntity.getJoinRequests() != null ? firebaseEntity.getJoinRequests() : new ArrayList<>());
                     log.info("Current join requests: {}", currentJoinRequests);
                     if (!currentJoinRequests.isEmpty()) {
-                        List<JoinRequests> updatedList = currentJoinRequests.stream().filter(joinRequests -> !joinRequests.getUserId().equals(liveRoom.getViewer().getUserId()))
+                        List<JoinRequests> updatedList = currentJoinRequests.stream()
+                                .filter(joinRequests -> joinRequests.getUserId().equals(liveRoom.getViewer().getUserId()))
+                                .peek(joinRequests -> joinRequests.setStatus(Constants.STATUS_CLOSED.getValue()))
                                 .toList();
                         firebaseEntity.setJoinRequests(updatedList);
                     }
@@ -147,6 +150,7 @@ public class FirebaseAdapter implements CachePort {
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
+
 
     @Override
     public Mono<LiveRoom> updateForViewerKick(LiveRoom liveRoom) {
@@ -288,7 +292,10 @@ public class FirebaseAdapter implements CachePort {
                         Optional<JoinRequests> userJoinRequestExists = currentJoinRequestsInFirebase.stream()
                                 .filter(joinRequests -> joinRequests.getUserId().equals(liveRoom.getJoinRequests().get(0).getUserId()))
                                 .findFirst();
+                        log.info("\n\nReq id : {}\n",liveRoom.getJoinRequests().get(0).getRequestId());
+
                         userJoinRequestExists.ifPresentOrElse(joinRequests -> {
+                            joinRequests.setRequestId(liveRoom.getJoinRequests().get(0).getRequestId());
                             joinRequests.setStatus(Constants.STATUS_PENDING.getValue());
                             joinRequests.setCameraOn(liveRoom.getJoinRequests().get(0).getCameraOn());
                             joinRequests.setCameraView(liveRoom.getJoinRequests().get(0).getCameraView());
@@ -296,8 +303,6 @@ public class FirebaseAdapter implements CachePort {
                             joinRequests.setProfileLevelUrl(liveRoom.getJoinRequests().get(0).getProfileLevelUrl());
                             joinRequests.setProfileImageUrl(liveRoom.getJoinRequests().get(0).getProfileImageUrl());
                             joinRequests.setDisplayName(liveRoom.getJoinRequests().get(0).getDisplayName());
-                            joinRequests.setProfileFrameId(liveRoom.getJoinRequests().get(0).getProfileFrameId());
-                            joinRequests.setProfileFrameUrl(liveRoom.getJoinRequests().get(0).getProfileFrameUrl());
                         }, () -> {
                             currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
                         });
@@ -311,7 +316,6 @@ public class FirebaseAdapter implements CachePort {
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
-
     @Override
     public Mono<LiveRoom> updateForEndStream(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
