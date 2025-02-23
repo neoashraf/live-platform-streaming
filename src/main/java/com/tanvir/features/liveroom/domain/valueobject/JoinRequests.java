@@ -26,6 +26,7 @@ public class JoinRequests {
     private String reason;
     private String gender;
     private double giftsReceivedInThisSession=0.0;
+    private String giftsReceivedInThisSessionString;
 
 
     @Override
