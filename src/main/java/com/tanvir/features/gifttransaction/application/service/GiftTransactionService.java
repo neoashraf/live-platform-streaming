@@ -192,7 +192,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
                             liveRoomFirebaseEntity.getHost().setGiftsReceivedInThisSession(newGiftsReceivedInThisSessionAsHost);
                             liveRoomFirebaseEntity.getHost().setGiftsReceivedInThisSessionString(CommonBusiness.convertToShortName(newGiftsReceivedInThisSessionAsHost));
-                        } else {
+                        }
+                        else {
                             List<JoinRequests> joinRequests = liveRoomFirebaseEntity.getJoinRequests();
 
                             String receiverId = giftTransaction.getReceiverId();

@@ -138,8 +138,13 @@ public class FirebaseAdapter implements CachePort {
                     log.info("Current join requests: {}", currentJoinRequests);
                     if (!currentJoinRequests.isEmpty()) {
                         List<JoinRequests> updatedList = currentJoinRequests.stream()
-                                .filter(joinRequests -> joinRequests.getUserId().equals(liveRoom.getViewer().getUserId()))
-                                .peek(joinRequests -> joinRequests.setStatus(Constants.STATUS_CLOSED.getValue()))
+                                .peek(joinRequest -> {
+                                    if(joinRequest.getUserId().equals(liveRoom.getViewer().getUserId())){
+                                        joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
+                                    }
+                                })
+//                                .filter(joinRequests -> joinRequests.getUserId().equals(liveRoom.getViewer().getUserId()))
+//                                .peek(joinRequests -> joinRequests.setStatus(Constants.STATUS_CLOSED.getValue()))
                                 .toList();
                         firebaseEntity.setJoinRequests(updatedList);
                     }
