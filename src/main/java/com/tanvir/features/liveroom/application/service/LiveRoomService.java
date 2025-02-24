@@ -178,6 +178,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .profileFrameUrl(user.getProfileFrameUrl())
                                     .build();
 
+
+
                             return LiveRoomFirebaseEntity
                                     .builder()
                                     .id(liveRoom.getId())
@@ -196,6 +198,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .maxAudioParticipants(liveRoom.getMaxAudioParticipants())
                                     .audioParticipants(liveRoom.getAudioParticipants())
                                     .enableJoin(liveRoom.getEnableJoin())
+                                    .seatAvailableStatus(
+                                            Arrays.asList(false,false,false,false,false,false,false,false,false,false)
+                                    )
                                     .build();
                         }));
 

@@ -139,12 +139,13 @@ public class FirebaseAdapter implements CachePort {
                     if (!currentJoinRequests.isEmpty()) {
                         List<JoinRequests> updatedList = currentJoinRequests.stream()
                                 .peek(joinRequest -> {
-                                    if(joinRequest.getUserId().equals(liveRoom.getViewer().getUserId())){
+                                    if (joinRequest.getUserId().equals(liveRoom.getViewer().getUserId())) {
                                         joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
+                                        int seatIndex = joinRequest.getSeatIndex() - 1;
+                                        firebaseEntity.getSeatAvailableStatus().set(seatIndex, false);
+                                        joinRequest.setSeatIndex(0);
                                     }
                                 })
-//                                .filter(joinRequests -> joinRequests.getUserId().equals(liveRoom.getViewer().getUserId()))
-//                                .peek(joinRequests -> joinRequests.setStatus(Constants.STATUS_CLOSED.getValue()))
                                 .toList();
                         firebaseEntity.setJoinRequests(updatedList);
                     }
@@ -297,7 +298,7 @@ public class FirebaseAdapter implements CachePort {
                         Optional<JoinRequests> userJoinRequestExists = currentJoinRequestsInFirebase.stream()
                                 .filter(joinRequests -> joinRequests.getUserId().equals(liveRoom.getJoinRequests().get(0).getUserId()))
                                 .findFirst();
-                        log.info("\n\nReq id : {}\n",liveRoom.getJoinRequests().get(0).getRequestId());
+                        log.info("\n\nReq id : {}\n", liveRoom.getJoinRequests().get(0).getRequestId());
 
                         userJoinRequestExists.ifPresentOrElse(joinRequests -> {
                             joinRequests.setRequestId(liveRoom.getJoinRequests().get(0).getRequestId());
@@ -321,6 +322,7 @@ public class FirebaseAdapter implements CachePort {
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
+
     @Override
     public Mono<LiveRoom> updateForEndStream(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
@@ -338,7 +340,7 @@ public class FirebaseAdapter implements CachePort {
     @Override
     public Mono<LiveRoom> updateForProcessingJoinCall(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
         return firebaseRepository.read(liveRoom.getId())
-                .map(entity-> {
+                .map(entity -> {
 //                    System.out.println("\n\n\n Join req : "+entity.getJoinRequests().get(0).toString()+"\n\n\n");
                     return entity;
                 })
@@ -350,17 +352,39 @@ public class FirebaseAdapter implements CachePort {
                             .findFirst();
 
                     optionalJoinRequests.ifPresentOrElse(joinRequests -> {
-                        joinRequests.setStatus(requestDto.getAction());
-                        joinRequests.setReason(requestDto.getReason());
-                    }, () -> {
-                        Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
-                    });
+                                joinRequests.setStatus(requestDto.getAction());
+                                joinRequests.setReason(requestDto.getReason());
+
+                                this.assignSeat(firebaseEntity, joinRequests);
+                                if (joinRequests.getSeatIndex() == firebaseEntity.getSeatAvailableStatus().size())
+                                    Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat capacity crosses limit"));
+                            },
+                            () -> {
+                                Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
+                            });
 
                     return firebaseEntity;
                 })
                 .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
+    }
+
+    private LiveRoomFirebaseEntity assignSeat(LiveRoomFirebaseEntity firebaseEntity, JoinRequests joinRequests) {
+        List<Boolean> seatAvailableStatus = firebaseEntity.getSeatAvailableStatus();
+
+        for (int i = 0; i < seatAvailableStatus.size(); i++) {
+            if (!seatAvailableStatus.get(i)) {
+
+                seatAvailableStatus.set(i, true);
+
+                joinRequests.setSeatIndex(i + 1);
+                firebaseEntity.setSeatAvailableStatus(seatAvailableStatus);
+
+                return firebaseEntity;
+            }
+        }
+        return firebaseEntity;
     }
 
     @Override
@@ -425,14 +449,14 @@ public class FirebaseAdapter implements CachePort {
 
                     optionalJoinRequests.ifPresentOrElse(joinRequests -> {
                                 joinRequests.setCameraOn(Strings.isNotNullAndNotEmpty(joinCallRequestUpdateDto.getCameraOn())
-                                            ? joinCallRequestUpdateDto.getCameraOn()
-                                            : joinRequests.getCameraOn());
+                                        ? joinCallRequestUpdateDto.getCameraOn()
+                                        : joinRequests.getCameraOn());
                                 joinRequests.setMicOn(Strings.isNotNullAndNotEmpty(joinCallRequestUpdateDto.getMicOn())
-                                            ? joinCallRequestUpdateDto.getMicOn()
-                                            : joinRequests.getMicOn());
+                                        ? joinCallRequestUpdateDto.getMicOn()
+                                        : joinRequests.getMicOn());
                                 joinRequests.setCameraView(Strings.isNotNullAndNotEmpty(joinCallRequestUpdateDto.getCameraView())
-                                            ? joinCallRequestUpdateDto.getCameraView()
-                                            : joinRequests.getCameraView());
+                                        ? joinCallRequestUpdateDto.getCameraView()
+                                        : joinRequests.getCameraView());
                             },
                             () -> Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"))
                     );
@@ -440,7 +464,7 @@ public class FirebaseAdapter implements CachePort {
 
                     return Mono.just(firebaseEntity);
                 })
-                .doOnNext(firebaseEntity -> log.debug( "Updated firebase entity after processing join call: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }

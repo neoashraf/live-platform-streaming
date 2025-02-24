@@ -36,4 +36,6 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private int maxAudioParticipants;
     private List<Viewer> audioParticipants;
     private List<String> kickedOutUserIds;
+
+    private List<Boolean> seatAvailableStatus;
 }
