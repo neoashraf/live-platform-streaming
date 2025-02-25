@@ -16,6 +16,8 @@ public class Level {
     private String id;
     private int level;
     private List<ResourceFormat> resourceFormats;
-    private double nextLevelExpTargetValue;
+    private long nextLevelExpTargetValue;
     private String nextLevelExpTargetName;
+    private long expValue;
+    private String expName;
 }

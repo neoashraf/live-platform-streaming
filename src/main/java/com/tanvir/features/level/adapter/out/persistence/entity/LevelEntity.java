@@ -22,4 +22,6 @@ public class LevelEntity {
     private List<ResourceFormat> resourceFormats;
     private long nextLevelExpTargetValue;
     private String nextLevelExpTargetName;
+    private long expValue;
+    private String expName;
 }

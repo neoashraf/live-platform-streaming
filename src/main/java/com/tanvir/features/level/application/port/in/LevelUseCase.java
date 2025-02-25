@@ -10,4 +10,5 @@ public interface LevelUseCase {
     Mono<Level> getLevelDomainByLevel(int level);
     Mono<List<Level>> getAllLevels();
     Flux<Level> getLevelDomains(List<Integer> levels);
+    Mono<Level> getLevelByExpValue(long expValue);
 }
