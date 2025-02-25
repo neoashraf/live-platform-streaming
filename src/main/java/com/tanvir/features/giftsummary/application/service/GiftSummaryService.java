@@ -67,7 +67,7 @@ public class GiftSummaryService implements GiftSummaryUseCase {
                             senderAmountMap.getOrDefault(transaction.getSenderId(), 0.0) + transaction.getBeans());
 
                     summary.setSenderAmountMap(senderAmountMap);
-                    summary.setUpdatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
+                    summary.setUpdatedOn(transaction.getCreatedOn());
                     summary.setId(summary.getId());
 
                     // Save the updated summary back to the database
@@ -92,8 +92,7 @@ public class GiftSummaryService implements GiftSummaryUseCase {
                             senderAmountMap.getOrDefault(transaction.getSenderId(), 0.0) + transaction.getBeans());
 
                     newSummary.setSenderAmountMap(senderAmountMap);
-                    newSummary.setUpdatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
-                    newSummary.setCreatedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
+                    newSummary.setCreatedOn(transaction.getCreatedOn());
 
                     // Save the new summary back to the database
                     return reactiveMongoTemplate.save(newSummary)
