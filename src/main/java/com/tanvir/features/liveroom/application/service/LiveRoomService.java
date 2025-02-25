@@ -1679,7 +1679,6 @@ public class LiveRoomService implements LiveRoomUseCase {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User doesn't exist in Stream! Can't Leave."));
         }
 
-
         if (liveRoom.getViewerIds() != null) {
             liveRoom.getViewerIds().remove(user.getId());
             liveRoom.setViewerCount(liveRoom.getViewerIds().size());

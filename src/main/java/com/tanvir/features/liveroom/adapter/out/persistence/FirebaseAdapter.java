@@ -119,6 +119,7 @@ public class FirebaseAdapter implements CachePort {
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
+                    log.info("Viewer : {}", liveRoom.getViewer());
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
                     currentViewersInFirebase.removeIf(viewer -> viewer.getUserId().equals(liveRoom.getViewer().getUserId()));
                     firebaseEntity.setViewers(currentViewersInFirebase);
@@ -140,10 +141,12 @@ public class FirebaseAdapter implements CachePort {
                         List<JoinRequests> updatedList = currentJoinRequests.stream()
                                 .peek(joinRequest -> {
                                     if (joinRequest.getUserId().equals(liveRoom.getViewer().getUserId())) {
+
+                                        if (joinRequest.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
+                                            firebaseEntity.getSeatAvailableStatus().set(joinRequest.getSeatIndex(), false);
+                                        }
                                         joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
-                                        int seatIndex = joinRequest.getSeatIndex() - 1;
-                                        firebaseEntity.getSeatAvailableStatus().set(seatIndex, false);
-                                        joinRequest.setSeatIndex(0);
+                                        joinRequest.setSeatIndex(-1);
                                     }
                                 })
                                 .toList();
@@ -378,7 +381,7 @@ public class FirebaseAdapter implements CachePort {
 
                 seatAvailableStatus.set(i, true);
 
-                joinRequests.setSeatIndex(i + 1);
+                joinRequests.setSeatIndex(i);
                 firebaseEntity.setSeatAvailableStatus(seatAvailableStatus);
 
                 return firebaseEntity;
