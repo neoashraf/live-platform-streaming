@@ -137,14 +137,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .doOnNext(giftTransaction -> log.info("sender level : {}",
                         giftTransaction.getSenderReceiverDto().getSender().getUserLevel()))
                 .flatMap(giftTransaction -> userUseCase
-                        .updateUser(giftTransaction.getSenderReceiverDto().getSender(),
-                                giftTransaction.getSenderReceiverDto()
-                                        .getSenderUpdatedFields())
+                        .updateUserForGiftTransaction(giftTransaction.getSenderReceiverDto().getSender())
                         .doOnError(throwable -> log.error("Error while updating sender user"))
-                        .flatMap(user -> userUseCase.updateUser(
-                                        giftTransaction.getSenderReceiverDto().getReceiver(),
-                                        giftTransaction.getSenderReceiverDto()
-                                                .getReceiverUpdatedFields())
+                        .flatMap(user -> userUseCase.updateUserForGiftTransaction(giftTransaction.getSenderReceiverDto().getReceiver())
                                 .doOnError(throwable -> log.error(
                                         "Error while updating receiver user"))
                                 .thenReturn(giftTransaction)))
@@ -662,9 +657,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         dataDto.setSenderId(giftTransaction.getSenderId());
         dataDto.setQuantity(giftTransaction.getQuantity());
         dataDto.setSentOn(giftTransaction.getCreatedOn().toString());
-        dataDto.setBeans((Double) giftTransaction.getSenderReceiverDto().getSenderUpdatedFields().getOrDefault(
-                "beans",
-                giftTransaction.getSenderReceiverDto().getSender().getBeans()));
+        dataDto.setBeans(giftTransaction.getSenderReceiverDto().getSender().getBeans());
         dataDto.setBeansValue(CommonBusiness.convertToShortName(dataDto.getBeans()));
 
         dataDto.setSenderLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel());
@@ -690,6 +683,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 : giftTransaction.getSenderReceiverDto().getReceiverUpdatedFields();
 
         sender.setSender(true);
+        sender.setBeansGifted(sender.getBeansGifted() + giftTransaction.getBeans());
+        sender.setBeans(sender.getBeans() - giftTransaction.getBeans());
+        receiver.setGems(receiver.getGems() + giftTransaction.getBeans());
 
         if (sender.getId().equals(receiver.getId())) {
             receiverUpdatedFields.put("beans", sender.getBeans() - giftTransaction.getBeans());
@@ -708,7 +704,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 //                    double beansGifted = sender.getBeansGifted();
 //                    int level = CommonBusiness.calculateLevel(beansGifted, levels);
                     sender.setUserLevel(level.getLevel());
-                    senderUpdatedFields.put("level", level.getLevel());
+                    senderUpdatedFields.put("userLevel", level.getLevel());
                     return commonBusiness.setUserLevelUrl(sender)
                             .map(user -> {
                                 senderUpdatedFields.put("levelBadgeUrl", user.getLevelBadgeUrl());

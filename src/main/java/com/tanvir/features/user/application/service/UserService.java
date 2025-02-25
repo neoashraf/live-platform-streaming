@@ -196,6 +196,14 @@ public class UserService implements UserUseCase {
     }
 
     @Override
+    public Mono<User> updateUserForGiftTransaction(User user) {
+        return userPort.updateUserForGiftTransaction(user)
+                .doOnRequest(l -> log.info("Request received to update user for gift transaction"))
+                .doOnNext(user1 -> log.info("User updated successfully for gift transaction: {}", user1))
+                .doOnError(throwable -> log.error("Error while updating user for gift transaction: {}", throwable.getMessage()));
+    }
+
+    @Override
     public Mono<Map<String, User>> getUsersByIds(List<String> userIdList) {
         return userPort.getUsersByIds(userIdList)
                 .collectMap(User::getId)

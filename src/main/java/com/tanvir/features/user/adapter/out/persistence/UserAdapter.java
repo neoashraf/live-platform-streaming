@@ -1,4 +1,5 @@
 package com.tanvir.features.user.adapter.out.persistence;
+import com.mongodb.client.result.UpdateResult;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserEntity;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserMongoRepository;
@@ -20,6 +21,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.Field;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
@@ -147,6 +149,24 @@ public class UserAdapter implements DatabasePort {
         return reactiveMongoTemplate.updateFirst(
                         Query.query(Criteria.where("id").is(id)), update, UserEntity.class)
                 .flatMap(updateResult -> repository.findById(id)
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .map(entity -> modelMapper.map(entity, User.class)));
+    }
+
+    @Override
+    public Mono<User> updateUserForGiftTransaction(User user) {
+        Query query = new Query();
+        query.addCriteria(Criteria.where("keycloakId").is(user.getKeycloakId()));
+
+        Update update = new Update();
+        update.set("beans", user.getBeans());
+        update.set("beansGifted", user.getBeansGifted());
+        update.set("userLevel", user.getUserLevel());
+        update.set("levelBadgeUrl", user.getLevelBadgeUrl());
+        update.set("gems", user.getGems());
+
+        return reactiveMongoTemplate.updateFirst(query, update, UserEntity.class)
+                .flatMap(updateResult -> repository.findById(user.getId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
                         .map(entity -> modelMapper.map(entity, User.class)));
     }
