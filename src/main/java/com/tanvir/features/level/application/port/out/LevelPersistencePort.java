@@ -12,4 +12,6 @@ public interface LevelPersistencePort {
     Flux<Level> getAllLevels();
 
     Flux<Level> getLevelDomains(List<Integer> levels);
+
+    Mono<Level> getLevelByExpValue(long expValue);
 }

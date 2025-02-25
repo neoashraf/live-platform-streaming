@@ -701,12 +701,14 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         senderUpdatedFields.put("beansGifted", sender.getBeansGifted() + giftTransaction.getBeans());
 
 
-        return levelUseCase.getAllLevels()
-                .flatMap(levels -> {
-                    double beansGifted = sender.getBeansGifted();
-                    int level = CommonBusiness.calculateLevel(beansGifted, levels);
-                    sender.setUserLevel(level);
-                    senderUpdatedFields.put("level", level);
+        return /*levelUseCase.getAllLevels()*/
+            levelUseCase.getLevelByExpValue((long) sender.getBeansGifted())
+                .switchIfEmpty(Mono.just(Level.builder().level(0).build()))
+                .flatMap(level -> {
+//                    double beansGifted = sender.getBeansGifted();
+//                    int level = CommonBusiness.calculateLevel(beansGifted, levels);
+                    sender.setUserLevel(level.getLevel());
+                    senderUpdatedFields.put("level", level.getLevel());
                     return commonBusiness.setUserLevelUrl(sender)
                             .map(user -> {
                                 senderUpdatedFields.put("levelBadgeUrl", user.getLevelBadgeUrl());

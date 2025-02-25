@@ -41,4 +41,10 @@ public class LevelService implements LevelUseCase {
                 .doOnComplete(() -> log.info("Successfully fetched levels from mongo"))
                 .doOnError(err -> log.error("Error while fetching levels from mongo: {}", err.getMessage()));
     }
+
+    @Override
+    public Mono<Level> getLevelByExpValue(long expValue) {
+        return port.getLevelByExpValue(expValue)
+                .doOnError(err -> log.error("Error while fetching level from mongo: {}", err.getMessage()));
+    }
 }
