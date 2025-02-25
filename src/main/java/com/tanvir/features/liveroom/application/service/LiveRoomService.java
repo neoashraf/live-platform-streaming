@@ -1073,7 +1073,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 if (liveRoomEntity.getType().equals(Constants.LIVE_ROOM_TYPE_VIDEO.getValue()) && approvedOrStartedCount >= 3) {
                                     return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Maximum 3 participants are allowed to join call."));
                                 } else if (liveRoomEntity.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                                    int maxParticipants = liveRoomEntity.getHost().getUserLevel() <= 20 ? 8 : 15;
+//                                    int maxParticipants = liveRoomEntity.getHost().getUserLevel() <= 20 ? 8 : 15;
+                                    int maxParticipants = 10;
                                     if (approvedOrStartedCount >= maxParticipants) {
                                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Maximum " + maxParticipants + " participants are allowed to join call."));
                                     }
