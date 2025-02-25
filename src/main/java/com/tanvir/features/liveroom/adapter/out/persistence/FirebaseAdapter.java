@@ -167,12 +167,10 @@ public class FirebaseAdapter implements CachePort {
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
-                    // remove viewer from viewers list
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
                     currentViewersInFirebase.removeIf(viewer -> viewer.getUserId().equals(liveRoom.getViewer().getUserId()));
                     firebaseEntity.setViewers(currentViewersInFirebase);
 
-                    // add announcement to announcements list
                     List<Announcement> currentAnnouncementsInFirebase = new ArrayList<>(firebaseEntity.getAnnouncements() != null ? firebaseEntity.getAnnouncements() : new ArrayList<>());
                     if (currentAnnouncementsInFirebase.size() >= 10) {
                         currentAnnouncementsInFirebase = currentAnnouncementsInFirebase.subList(currentAnnouncementsInFirebase.size() - 9, currentAnnouncementsInFirebase.size());
@@ -194,22 +192,22 @@ public class FirebaseAdapter implements CachePort {
                     }
                     firebaseEntity.setKickedOutUserIds(kickedOutUserIds);
 
-                    // set joinRequest status to Kicked
-
                     if (firebaseEntity.getJoinRequests() != null && !firebaseEntity.getJoinRequests().isEmpty()) {
                         List<JoinRequests> updatedJoinRequests = firebaseEntity.getJoinRequests().stream()
                                 .peek(joinRequests -> {
                                     if (joinRequests.getUserId().equals(liveRoom.getViewer().getUserId())) {
-                                        joinRequests.setStatus(Status.STATUS_KICKED.getValue());
+
+                                        if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
+                                            firebaseEntity.getSeatAvailableStatus().set(joinRequests.getSeatIndex(), false);
+                                        }
+                                        joinRequests.setStatus(Constants.STATUS_CLOSED.getValue());
+                                        joinRequests.setSeatIndex(-1);
                                     }
                                 })
                                 .toList();
-
                         firebaseEntity.setJoinRequests(updatedJoinRequests);
                     }
-
                     return firebaseEntity;
-
                 })
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity to be updated: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
@@ -312,6 +310,7 @@ public class FirebaseAdapter implements CachePort {
                             joinRequests.setProfileLevelUrl(liveRoom.getJoinRequests().get(0).getProfileLevelUrl());
                             joinRequests.setProfileImageUrl(liveRoom.getJoinRequests().get(0).getProfileImageUrl());
                             joinRequests.setDisplayName(liveRoom.getJoinRequests().get(0).getDisplayName());
+                            joinRequests.setSeatIndex(-1);
                         }, () -> {
                             currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
                         });
@@ -424,7 +423,13 @@ public class FirebaseAdapter implements CachePort {
                             .findFirst();
 
                     optionalJoinRequests.ifPresentOrElse(joinRequests ->
-                                    joinRequests.setStatus(Status.STATUS_CLOSED.getValue()),
+                            {
+                                if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
+                                    firebaseEntity.getSeatAvailableStatus().set(joinRequests.getSeatIndex(), false);
+                                }
+                                joinRequests.setStatus(Constants.STATUS_CLOSED.getValue());
+                                joinRequests.setSeatIndex(-1);
+                            },
                             () -> Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found")));
 
                     return firebaseEntity;
