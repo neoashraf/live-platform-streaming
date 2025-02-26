@@ -97,6 +97,10 @@ public class LiveRoomRouter {
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder.GET(USERS.concat(EARNINGS), handler::earnings)
                                         )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder.PATCH(LIVE_ROOMS.concat(ID).concat(HOST).concat(AUDIO), handler::setMicStatus)
+                                )
+
 
                 )
                 .build();

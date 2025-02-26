@@ -1,12 +1,11 @@
 package com.tanvir.features.liveroom.application.port.in;
 
+import com.tanvir.features.host.application.port.in.dto.response.HostResponseDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.Earning;
 import reactor.core.publisher.Mono;
-
-import java.util.Optional;
 
 public interface LiveRoomUseCase {
     Mono<StreamResponseDto> createStream(LiveRoomRequestDto requestDto);
@@ -34,4 +33,5 @@ public interface LiveRoomUseCase {
     Mono<Earning> userEarning(String keycloakId);
     Mono<JoinCallResponseDto> updateJoinCall(JoinCallRequestUpdateDto requestDto);
 
+    Mono<HostMicStatusResponseDto> setMicStatus(String liveRoomId, String micOn);
 }

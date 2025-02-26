@@ -7,6 +7,7 @@ import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.EarningResponseDto;
+import com.tanvir.features.liveroom.application.port.in.dto.request.HostMicStatusRequestDto;
 import com.tanvir.features.liveroom.domain.valueobject.Earning;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -172,7 +173,7 @@ public class LiveRoomHandler {
 
     public Mono<ServerResponse> liveRoomById(ServerRequest serverRequest) {
         return liveRoomUseCase.getLiveRoomById_1(this.buildGridViewRequestDto_1(serverRequest))
-                .flatMap(dto->ServerResponse
+                .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto)
@@ -398,4 +399,16 @@ public class LiveRoomHandler {
                 });
     }
 
+    public Mono<ServerResponse> setMicStatus(ServerRequest serverRequest) {
+
+        String liveRoomId = serverRequest.pathVariable(QueryParams.ID.getValue());
+
+        return serverRequest.bodyToMono(HostMicStatusRequestDto.class)
+                .flatMap(hostMicStatusDto -> liveRoomUseCase.setMicStatus(liveRoomId,hostMicStatusDto.getMicOn()))
+                .flatMap(hostResponseDto -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(hostResponseDto)
+                );
+    }
 }
