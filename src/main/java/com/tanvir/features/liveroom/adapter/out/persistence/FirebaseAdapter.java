@@ -54,7 +54,6 @@ public class FirebaseAdapter implements CachePort {
                 .thenReturn(id);
     }
 
-
     @Override
     public Mono<LiveRoomEntity> update(LiveRoomEntity entity) {
 //        entity.getFans().values().forEach(fan -> fan.setEntryTime(null));
@@ -80,7 +79,7 @@ public class FirebaseAdapter implements CachePort {
                 .doOnSuccess(l -> log.info("Requesting firebase entity with id: {}", liveRoomFirebaseEntity.getHost().toString()));
     }
 
-        @Override
+    @Override
     public Mono<LiveRoom> update(LiveRoom liveRoom) {
 
         return firebaseRepository.read(liveRoom.getId())
@@ -118,7 +117,6 @@ public class FirebaseAdapter implements CachePort {
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
-
 
     @Override
     public Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom) {
@@ -166,7 +164,6 @@ public class FirebaseAdapter implements CachePort {
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
-
 
     @Override
     public Mono<LiveRoom> updateForViewerKick(LiveRoom liveRoom) {

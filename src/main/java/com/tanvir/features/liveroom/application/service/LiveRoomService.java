@@ -178,6 +178,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .dailyStarProgress(starProgress)
                                     .profileFrameId(user.getProfileFrameId())
                                     .profileFrameUrl(user.getProfileFrameUrl())
+                                    .micOn("Yes")
                                     .build();
 
 
@@ -1534,7 +1535,6 @@ public class LiveRoomService implements LiveRoomUseCase {
         return responseDto;
     }
 
-
     private Mono<LiveRoomGridViewResponseDto> getGridViewResponseForEmptyList() {
         return Mono.just(LiveRoomGridViewResponseDto
                 .builder()
@@ -1558,8 +1558,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .build()
                 );
     }
-
-
 
     /*private Mono<LiveRoomGridViewResponseDto> getGridViewByTab(List<LiveRoom> liveRoomList, GridViewRequestDto requestDto) {
         return this.filterLiveRoomsAccordingToTypeAndTag(liveRoomList, requestDto)
