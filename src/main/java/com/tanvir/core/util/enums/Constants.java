@@ -25,6 +25,9 @@ public enum Constants {
 
     CAMERA_VIEW_FRONT("Front"),
     CAMERA_VIEW_BACK("Back"),
+
+    USER_TYPE_SENDER("Sender"),
+    USER_TYPE_RECEIVER("Receiver"),
     ;
     private final String value;
 

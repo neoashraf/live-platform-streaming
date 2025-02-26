@@ -137,9 +137,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .doOnNext(giftTransaction -> log.info("sender level : {}",
                         giftTransaction.getSenderReceiverDto().getSender().getUserLevel()))
                 .flatMap(giftTransaction -> userUseCase
-                        .updateUserForGiftTransaction(giftTransaction.getSenderReceiverDto().getSender())
+                        .updateUserForGiftTransaction(giftTransaction.getSenderReceiverDto().getSender(), Constants.USER_TYPE_SENDER.getValue())
                         .doOnError(throwable -> log.error("Error while updating sender user"))
-                        .flatMap(user -> userUseCase.updateUserForGiftTransaction(giftTransaction.getSenderReceiverDto().getReceiver())
+                        .flatMap(user -> userUseCase.updateUserForGiftTransaction(giftTransaction.getSenderReceiverDto().getReceiver(), Constants.USER_TYPE_RECEIVER.getValue())
                                 .doOnError(throwable -> log.error(
                                         "Error while updating receiver user"))
                                 .thenReturn(giftTransaction)))

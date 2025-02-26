@@ -1,5 +1,6 @@
 package com.tanvir.features.user.adapter.out.persistence;
 import com.mongodb.client.result.UpdateResult;
+import com.tanvir.core.util.enums.Constants;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserEntity;
 import com.tanvir.features.user.adapter.out.persistence.mongo.UserMongoRepository;
@@ -154,16 +155,20 @@ public class UserAdapter implements DatabasePort {
     }
 
     @Override
-    public Mono<User> updateUserForGiftTransaction(User user) {
+    public Mono<User> updateUserForGiftTransaction(User user, String userType) {
         Query query = new Query();
         query.addCriteria(Criteria.where("keycloakId").is(user.getKeycloakId()));
 
         Update update = new Update();
-        update.set("beans", user.getBeans());
-        update.set("beansGifted", user.getBeansGifted());
-        update.set("userLevel", user.getUserLevel());
-        update.set("levelBadgeUrl", user.getLevelBadgeUrl());
-        update.set("gems", user.getGems());
+
+        if (userType.equals(Constants.USER_TYPE_RECEIVER.getValue())) {
+            update.set("gems", user.getGems());
+        } else {
+            update.set("beans", user.getBeans());
+            update.set("beansGifted", user.getBeansGifted());
+            update.set("userLevel", user.getUserLevel());
+            update.set("levelBadgeUrl", user.getLevelBadgeUrl());
+        }
 
         return reactiveMongoTemplate.updateFirst(query, update, UserEntity.class)
                 .flatMap(updateResult -> repository.findById(user.getId())

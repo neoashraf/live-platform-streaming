@@ -24,5 +24,5 @@ public interface DatabasePort {
     Flux<User> getUsersByIds(List<String> userIdList);
     Mono<User> updateUserFields(String id, Map<String, Object> updatedFields);
 
-    Mono<User> updateUserForGiftTransaction(User user);
+    Mono<User> updateUserForGiftTransaction(User user, String userType);
 }

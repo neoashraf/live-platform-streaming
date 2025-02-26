@@ -20,7 +20,7 @@ public interface UserUseCase {
 
 	Mono<User> getUserByKeycloakIdOrEmail(String keycloakId, String email);
 	Mono<User> updateUser(User user, Map<String, Object> updatedFields);
-	Mono<User> updateUserForGiftTransaction(User user);
+	Mono<User> updateUserForGiftTransaction(User user, String userType);
 	Mono<Map<String, User>> getUsersByIds(List<String> userIdList);
 	Mono<User> addMoreGems(String maxId, int gemsAmount);
 }

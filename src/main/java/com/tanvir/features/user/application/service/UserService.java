@@ -196,11 +196,49 @@ public class UserService implements UserUseCase {
     }
 
     @Override
-    public Mono<User> updateUserForGiftTransaction(User user) {
-        return userPort.updateUserForGiftTransaction(user)
+    public Mono<User> updateUserForGiftTransaction(User user, String userType) {
+        return userPort.updateUserForGiftTransaction(user, userType)
                 .doOnRequest(l -> log.info("Request received to update user for gift transaction"))
                 .doOnNext(user1 -> log.info("User updated successfully for gift transaction: {}", user1))
-                .doOnError(throwable -> log.error("Error while updating user for gift transaction: {}", throwable.getMessage()));
+                .doOnError(throwable -> log.error("Error while updating user for gift transaction: {}", throwable.getMessage()))
+                .flatMap(user1 ->
+                    user.getUserType().equals(UserTypeEnum.USER_TYPE_MAX_USER.getValue())
+                            ? maxUserPersistencePort
+                                .getMaxUserEntityByUserId(user.getId())
+                                .flatMap(maxUserEntity -> {
+                                    maxUserEntity.setBeans(user.getBeans());
+                                    if (user.isSender()) {
+                                        maxUserEntity.setBeansGifted(user.getBeansGifted());
+                                        maxUserEntity.setUserLevel(user.getUserLevel());
+                                    } else {
+                                        maxUserEntity.setGems(user.getGems());
+                                    }
+
+                                    maxUserEntity.setUpdatedOn(LocalDateTime.now());
+                                    return maxUserPersistencePort.saveMaxUserEntity(maxUserEntity);
+                                })
+                                .doOnRequest(l -> log.info("Request received to update max user"))
+    //                                    .doOnSuccess(maxUser -> log.info("Max user updated successfully: {}", maxUser))
+                                .doOnError(throwable -> log.error("Error while updating max user: {}", throwable.getMessage()))
+                                .thenReturn(user)
+                            : hostPersistencePort
+                                .getHostByUserId(user.getId())
+                                .flatMap(host -> {
+                                    host.setBeans(user.getBeans());
+                                    if (user.isSender()) {
+                                        host.setBeansGifted(user.getBeansGifted());
+                                        host.setUserLevel(user.getUserLevel());
+                                    } else {
+                                        host.setGems(user.getGems());
+                                    }
+                                    host.setUpdatedOn(LocalDateTime.now());
+                                    return hostPersistencePort.saveHost(host);
+                                })
+                                .doOnRequest(l -> log.info("Request received to update host"))
+                                .doOnSuccess(host -> log.info("Host updated successfully: {}", host))
+                                .doOnError(throwable -> log.error("Error while updating host: {}", throwable.getMessage()))
+                                .thenReturn(user)
+                );
     }
 
     @Override
