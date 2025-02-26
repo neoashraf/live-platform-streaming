@@ -9,6 +9,7 @@ import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.content.application.port.in.ContentUseCase;
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.application.service.GiftTransactionService;
+import com.tanvir.features.host.application.port.in.dto.response.HostResponseDto;
 import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
@@ -31,6 +32,7 @@ import com.tanvir.features.metaproperty.application.port.in.MetaPropertyUseCase;
 import com.tanvir.features.metaproperty.domain.MetaProperty;
 import com.tanvir.features.user.application.port.in.UserUseCase;
 import com.tanvir.features.user.domain.User;
+import io.netty.util.internal.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
@@ -179,7 +181,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .build();
 
 
-
                             return LiveRoomFirebaseEntity
                                     .builder()
                                     .id(liveRoom.getId())
@@ -199,7 +200,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .audioParticipants(liveRoom.getAudioParticipants())
                                     .enableJoin(liveRoom.getEnableJoin())
                                     .seatAvailableStatus(
-                                            Arrays.asList(false,false,false,false,false,false,false,false,false,false)
+                                            Arrays.asList(false, false, false, false, false, false, false, false, false, false)
                                     )
                                     .build();
                         }));
@@ -1878,5 +1879,27 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .build());
     }
 
+    @Override
+    public Mono<HostMicStatusResponseDto> setMicStatus(String liveRoomId, String micOn) {
 
+        return cachePort.getLiveRoomById(liveRoomId)
+                .doOnSuccess(liveRoomFirebaseEntity -> log.info("LiveRoom host : {}", liveRoomFirebaseEntity.getHost().toString()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, ExceptionMessages.NO_LIVE_ROOM_FOUND_WITH_ID.getValue())))
+                .map(liveRoomFirebaseEntity -> {
+                    if (StringUtil.isNullOrEmpty(micOn))
+                        liveRoomFirebaseEntity.getHost().setMicOn("Yes");
+                    else
+                        liveRoomFirebaseEntity.getHost().setMicOn(micOn);
+
+                    return liveRoomFirebaseEntity;
+                })
+                .flatMap(liveRoomFirebaseEntity -> cachePort.updateByEntity(liveRoomFirebaseEntity).thenReturn(liveRoomFirebaseEntity.getHost()))
+                .map(hostSummary -> HostMicStatusResponseDto
+                        .builder()
+                        .message("Host Mic status is set properly")
+                        .data(hostSummary)
+                        .build()
+                );
+
+    }
 }

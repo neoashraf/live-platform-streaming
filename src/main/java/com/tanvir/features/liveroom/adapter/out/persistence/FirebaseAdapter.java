@@ -74,6 +74,13 @@ public class FirebaseAdapter implements CachePort {
     }
 
     @Override
+    public Mono<LiveRoomFirebaseEntity> updateByEntity(LiveRoomFirebaseEntity liveRoomFirebaseEntity) {
+
+        return firebaseRepository.update(liveRoomFirebaseEntity)
+                .doOnSuccess(l -> log.info("Requesting firebase entity with id: {}", liveRoomFirebaseEntity.getHost().toString()));
+    }
+
+        @Override
     public Mono<LiveRoom> update(LiveRoom liveRoom) {
 
         return firebaseRepository.read(liveRoom.getId())
@@ -312,6 +319,7 @@ public class FirebaseAdapter implements CachePort {
                             joinRequests.setDisplayName(liveRoom.getJoinRequests().get(0).getDisplayName());
                             joinRequests.setSeatIndex(-1);
                         }, () -> {
+                            liveRoom.getJoinRequests().get(0).setSeatIndex(-1);
                             currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
                         });
                     } else {

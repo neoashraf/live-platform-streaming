@@ -26,4 +26,5 @@ public class HostSummary {
     private DailyStarProgress dailyStarProgress;
     private double giftsReceivedInThisSession;
     private String giftsReceivedInThisSessionString;
+    private String micOn;
 }
