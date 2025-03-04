@@ -106,7 +106,9 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .flatMap(this::updateUserForGiftTransaction)
                 .flatMap(giftSummaryUseCase::processGiftSummary)
                 .doOnNext(giftTransaction -> log.info("processed gift summary"))
-                .flatMap(giftTransaction1 -> giftTransaction1.getLiveSession() != null && giftTransaction1.getLiveSession().equals(Constants.STATUS_YES.getValue())
+                .flatMap(giftTransaction1 ->
+                        giftTransaction1.getLiveSession() != null
+                                && giftTransaction1.getLiveSession().equals(Constants.STATUS_YES.getValue())
                         ? liveRoomUseCase.getLiveRoomById(giftTransaction1.getLiveRoomId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
                         .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
@@ -388,7 +390,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .quantity(requestDto.getQuantity())
                             .beans(giftTransaction.getBeans())
                             .liveSession(requestDto.getLiveSession())
-                            .liveRoomId(requestDto.getLiveRoomId())
+                            .liveRoomId(requestDto.getLiveRoomId()!=null ? requestDto.getLiveRoomId() : "")
                             .transactionDate(ZonedDateTime.now(ZoneOffset.UTC).toLocalDate()
                                     .toString())
                             .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
@@ -407,7 +409,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .quantity(requestDto.getQuantity())
                 .beans(giftTransaction.getBeans())
                 .liveSession(requestDto.getLiveSession())
-                .liveRoomId(requestDto.getLiveRoomId())
+                .liveRoomId(requestDto.getLiveRoomId()!=null ? requestDto.getLiveRoomId() : "")
                 .transactionDate(ZonedDateTime.now(ZoneOffset.UTC).toLocalDate().toString())
                 .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                 .senderReceiverDto(giftTransaction.getSenderReceiverDto())
