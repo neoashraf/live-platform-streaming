@@ -20,5 +20,5 @@ public class Summary {
     private int  maxAudioParticipants;
     private long totalViewerCount;
     private double giftReceivedAmount;
-    private double giftReceivedAmountString ;
+    private String giftReceivedAmountString ;
 }

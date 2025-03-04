@@ -91,9 +91,7 @@ public class FirebaseAdapter implements CachePort {
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
                     currentViewersInFirebase.add(liveRoom.getViewer());
 
-
                     currentViewersInFirebase.sort(Comparator.comparingInt(Viewer::getUserLevel).reversed());
-
 
                     firebaseEntity.setViewers(currentViewersInFirebase);
 
@@ -350,7 +348,7 @@ public class FirebaseAdapter implements CachePort {
                     endSummary.setHostDailyGems(liveRoom.getHostDailyGems());
                     endSummary.setMaxAudioParticipants(liveRoom.getMaxAudioParticipants());
                     endSummary.setGiftReceivedAmount(liveRoom.getGiftReceivedAmount());
-                    endSummary.setGiftReceivedAmountString(liveRoom.getGiftReceivedAmount());
+                    endSummary.setGiftReceivedAmountString(String.valueOf(liveRoom.getGiftReceivedAmount()));
 
                     firebaseEntity.setSummary(endSummary);
 

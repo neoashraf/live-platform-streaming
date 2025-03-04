@@ -49,4 +49,5 @@ public class RoomDataDto {
     private String roomId;
     private Double giftReceivedAmount;
     private String giftReceivedAmountString;
+    private String endedBy;
 }

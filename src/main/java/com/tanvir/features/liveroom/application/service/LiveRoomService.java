@@ -812,7 +812,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .map(liveRoomResponse -> this.buildLiveRoomResponseDto(liveRoomResponse, "LiveRoom Detail Fetched Successfully."));
     }
 
-
     @Override
     public Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto) {
 
@@ -1499,6 +1498,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .hostDailyGems(liveRoom.getHostDailyGems())
                                 .giftReceivedAmount(giftReceivedAmount)
                                 .giftReceivedAmountString(FormatUtil.formatGems(giftReceivedAmount))
+                                .endedBy(liveRoom.getUserId())
                                 .build())
                         .count(1)
                         .build());
