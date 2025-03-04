@@ -1,6 +1,7 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.firebase;
 
 import com.tanvir.common.firebase.BaseFirebaseEntity;
+import com.tanvir.features.liveroom.domain.Summary;
 import com.tanvir.features.liveroom.domain.valueobject.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -38,4 +39,6 @@ public class LiveRoomFirebaseEntity implements BaseFirebaseEntity {
     private List<String> kickedOutUserIds;
 
     private List<Boolean> seatAvailableStatus;
+
+    private Summary summary;
 }

@@ -1,6 +1,7 @@
 package com.tanvir.features.liveroom.domain;
 
 import com.tanvir.core.util.CommonFunctions;
+import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.DailyStarProgress;
 import com.tanvir.features.liveroom.domain.valueobject.JoinRequests;
@@ -59,7 +60,7 @@ public class LiveRoom {
 
     private int maxAudioParticipants;
     private List<Viewer> audioParticipants;
-
+    private Summary summary;
 
     @Override
     public String toString() {

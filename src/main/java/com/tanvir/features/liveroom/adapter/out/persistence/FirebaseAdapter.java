@@ -11,6 +11,7 @@ import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequ
 import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestUpdateDto;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
+import com.tanvir.features.liveroom.domain.Summary;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.JoinRequests;
 import com.tanvir.features.liveroom.domain.valueobject.Viewer;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Component;
 import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -337,6 +339,21 @@ public class FirebaseAdapter implements CachePort {
                 .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     firebaseEntity.setStatus(Constants.STATUS_OFFLINE.getValue());
+
+                    Summary endSummary = firebaseEntity.getSummary();
+                    endSummary.setEndedOn(Instant.now().toString());
+                    endSummary.setEndedBy(liveRoom.getUserId());
+                    endSummary.setDurationInSeconds(liveRoom.getDurationInSeconds());
+                    endSummary.setDuration(String.valueOf(liveRoom.getDurationInSeconds()));
+                    endSummary.setViewerCount(liveRoom.getViewerCount());
+                    endSummary.setTotalViewerCount(liveRoom.getTotalViewerCount());
+                    endSummary.setHostDailyGems(liveRoom.getHostDailyGems());
+                    endSummary.setMaxAudioParticipants(liveRoom.getMaxAudioParticipants());
+                    endSummary.setGiftReceivedAmount(liveRoom.getGiftReceivedAmount());
+                    endSummary.setGiftReceivedAmountString(liveRoom.getGiftReceivedAmount());
+
+                    firebaseEntity.setSummary(endSummary);
+
                     return firebaseEntity;
                 })
                 .doOnNext(firebaseEntity -> log.debug("Updated firebase entity: {}", firebaseEntity))

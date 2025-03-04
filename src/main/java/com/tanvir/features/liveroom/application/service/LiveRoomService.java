@@ -22,6 +22,7 @@ import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort;
 import com.tanvir.features.liveroom.domain.LiveRoomConfigEnums;
 import com.tanvir.features.liveroom.domain.OfficialIdEnum;
+import com.tanvir.features.liveroom.domain.Summary;
 import com.tanvir.features.liveroom.domain.valueobject.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
@@ -181,7 +182,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .micOn("Yes")
                                     .build();
 
-
                             return LiveRoomFirebaseEntity
                                     .builder()
                                     .id(liveRoom.getId())
@@ -203,6 +203,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .seatAvailableStatus(
                                             Arrays.asList(false, false, false, false, false, false, false, false, false, false)
                                     )
+                                    .summary(Summary.builder().build())
                                     .build();
                         }));
 
