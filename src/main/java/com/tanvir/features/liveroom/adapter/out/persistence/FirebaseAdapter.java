@@ -1,6 +1,7 @@
 package com.tanvir.features.liveroom.adapter.out.persistence;
 
 import com.tanvir.core.util.DateTimeUtil;
+import com.tanvir.core.util.FormatUtil;
 import com.tanvir.core.util.enums.Constants;
 import com.tanvir.core.util.enums.Status;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
@@ -342,7 +343,7 @@ public class FirebaseAdapter implements CachePort {
                     endSummary.setEndedOn(Instant.now().toString());
                     endSummary.setEndedBy(liveRoom.getUserId());
                     endSummary.setDurationInSeconds(liveRoom.getDurationInSeconds());
-                    endSummary.setDuration(String.valueOf(liveRoom.getDurationInSeconds()));
+                    endSummary.setDuration(FormatUtil.convertDurationToString(liveRoom.getDurationInSeconds()));
                     endSummary.setViewerCount(liveRoom.getViewerCount());
                     endSummary.setTotalViewerCount(liveRoom.getTotalViewerCount());
                     endSummary.setHostDailyGems(liveRoom.getHostDailyGems());
