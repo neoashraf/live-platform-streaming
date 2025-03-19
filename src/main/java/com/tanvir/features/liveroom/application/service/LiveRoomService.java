@@ -522,7 +522,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                                     content.getResourceFormats()
                                                             .stream()
                                                             .filter(resourceFormat -> resourceFormat.getResourceType().equals("IMAGE"))
-                                                            .map(ResourceFormat::getThumbnailUrl).toList()
+                                                            .map(ResourceFormat::getResourceUrl).toList()
                                                     :
                                                     List.of();
 
