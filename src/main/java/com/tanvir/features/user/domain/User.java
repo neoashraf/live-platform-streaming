@@ -57,6 +57,7 @@ public class User {
     private boolean isSender;
     private String remarks;
     private String markedAsDeleted;
+    private String deviceBanned;
 
 
 	@Override

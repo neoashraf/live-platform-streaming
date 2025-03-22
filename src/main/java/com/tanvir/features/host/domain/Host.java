@@ -54,5 +54,6 @@ public class Host {
     private double gems;
     private double beansGifted;
     private String remarks;
+    private String deviceBanned;
 
 }

@@ -61,6 +61,7 @@ public class HostEntity implements Persistable<String> {
     private double gems;
     private double beansGifted;
     private String remarks;
+    private String deviceBanned;
 
 
     @Override

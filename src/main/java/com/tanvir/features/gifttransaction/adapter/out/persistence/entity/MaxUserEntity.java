@@ -60,6 +60,7 @@ public class MaxUserEntity implements Persistable<String> {
     private String markedAsDeleted;
     private String userType;
     private String remarks;
+    private String deviceBanned;
 
     @Override
     public String toString() {

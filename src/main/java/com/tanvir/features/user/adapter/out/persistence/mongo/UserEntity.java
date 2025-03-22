@@ -63,6 +63,7 @@ public class UserEntity {
     private List<String> followers;
     private List<String> followings;
     private List<String> friends;
+    private String deviceBanned;
 
     @Override
     public String toString() {
