@@ -695,7 +695,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId) {
-        List<String> superUsers = OfficialIdEnum.SUPER_USER_IDS.getValue();
+        List<String> superUsers = OfficialIdEnum.OFFICIAL_IDS.getValue();
         return port.getLiveRoomById(liveRoomId)
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomId)))
@@ -703,7 +703,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot End.")))
                 .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(keycloakId)
                         .filter(user -> liveRoom.getUserId().equals(user.getId()) || superUsers.contains(user.getMaxId()))
-                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot end.")))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom or official one. Cannot end.")))
                         .map(user -> liveRoom))
                 .map(liveRoom -> {
                     liveRoom.setStatus(Constants.STATUS_OFFLINE.getValue());
@@ -753,7 +753,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not the host of the LiveRoom. Cannot kick out.")))
                         .flatMap(host -> userUseCase.getUserById(requestDto.getUserId())
                                 .flatMap(user -> {
-                                    if (OfficialIdEnum.OFFICIAL_IDS.getValue().contains(user.getMaxId())) {
+                                    if (OfficialIdEnum.KICKED_OUT_IDS.getValue().contains(user.getMaxId())) {
                                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Kickout not possible, Official ID"));
                                     }
                                     return Mono.just(user);
