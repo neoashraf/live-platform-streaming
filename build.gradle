@@ -65,17 +65,15 @@ dependencies {
     implementation 'com.github.loki4j:loki-logback-appender:1.5.1'
 
 
-	implementation 'org.springframework.boot:spring-boot-starter-security'
 
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
 	testImplementation 'io.projectreactor:reactor-test'
 
 //	testImplementation 'org.testcontainers:junit-jupiter:1.19.8'
 //	testImplementation 'org.testcontainers:postgresql:1.17.6'
 
-	implementation 'org.springframework.boot:spring-boot-starter-security'
+//	implementation 'org.springframework.boot:spring-boot-starter-security'
 	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.springframework.security:spring-security-test'
+//	testImplementation 'org.springframework.security:spring-security-test'
 	testImplementation 'org.projectlombok:lombok'
 
 //	implementation 'org.springframework.cloud:spring-cloud-starter-config'

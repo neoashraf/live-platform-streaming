@@ -1,3 +1,4 @@
+/*
 package com.tanvir.core.config;
 
 import org.springframework.context.annotation.Bean;
@@ -22,3 +23,4 @@ public class CorsWebFilterConfig {
         return source;
     }
 }
+*/
