@@ -193,6 +193,10 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                         else {
                             List<JoinRequests> joinRequests = liveRoomFirebaseEntity.getJoinRequests();
 
+                            if (joinRequests == null) {
+                                joinRequests = new ArrayList<>();
+                            }
+
                             String receiverId = giftTransaction.getReceiverId();
                             Optional.ofNullable(this.receiverValidation(joinRequests, receiverId))
                                     .ifPresent(joinRequests2 -> {
