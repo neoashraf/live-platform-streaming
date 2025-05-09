@@ -249,6 +249,8 @@ public class FirebaseAdapter implements CachePort {
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity received"))
                 .map(firebaseEntity -> {
 
+//                    log.info("\n\n Announcement : {}", liveRoom.getAnnouncement());
+
                     // add announcement to announcements list
                     List<Announcement> currentAnnouncementsInFirebase = new ArrayList<>(
                             firebaseEntity.getAnnouncements() != null

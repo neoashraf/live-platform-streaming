@@ -515,57 +515,54 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
     private Mono<Announcement> buildGiftAnnouncement(GiftTransaction giftTransaction) {
         return levelUseCase
-                .getLevelDomainByLevel(
-                        giftTransaction.getSenderReceiverDto().getSender().getUserLevel())
+                .getLevelDomainByLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel())
+                .zipWith(levelUseCase.getLevelDomainByLevel(giftTransaction.getSenderReceiverDto().getReceiver().getUserLevel()))
                 .map(level -> {
-                    ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(
-                            giftTransaction.getGift().getResourceFormats(),
-                            ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
-                    ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(
-                            level.getResourceFormats(),
-                            ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
 
-                    List<ResourceFormat> resourceFormats = giftTransaction.getGift()
-                            .getResourceFormats();
+                    Level senderLevel = level.getT1();
+                    Level receiverLevel = level.getT2();
 
-                    Announcement announcement = Announcement
+                    List<ResourceFormat> resourceFormats = giftTransaction.getGift().getResourceFormats();
+
+                    ResourceFormat giftImageResource = CommonBusiness
+                            .getResourceFormatByResourceType(resourceFormats, ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+
+                    ResourceFormat senderLevelResource = CommonBusiness
+                            .getResourceFormatByResourceType(senderLevel.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+
+                    ResourceFormat receiverLevelResource = CommonBusiness
+                            .getResourceFormatByResourceType(receiverLevel.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+                    
+                    return Announcement
                             .builder()
                             .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue())
                             .time(ZonedDateTime.now(ZoneOffset.UTC).toString())
-                            .messageTemplate(CommonBusiness.getAnnouncementMessage(
-                                    AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT
-                                            .getValue()))
-                            .mentionedUser(AnnouncementUser
+                            .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT_UPDATE.getValue()))
+                            .publisher(AnnouncementUser
                                     .builder()
-                                    .userId(giftTransaction.getSenderReceiverDto()
-                                            .getSender().getId())
-                                    .name(giftTransaction.getSenderReceiverDto()
-                                            .getSender().getDisplayName())
-                                    .maxId(giftTransaction.getSenderReceiverDto()
-                                            .getSender().getMaxId())
-                                    .levelUrl(levelResource.getResourceUrl())
+                                    .userId(giftTransaction.getSenderReceiverDto().getSender().getId())
+                                    .maxId(giftTransaction.getSenderReceiverDto().getSender().getMaxId())
+                                    .levelUrl(senderLevelResource.getResourceUrl())
+                                    .name(giftTransaction.getSenderReceiverDto().getSender().getDisplayName())
+                                    .build())
+                            .receiverUser(AnnouncementUser
+                                    .builder()
+                                    .userId(giftTransaction.getSenderReceiverDto().getReceiver().getId())
+                                    .name(giftTransaction.getSenderReceiverDto().getReceiver().getDisplayName())
+                                    .maxId(giftTransaction.getSenderReceiverDto().getReceiver().getMaxId())
+                                    .levelUrl(receiverLevelResource.getResourceUrl())
                                     .build())
                             .gift(Announcement.Gift
                                     .builder()
-                                    .id(giftTransaction.getGift().getId())
-                                    .name(giftTransaction.getGift().getName())
                                     .quantity(giftTransaction.getQuantity())
                                     .resource(Announcement.Resource
                                             .builder()
-                                            .name(giftTransaction.getGift()
-                                                    .getName())
-                                            // .imageUrl(!imageUrlList.isEmpty()
-                                            // ? imageUrlList.get(0) : null)
-                                            .imageUrl(imageResource
-                                                    .getThumbnailUrl())
+                                            .name(giftTransaction.getGift().getName())
+                                            .imageUrl(giftImageResource.getThumbnailUrl())
                                             .build())
-                                    .resources(buildResourceCollection(
-                                            resourceFormats,
-                                            giftTransaction))
+                                    .resources(buildResourceCollection(resourceFormats, giftTransaction))
                                     .build())
                             .build();
-                    // log.info("Gift Announcement Built : {}", announcement);
-                    return announcement;
                 });
     }
 
