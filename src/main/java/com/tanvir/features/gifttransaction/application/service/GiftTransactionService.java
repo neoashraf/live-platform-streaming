@@ -127,11 +127,10 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 .map(giftTransaction -> {
                     if (giftTransaction.getLiveRoom() != null) {
                         if (giftTransaction.getLiveRoom().getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                            announceToFirebaseForAudioLiveGift(giftTransaction)
-                                    .subscribeOn(Schedulers.boundedElastic()).subscribe();
-                        } else {
-                            announceToFirebaseIfLiveSession(giftTransaction)
-                                    .subscribeOn(Schedulers.boundedElastic()).subscribe();
+                            announceToFirebaseForAudioLiveGift(giftTransaction).subscribeOn(Schedulers.boundedElastic()).subscribe();
+                        }
+                        else {
+                            announceToFirebaseIfLiveSession(giftTransaction).subscribeOn(Schedulers.boundedElastic()).subscribe();
                         }
                     }
                     return giftTransaction;
@@ -166,22 +165,15 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
     private Mono<GiftTransaction> processGiftTransactionForAudioStream(GiftTransaction giftTransaction) {
 
-        if (giftTransaction.getLiveRoom() != null
-                && giftTransaction.getLiveRoom().getType()
-                .equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
+        if (giftTransaction.getLiveRoom() != null && giftTransaction.getLiveRoom().getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
                 && giftTransaction.getLiveRoom().getStatus().equals(Constants.STATUS_LIVE.getValue())) {
 
             return cachePort.getLiveRoomById(giftTransaction.getLiveRoomId())
-                    .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND,
-                            "LiveRoom not found by the given id")))
+                    .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                     .map(liveRoomFirebaseEntity -> {
 
-                        if (giftTransaction.getSenderReceiverDto().getReceiver().getUserType()
-                                .equalsIgnoreCase(Constants.HOST_TYPE.getValue())
-                                && giftTransaction.getReceiverId()
-                                .equalsIgnoreCase(giftTransaction
-                                        .getLiveRoom()
-                                        .getUserId())) {
+                        if (giftTransaction.getSenderReceiverDto().getReceiver().getUserType().equalsIgnoreCase(Constants.HOST_TYPE.getValue())
+                                && giftTransaction.getReceiverId().equalsIgnoreCase(giftTransaction.getLiveRoom().getUserId())) {
 
                             double giftsReceivedInThisSessionAsHost = liveRoomFirebaseEntity.getHost().getGiftsReceivedInThisSession();
 
@@ -208,11 +200,8 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                         }
                         return liveRoomFirebaseEntity;
                     })
-                    .flatMap(liveRoomFirebaseEntity -> cachePort
-                            .updateForCurrentLiveRoomGiftReceived(liveRoomFirebaseEntity,
-                                    giftTransaction.getLiveRoomId()))
+                    .flatMap(liveRoomFirebaseEntity -> cachePort.updateForCurrentLiveRoomGiftReceived(liveRoomFirebaseEntity, giftTransaction.getLiveRoomId()))
                     .thenReturn(giftTransaction);
-
         }
         return Mono.just(giftTransaction);
     }
@@ -428,22 +417,14 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         return giftTransaction.getLiveSession() != null
                 && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
                 ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(
-                        HttpStatus.NOT_FOUND,
-                        "Live Room not found")))
-                .filter(liveRoom -> liveRoom.getStatus().equals(
-                        Constants.STATUS_LIVE.getValue()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(
-                        HttpStatus.BAD_REQUEST,
-                        "Live Room is not live")))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Live Room is not live")))
                 .flatMap(liveRoom -> this
-                        .buildGiftAnnouncementAudioLive(
-                                giftTransaction)
+                        .buildGiftAnnouncementAudioLive(giftTransaction)
                         .flatMap(announcement -> {
-                            liveRoom.setAnnouncement(
-                                    announcement);
-                            return cachePort.updateForGift(
-                                            liveRoom)
+                            liveRoom.setAnnouncement(announcement);
+                            return cachePort.updateForGift(liveRoom)
                                     .thenReturn(giftTransaction);
                         }))
                 : Mono.just(giftTransaction);
@@ -451,75 +432,59 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
     private Mono<Announcement> buildGiftAnnouncementAudioLive(GiftTransaction giftTransaction) {
         return levelUseCase
-                .getLevelDomainByLevel(
-                        giftTransaction.getSenderReceiverDto().getSender().getUserLevel())
-                .zipWith(levelUseCase.getLevelDomainByLevel(
-                        giftTransaction.getSenderReceiverDto().getReceiver().getUserLevel()))
+                .getLevelDomainByLevel(giftTransaction.getSenderReceiverDto().getSender().getUserLevel())
+                .zipWith(levelUseCase.getLevelDomainByLevel(giftTransaction.getSenderReceiverDto().getReceiver().getUserLevel()))
                 .map(level -> {
 
                     Level senderLevel = level.getT1();
                     Level receiverLevel = level.getT2();
 
-                    List<ResourceFormat> resourceFormats = giftTransaction.getGift()
-                            .getResourceFormats();
+                    List<ResourceFormat> resourceFormats = giftTransaction.getGift().getResourceFormats();
 
                     ResourceFormat giftImageResource = CommonBusiness
-                            .getResourceFormatByResourceType(resourceFormats,
-                                    ResourceTypeEnum.RESOURCE_TYPE_IMAGE
-                                            .getValue());
+                            .getResourceFormatByResourceType(resourceFormats, ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
 
                     ResourceFormat senderLevelResource = CommonBusiness
-                            .getResourceFormatByResourceType(
-                                    senderLevel.getResourceFormats(),
-                                    ResourceTypeEnum.RESOURCE_TYPE_IMAGE
-                                            .getValue());
+                            .getResourceFormatByResourceType(senderLevel.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
+
                     ResourceFormat receiverLevelResource = CommonBusiness
-                            .getResourceFormatByResourceType(
-                                    receiverLevel.getResourceFormats(),
-                                    ResourceTypeEnum.RESOURCE_TYPE_IMAGE
-                                            .getValue());
+                            .getResourceFormatByResourceType(receiverLevel.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
 
                     return Announcement
                             .builder()
                             .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue())
                             .time(ZonedDateTime.now(ZoneOffset.UTC).toString())
-                            .messageTemplate(CommonBusiness.getAnnouncementMessage(
-                                    AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT_UPDATE
-                                            .getValue()))
-                            .mentionedUser(AnnouncementUser
+                            .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_MESSAGE_GIFT_UPDATE.getValue()))
+//                            .mentionedUser(AnnouncementUser
+//                                    .builder()
+//                                    .userId(giftTransaction.getSenderReceiverDto().getSender().getId())
+//                                    .name(giftTransaction.getSenderReceiverDto().getSender().getDisplayName())
+//                                    .maxId(giftTransaction.getSenderReceiverDto().getSender().getMaxId())
+//                                    .levelUrl(senderLevelResource.getResourceUrl())
+//                                    .build())
+                            .publisher(AnnouncementUser
                                     .builder()
-                                    .userId(giftTransaction.getSenderReceiverDto()
-                                            .getSender().getId())
-                                    .name(giftTransaction.getSenderReceiverDto()
-                                            .getSender().getDisplayName())
-                                    .maxId(giftTransaction.getSenderReceiverDto()
-                                            .getSender().getMaxId())
+                                    .userId(giftTransaction.getSenderReceiverDto().getSender().getId())
+                                    .maxId(giftTransaction.getSenderReceiverDto().getSender().getMaxId())
                                     .levelUrl(senderLevelResource.getResourceUrl())
+                                    .name(giftTransaction.getSenderReceiverDto().getSender().getDisplayName())
                                     .build())
                             .receiverUser(AnnouncementUser
                                     .builder()
-                                    .userId(giftTransaction.getSenderReceiverDto()
-                                            .getReceiver().getId())
-                                    .name(giftTransaction.getSenderReceiverDto()
-                                            .getReceiver().getDisplayName())
-                                    .maxId(giftTransaction.getSenderReceiverDto()
-                                            .getReceiver().getMaxId())
-                                    .levelUrl(receiverLevelResource
-                                            .getResourceUrl())
+                                    .userId(giftTransaction.getSenderReceiverDto().getReceiver().getId())
+                                    .name(giftTransaction.getSenderReceiverDto().getReceiver().getDisplayName())
+                                    .maxId(giftTransaction.getSenderReceiverDto().getReceiver().getMaxId())
+                                    .levelUrl(receiverLevelResource.getResourceUrl())
                                     .build())
                             .gift(Announcement.Gift
                                     .builder()
                                     .quantity(giftTransaction.getQuantity())
                                     .resource(Announcement.Resource
                                             .builder()
-                                            .name(giftTransaction.getGift()
-                                                    .getName())
-                                            .imageUrl(giftImageResource
-                                                    .getThumbnailUrl())
+                                            .name(giftTransaction.getGift().getName())
+                                            .imageUrl(giftImageResource.getThumbnailUrl())
                                             .build())
-                                    .resources(buildResourceCollection(
-                                            resourceFormats,
-                                            giftTransaction))
+                                    .resources(buildResourceCollection(resourceFormats, giftTransaction))
                                     .build())
                             .build();
                 });
@@ -532,36 +497,19 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         return giftTransaction.getLiveSession() != null
                 && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
                 ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(
-                        HttpStatus.NOT_FOUND,
-                        "Live Room not found")))
-                .filter(liveRoom -> liveRoom.getStatus().equals(
-                        Constants.STATUS_LIVE.getValue()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(
-                        HttpStatus.BAD_REQUEST,
-                        "Live Room is not live")))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Live Room is not live")))
                 .flatMap(liveRoom -> this
                         .buildGiftAnnouncement(giftTransaction)
                         .flatMap(announcement -> {
-                            liveRoom.setDailyStarProgress(
-                                    giftTransaction.getDailyStarProgress());
-                            liveRoom.setAnnouncement(
-                                    announcement);
-                            liveRoom.setHostTotalGems(
-                                    giftTransaction.getSenderReceiverDto()
-                                            .getReceiver()
-                                            .getGems());
-                            liveRoom.setHostGemsValue(
-                                    CommonBusiness.convertToShortName(
-                                            giftTransaction.getSenderReceiverDto()
-                                                    .getReceiver()
-                                                    .getGems()));
-                            return cachePort.updateForGift(
-                                            liveRoom)
-                                    .thenReturn(giftTransaction);
+                            liveRoom.setDailyStarProgress(giftTransaction.getDailyStarProgress());
+                            liveRoom.setAnnouncement(announcement);
+                            liveRoom.setHostTotalGems(giftTransaction.getSenderReceiverDto().getReceiver().getGems());
+                            liveRoom.setHostGemsValue(CommonBusiness.convertToShortName(giftTransaction.getSenderReceiverDto().getReceiver().getGems()));
+                            return cachePort.updateForGift(liveRoom).thenReturn(giftTransaction);
                         }))
-                .doOnError(throwable -> log.error(
-                        "Error while announcing gift to firebase"))
+                .doOnError(throwable -> log.error("Error while announcing gift to firebase"))
                 : Mono.just(giftTransaction);
     }
 

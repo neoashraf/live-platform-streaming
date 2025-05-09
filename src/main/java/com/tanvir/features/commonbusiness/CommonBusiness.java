@@ -153,7 +153,4 @@ public class CommonBusiness {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         return localDate.format(formatter);
     }
-
-
-
 }

@@ -159,13 +159,10 @@ public class GiftSummaryRepositoryCustomImpl implements GiftSummaryRepositoryCus
     @Override
     public Flux<UserBeanSummary> findTopUsersByBeansInDateRangeWithDynamicPipeline(Instant startDate, Instant endDate, int limit, Integer offset, String agencyMaxId) {
 
-        System.out.println("\n\n Offset : "+offset+"\n\n");
-
         List<AggregationOperation> pipeline = new ArrayList<>();
 
         pipeline.add(Aggregation.match(Criteria.where("createdOn").gte(startDate).lte(endDate)));
 
-        // Conditionally add agencyId filter if agencyMaxId is not "*"
         if (!"*".equals(agencyMaxId)) {
             System.out.println("Entered");
             pipeline.add(Aggregation.match(Criteria.where("agencyId").is(agencyMaxId)));

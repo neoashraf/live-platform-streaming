@@ -236,7 +236,6 @@ public class LeaderboardService implements LeaderboardUseCase {
                 });
     }
 
-
     @Override
     public Mono<LeaderBoardResponseDto> getHostLeaderBoard(LeaderboardRequestDto requestDto) {
 
