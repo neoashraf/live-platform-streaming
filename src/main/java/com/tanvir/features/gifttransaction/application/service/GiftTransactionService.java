@@ -454,7 +454,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .builder()
                             .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue())
                             .time(ZonedDateTime.now(ZoneOffset.UTC).toString())
-                            .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_MESSAGE_GIFT_UPDATE.getValue()))
+                            .messageTemplate(CommonBusiness.getAnnouncementMessage(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT_UPDATE.getValue()))
 //                            .mentionedUser(AnnouncementUser
 //                                    .builder()
 //                                    .userId(giftTransaction.getSenderReceiverDto().getSender().getId())
@@ -532,7 +532,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
                     ResourceFormat receiverLevelResource = CommonBusiness
                             .getResourceFormatByResourceType(receiverLevel.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
-                    
+
                     return Announcement
                             .builder()
                             .type(AnnouncementEnum.ANNOUNCEMENT_TYPE_GIFT.getValue())
