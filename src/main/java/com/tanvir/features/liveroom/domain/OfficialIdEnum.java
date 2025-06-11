@@ -20,6 +20,13 @@ public enum OfficialIdEnum {
             "10005502",
             "10007000")),
 
+    INVISIBLE_IDS(List.of(
+            "10003245",
+            "10006855",
+            "10005502",
+            "10004000",
+            "10007000")),
+
     KICKED_OUT_IDS(List.of(
             "10000001",
             "10000002",

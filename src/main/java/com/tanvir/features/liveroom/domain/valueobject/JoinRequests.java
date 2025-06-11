@@ -25,6 +25,7 @@ public class JoinRequests {
     private String status;
     private String reason;
     private String gender;
+    @Builder.Default
     private double giftsReceivedInThisSession=0.0;
     private String giftsReceivedInThisSessionString;
     private int seatIndex;

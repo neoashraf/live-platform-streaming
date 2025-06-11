@@ -255,13 +255,21 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<StreamResponseDto> joinStream(LiveRoomViewerRequestDto liveRoomViewerRequestDto) {
-        List<String> validTokenTypes = List.of(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_UID_AND_PRIVILEGE.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT_AND_PRIVILEGE.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_RTM.getValue());
+        List<String> validTokenTypes = List.of(
+                AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue(),
+                AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT.getValue(),
+                AgoraTokenTypeEnum.TOKEN_WITH_UID_AND_PRIVILEGE.getValue(),
+                AgoraTokenTypeEnum.TOKEN_WITH_USER_ACCOUNT_AND_PRIVILEGE.getValue(),
+                AgoraTokenTypeEnum.TOKEN_WITH_RTM.getValue()
+        );
+
         if (!validTokenTypes.contains(liveRoomViewerRequestDto.getTokenType())) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid token type"));
         }
 
         return port.getLiveRoomById(liveRoomViewerRequestDto.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomViewerRequestDto.getLiveRoomId())))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,
+                        "No LiveRoom found with Id : " + liveRoomViewerRequestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Sorry! Host is offline.")))
@@ -269,64 +277,76 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User not found!")))
                         .flatMap(commonBusiness::setUserLevelUrl)
                         .flatMap(user -> {
-
-                            if (liveRoom.getUserId().equals(user.getId())) {
-                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host Cannot join his/her own LiveRoom."));
+                            if (OfficialIdEnum.INVISIBLE_IDS.getValue().contains(user.getMaxId())) {
+                                log.info("Invisible user (maxId: {}) joined silently.", user.getMaxId());
+                                return buildJoinStreamResponseDto(liveRoomViewerRequestDto, liveRoom,
+                                        "Invisible user joined silently.");
                             }
 
-                            if (liveRoom.getViewerIds() != null && liveRoom.getViewerIds().contains(user.getId())) {
-                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already joined the LiveRoom."));
-                            }
-
-                            Viewer viewer = Viewer
-                                    .builder()
-                                    .userId(user.getId())
-                                    .maxId(user.getMaxId())
-                                    .displayName(user.getDisplayName())
-                                    .gender(user.getGender())
-                                    .profilePictureUrl(user.getProfileImageUrl())
-                                    .profileFrameUrl(user.getProfileFrameUrl())
-                                    .profileFrameId(user.getProfileFrameId())
-                                    .userLevel(user.getUserLevel())
-                                    .levelBadgeUrl(user.getLevelBadgeUrl())
-                                    .build();
-
-                            liveRoom.setViewer(viewer);
-                            liveRoom.setViewerCount(liveRoom.getViewerCount() + 1);
-
-                            List<String> currentViewerIdsInLiveroom = new ArrayList<>(
-                                    liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().isEmpty()
-                                            ? liveRoom.getViewerIds()
-                                            : new ArrayList<>()
-                            );
-
-                            currentViewerIdsInLiveroom.add(viewer.getUserId());
-
-                            liveRoom.setViewerIds(currentViewerIdsInLiveroom);
-                            liveRoom.setTotalViewerCount(liveRoom.getTotalViewerCount() + 1);
-
-                            return Mono.just(liveRoom);
+                            return joinUserIntoLiveRoom(liveRoom, user, liveRoomViewerRequestDto)
+                                    .doOnNext(streamResponseDto -> log.info("User {} joined LiveRoom: {}", user.getMaxId(), liveRoom.getId()))
+                                    .doOnError(error -> log.error("Error while joining LiveRoom: {}", error.getMessage()));
                         }))
-                .flatMap(liveRoom -> {
-                    if (liveRoom.getKickedOutUserIds() == null || liveRoom.getKickedOutUserIds().isEmpty()) {
-                        liveRoom.setKickedOutUserIds(new ArrayList<>());
-                    }
-                    return Mono.just(liveRoom);
-                })
-                .filter(liveRoom -> !liveRoom.getKickedOutUserIds().contains(liveRoom.getViewer().getUserId()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Sorry! Can't join the live stream. You have been kicked out by host.")))
-                .flatMap(this::buildJoinAnnouncement)
-                .doOnNext(liveRoom -> port.saveLiveRoom(liveRoom)
-                        .flatMap(liveRoom1 -> cachePort.update(liveRoom))
-                        .doOnRequest(liveRoomEntity -> log.info("Requesting to update LiveRoom into firebase"))
-                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .subscribe())
-                .flatMap(liveRoom -> this.buildJoinStreamResponseDto(liveRoomViewerRequestDto, liveRoom, "User has successfully joined the room."))
-                .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
-
+                .doOnError(error -> log.error("Failed to update LiveRoom with viewer entry: {}", error.getMessage()));
     }
+
+    private Mono<StreamResponseDto> joinUserIntoLiveRoom(LiveRoom liveRoom, User user, LiveRoomViewerRequestDto liveRoomViewerRequestDto) {
+        if (liveRoom.getUserId().equals(user.getId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,
+                    "Host Cannot join his/her own LiveRoom."));
+        }
+
+        if (liveRoom.getViewerIds() != null && liveRoom.getViewerIds().contains(user.getId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,
+                    "User already joined the LiveRoom."));
+        }
+
+        Viewer viewer = Viewer.builder()
+                .userId(user.getId())
+                .maxId(user.getMaxId())
+                .displayName(user.getDisplayName())
+                .gender(user.getGender())
+                .profilePictureUrl(user.getProfileImageUrl())
+                .profileFrameUrl(user.getProfileFrameUrl())
+                .profileFrameId(user.getProfileFrameId())
+                .userLevel(user.getUserLevel())
+                .levelBadgeUrl(user.getLevelBadgeUrl())
+                .build();
+
+        liveRoom.setViewer(viewer);
+        liveRoom.setViewerCount(liveRoom.getViewerCount() + 1);
+
+        List<String> viewerIds = new ArrayList<>(
+                liveRoom.getViewerIds() != null ? liveRoom.getViewerIds() : new ArrayList<>()
+        );
+        viewerIds.add(viewer.getUserId());
+        liveRoom.setViewerIds(viewerIds);
+        liveRoom.setTotalViewerCount(liveRoom.getTotalViewerCount() + 1);
+
+        if (liveRoom.getKickedOutUserIds() == null) {
+            liveRoom.setKickedOutUserIds(new ArrayList<>());
+        }
+
+        if (liveRoom.getKickedOutUserIds().contains(viewer.getUserId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,
+                    "Sorry! Can't join the live stream. You have been kicked out by host."));
+        }
+
+        return buildJoinAnnouncement(liveRoom)
+                .doOnNext(updatedRoom -> port.saveLiveRoom(updatedRoom)
+                        .flatMap(cachePort::update)
+                        .doOnRequest(req -> log.info("Requesting to update LiveRoom into Firebase"))
+                        .doOnNext(resp -> log.info("LiveRoom updated into Firebase successfully"))
+                        .doOnError(err -> log.error("Error while updating LiveRoom in Firebase: {}", err.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe()
+                )
+                .flatMap(updatedRoom ->
+                        buildJoinStreamResponseDto(liveRoomViewerRequestDto, updatedRoom,
+                                "User has successfully joined the room.")
+                );
+    }
+
 
     private Mono<StreamResponseDto> buildJoinStreamResponseDto(LiveRoomViewerRequestDto requestDto, LiveRoom liveRoom, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
@@ -676,22 +696,30 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<StreamResponseDto> leaveStream(LiveRoomViewerRequestDto requestDto) {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,
+                        "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
-                /*.filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Stream is not live. Cannot leave.")))*/
-                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
-                        .flatMap(user -> this.updateLiveRoomForFanLeave(liveRoom, user)))
-                .doOnNext(liveRoom -> log.info("Updated LiveRoom with fan leave : {}", liveRoom))
-                .flatMap(liveRoom1 -> port.saveLiveRoom(liveRoom1)
-                        .thenReturn(liveRoom1))
-                .doOnNext(liveRoom -> cachePort.updateForViewerLeave(liveRoom)
-                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                        .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                        .subscribeOn(Schedulers.boundedElastic()).subscribe())
-                .flatMap(liveRoom -> this.buildLeaveStreamResponseDto(liveRoom, "User successfully left the live room."))
+                .flatMap(liveRoom ->
+                    userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .flatMap(user -> {
+                            if (OfficialIdEnum.INVISIBLE_IDS.getValue().contains(user.getMaxId())) {
+                                log.info("Invisible user (maxId: {}) left silently.", user.getMaxId());
+                                return buildLeaveStreamResponseDto(liveRoom,
+                                        "Invisible user left silently.");
+                            }
+                            return this.updateLiveRoomForFanLeave(liveRoom, user)
+                                    .flatMap(updatedRoom -> port.saveLiveRoom(updatedRoom)
+                                            .thenReturn(updatedRoom))
+                                    .doOnNext(updatedRoom -> cachePort.updateForViewerLeave(updatedRoom)
+                                            .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                                            .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                                            .subscribeOn(Schedulers.boundedElastic()).subscribe())
+                                .flatMap(updatedRoom -> this.buildLeaveStreamResponseDto(updatedRoom,
+                                    "User successfully left the live room."));
+                        }))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Leave. Error : {}", throwable.getMessage()));
     }
+
 
     @Override
     public Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId) {
@@ -1250,64 +1278,78 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .flatMap(commonBusiness::setUserLevelUrl)
                         .flatMap(user -> {
 
-                            if (liveRoom.getUserId().equals(user.getId())) {
-                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host Cannot join his/her own LiveRoom."));
+                            if (OfficialIdEnum.INVISIBLE_IDS.getValue().contains(user.getMaxId())) {
+                                log.info("Invisible user (maxId: {}) joined silently.", user.getMaxId());
+                                return buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom,
+                                        "Invisible user joined silently.", true);
                             }
 
-                            if (liveRoom.getViewerIds() != null && liveRoom.getViewerIds().contains(user.getId())) {
-                                return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already joined the LiveRoom."));
-                            }
+                            return this.joinUserAudioStream(liveRoom, user, liveRoomViewerRequestDto, audioParticipantLimitReached)
+                                    .doOnRequest(liveRoomEntity -> log.info("Requesting to join user into LiveRoom"))
+                                    .doOnSuccess(liveRoomEntity -> log.info("User successfully joined into LiveRoom"))
+                                    .doOnError(throwable -> log.error("Error Happened while joining user into LiveRoom : {}", throwable.getMessage()));
+                        }))
 
-                            Viewer viewer = Viewer
-                                    .builder()
-                                    .userId(user.getId())
-                                    .maxId(user.getMaxId())
-                                    .displayName(user.getDisplayName())
-                                    .gender(user.getGender())
-                                    .profilePictureUrl(user.getProfileImageUrl())
-                                    .profileFrameUrl(user.getProfileFrameUrl())
-                                    .profileFrameId(user.getProfileFrameId())
-                                    .userLevel(user.getUserLevel())
-                                    .levelBadgeUrl(user.getLevelBadgeUrl())
-                                    .build();
-                            liveRoom.setViewer(viewer);
-                            liveRoom.setViewerCount(liveRoom.getViewerCount() + 1);
+                .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
+    }
+
+    private Mono<StreamResponseDto> joinUserAudioStream(LiveRoom liveRoom, User user, LiveRoomViewerRequestDto liveRoomViewerRequestDto, AtomicReference<Boolean> audioParticipantLimitReached) {
+        if (liveRoom.getUserId().equals(user.getId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Host Cannot join his/her own LiveRoom."));
+        }
+
+        if (liveRoom.getViewerIds() != null && liveRoom.getViewerIds().contains(user.getId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User already joined the LiveRoom."));
+        }
+
+        Viewer viewer = Viewer
+                .builder()
+                .userId(user.getId())
+                .maxId(user.getMaxId())
+                .displayName(user.getDisplayName())
+                .gender(user.getGender())
+                .profilePictureUrl(user.getProfileImageUrl())
+                .profileFrameUrl(user.getProfileFrameUrl())
+                .profileFrameId(user.getProfileFrameId())
+                .userLevel(user.getUserLevel())
+                .levelBadgeUrl(user.getLevelBadgeUrl())
+                .build();
+        liveRoom.setViewer(viewer);
+        liveRoom.setViewerCount(liveRoom.getViewerCount() + 1);
 
 //                            log.info("audio participants size : {}", liveRoom.getAudioParticipants().size());
-                            if (liveRoom.getAudioParticipants().size() < liveRoom.getMaxAudioParticipants()) {
-                                List<Viewer> updatedAudioParticipants = new ArrayList<>(liveRoom.getAudioParticipants());
-                                updatedAudioParticipants.add(viewer);
-                                liveRoom.setAudioParticipants(updatedAudioParticipants);
-                            } else {
-                                audioParticipantLimitReached.set(true);
-                            }
+        if (liveRoom.getAudioParticipants().size() < liveRoom.getMaxAudioParticipants()) {
+            List<Viewer> updatedAudioParticipants = new ArrayList<>(liveRoom.getAudioParticipants());
+            updatedAudioParticipants.add(viewer);
+            liveRoom.setAudioParticipants(updatedAudioParticipants);
+        } else {
+            audioParticipantLimitReached.set(true);
+        }
 
-                            List<String> currentViewerIdsInLiveroom = new ArrayList<>(liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().isEmpty()
-                                    ? liveRoom.getViewerIds() : new ArrayList<>());
-                            currentViewerIdsInLiveroom.add(viewer.getUserId());
-                            liveRoom.setViewerIds(currentViewerIdsInLiveroom);
-                            liveRoom.setTotalViewerCount(liveRoom.getTotalViewerCount() + 1);
+        List<String> currentViewerIdsInLiveroom = new ArrayList<>(liveRoom.getViewerIds() != null && !liveRoom.getViewerIds().isEmpty()
+                ? liveRoom.getViewerIds() : new ArrayList<>());
+        currentViewerIdsInLiveroom.add(viewer.getUserId());
+        liveRoom.setViewerIds(currentViewerIdsInLiveroom);
+        liveRoom.setTotalViewerCount(liveRoom.getTotalViewerCount() + 1);
 
-                            return Mono.just(liveRoom);
-                        }))
-                .flatMap(liveRoom -> {
-                    if (liveRoom.getKickedOutUserIds() == null || liveRoom.getKickedOutUserIds().isEmpty()) {
-                        liveRoom.setKickedOutUserIds(new ArrayList<>());
+        return Mono.just(liveRoom)
+                .flatMap(liveRoom1 -> {
+                    if (liveRoom1.getKickedOutUserIds() == null || liveRoom1.getKickedOutUserIds().isEmpty()) {
+                        liveRoom1.setKickedOutUserIds(new ArrayList<>());
                     }
-                    return Mono.just(liveRoom);
+                    return Mono.just(liveRoom1);
                 })
-                .filter(liveRoom -> !liveRoom.getKickedOutUserIds().contains(liveRoom.getViewer().getUserId()))
+                .filter(liveRoom1 -> !liveRoom1.getKickedOutUserIds().contains(liveRoom1.getViewer().getUserId()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is kicked out from LiveRoom. Cannot join.")))
                 .flatMap(this::buildJoinAnnouncement)
-                .doOnNext(liveRoom -> port.saveLiveRoom(liveRoom)
-                        .flatMap(liveRoom1 -> cachePort.update(liveRoom))
+                .doOnNext(liveRoom1 -> port.saveLiveRoom(liveRoom1)
+                        .flatMap(liveRoom2 -> cachePort.update(liveRoom1))
                         .doOnRequest(liveRoomEntity -> log.info("Requesting to update LiveRoom into firebase"))
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
-                .flatMap(liveRoom -> this.buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom, "User has successfully joined the room.", audioParticipantLimitReached.get()))
-                .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Entry. Error : {}", throwable.getMessage()));
+                .flatMap(liveRoom1 -> this.buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom1, "User has successfully joined the room.", audioParticipantLimitReached.get()));
     }
 
     @Override
