@@ -279,7 +279,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .flatMap(user -> {
                             if (OfficialIdEnum.INVISIBLE_IDS.getValue().contains(user.getMaxId())) {
                                 log.info("Invisible user (maxId: {}) joined silently.", user.getMaxId());
-                                return buildJoinStreamResponseDto(liveRoomViewerRequestDto, liveRoom,
+                                return buildJoinStreamResponseDto(liveRoomViewerRequestDto, liveRoom, user,
                                         "Invisible user joined silently.");
                             }
 
@@ -333,8 +333,8 @@ public class LiveRoomService implements LiveRoomUseCase {
         }
 
         return buildJoinAnnouncement(liveRoom)
-                .doOnNext(updatedRoom -> port.saveLiveRoom(updatedRoom)
-                        .flatMap(cachePort::update)
+                .doOnNext(builtLiveRoom -> port.saveLiveRoom(builtLiveRoom)
+                        .flatMap(liveRoom1 -> cachePort.update(builtLiveRoom))
                         .doOnRequest(req -> log.info("Requesting to update LiveRoom into Firebase"))
                         .doOnNext(resp -> log.info("LiveRoom updated into Firebase successfully"))
                         .doOnError(err -> log.error("Error while updating LiveRoom in Firebase: {}", err.getMessage()))
@@ -342,26 +342,26 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .subscribe()
                 )
                 .flatMap(updatedRoom ->
-                        buildJoinStreamResponseDto(liveRoomViewerRequestDto, updatedRoom,
+                        buildJoinStreamResponseDto(liveRoomViewerRequestDto, updatedRoom, user,
                                 "User has successfully joined the room.")
                 );
     }
 
 
-    private Mono<StreamResponseDto> buildJoinStreamResponseDto(LiveRoomViewerRequestDto requestDto, LiveRoom liveRoom, String message) {
+    private Mono<StreamResponseDto> buildJoinStreamResponseDto(LiveRoomViewerRequestDto requestDto, LiveRoom liveRoom, User user, String message) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
         roomDataDto.setHostMaxId(liveRoom.getHostMaxId());
         roomDataDto.setJoinedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
 //        roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
         roomDataDto.setWelcomeAnnouncement(liveRoom.getWelcomeAnnouncement());
-        roomDataDto.setViewerMaxId(liveRoom.getViewer().getMaxId());
+        roomDataDto.setViewerMaxId(user.getMaxId());
         AgoraTokenRequestDto agoraTokenRequestDto =
                 AgoraTokenRequestDto
                         .builder()
                         .channelName(liveRoom.getId())
                         .role(AgoraTokenTypeEnum.ROLE_SUBSCRIBER.getValue())
-                        .uid(Integer.parseInt(liveRoom.getViewer().getMaxId()))
+                        .uid(Integer.parseInt(user.getMaxId()))
                         .tokenExpirationInSeconds(86400)
                         .tokenType(requestDto.getTokenType())
                         .build();
@@ -384,14 +384,14 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     }
 
-    private Mono<StreamResponseDto> buildJoinAudioStreamResponseDto(LiveRoomViewerRequestDto requestDto, LiveRoom liveRoom, String message, Boolean maxParticipantsReached) {
+    private Mono<StreamResponseDto> buildJoinAudioStreamResponseDto(LiveRoomViewerRequestDto requestDto, LiveRoom liveRoom, User user, String message, Boolean maxParticipantsReached) {
         RoomDataDto roomDataDto = new RoomDataDto();
         roomDataDto.setId(liveRoom.getId());
         roomDataDto.setHostMaxId(liveRoom.getHostMaxId());
         roomDataDto.setJoinedOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
 //        roomDataDto.setAnnouncement(liveRoom.getAnnouncement());
         roomDataDto.setWelcomeAnnouncement(liveRoom.getWelcomeAnnouncement());
-        roomDataDto.setViewerMaxId(liveRoom.getViewer().getMaxId());
+        roomDataDto.setViewerMaxId(user.getMaxId());
         roomDataDto.setMaxAudioParticipants(liveRoom.getMaxAudioParticipants());
         roomDataDto.setAudioParticipants(liveRoom.getAudioParticipants());
 
@@ -400,7 +400,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .builder()
                         .channelName(liveRoom.getId())
                         .role(maxParticipantsReached ? AgoraTokenTypeEnum.ROLE_SUBSCRIBER.getValue() : AgoraTokenTypeEnum.ROLE_PUBLISHER.getValue())
-                        .uid(Integer.parseInt(liveRoom.getViewer().getMaxId()))
+                        .uid(Integer.parseInt(user.getMaxId()))
                         .tokenExpirationInSeconds(86400)
                         .tokenType(requestDto.getTokenType())
                         .build();
@@ -1280,7 +1280,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
                             if (OfficialIdEnum.INVISIBLE_IDS.getValue().contains(user.getMaxId())) {
                                 log.info("Invisible user (maxId: {}) joined silently.", user.getMaxId());
-                                return buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom,
+                                return buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom, user,
                                         "Invisible user joined silently.", true);
                             }
 
@@ -1349,7 +1349,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
-                .flatMap(liveRoom1 -> this.buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom1, "User has successfully joined the room.", audioParticipantLimitReached.get()));
+                .flatMap(liveRoom1 -> this.buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom1, user,"User has successfully joined the room.", audioParticipantLimitReached.get()));
     }
 
     @Override
