@@ -6,12 +6,15 @@ import com.tanvir.features.liveroom.adapter.out.persistence.repository.LiveRoomR
 import com.tanvir.features.liveroom.adapter.out.persistence.repository.LiveRoomRepositoryCustom;
 import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
+import com.tanvir.features.user.application.port.in.UserUseCase;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
 
 
 @Component
@@ -21,11 +24,13 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
     private final LiveRoomRepository repository;
     private final ModelMapper modelMapper;
     private final LiveRoomRepositoryCustom customRepository;
+    private final UserUseCase userUseCase;
 
-    public LiveRoomPersistenceAdapter(LiveRoomRepository liveRoomRepository, ModelMapper modelMapper, LiveRoomRepositoryCustom customRepository) {
+    public LiveRoomPersistenceAdapter(LiveRoomRepository liveRoomRepository, ModelMapper modelMapper, LiveRoomRepositoryCustom customRepository, UserUseCase userUseCase) {
         this.repository = liveRoomRepository;
         this.modelMapper = modelMapper;
         this.customRepository = customRepository;
+        this.userUseCase = userUseCase;
     }
 
     @Override
@@ -109,4 +114,15 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
                 .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class));
     }
 
+    @Override
+    public Mono<List<LiveRoom>> getFollowingLiveRooms(String keycloakId, Pageable pageable) {
+        return userUseCase.getUserByKeycloakId(keycloakId)
+                .flatMap(user -> customRepository.findByUserIds(user.getFollowings(), pageable));
+    }
+
+    @Override
+    public Mono<Long> getFollowingLiveRoomsCount(String keycloakId) {
+        return userUseCase.getUserByKeycloakId(keycloakId)
+                .flatMap(user -> customRepository.getCountByFilters(user.getFollowings()));
+    }
 }

@@ -24,6 +24,8 @@ public class LiveRoomRequestDto {
     private String thumbnailId;
     private String thumbnailUrl;
     private String tokenType;
+    private String audioSkinId;
+    private Integer audioSeatNumber;
 
     @Override
     public String toString() {

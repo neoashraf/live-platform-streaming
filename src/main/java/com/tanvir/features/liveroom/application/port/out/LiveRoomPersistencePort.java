@@ -5,6 +5,8 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+
 
 public interface LiveRoomPersistencePort {
     Mono<LiveRoom> saveLiveRoom(LiveRoom liveRoom);
@@ -18,4 +20,8 @@ public interface LiveRoomPersistencePort {
     Mono<Long> getActiveLiveRoomsCountByTypeAndCountry(String type, String country, String viewMode);
 
     Mono<LiveRoom> getActiveLiveRoomByHostId(String hostId);
+
+    Mono<List<LiveRoom>> getFollowingLiveRooms(String keycloakId, Pageable pageable);
+
+    Mono<Long> getFollowingLiveRoomsCount(String keycloakId);
 }

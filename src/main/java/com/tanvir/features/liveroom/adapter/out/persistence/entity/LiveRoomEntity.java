@@ -55,6 +55,8 @@ public class LiveRoomEntity implements Persistable<String> {
     private List<Viewer> audioParticipants;
 
     private String hostGender;
+    private String audioSkinId;
+    private Integer audioSeatNumber;
 
     @Override
     public String toString() {

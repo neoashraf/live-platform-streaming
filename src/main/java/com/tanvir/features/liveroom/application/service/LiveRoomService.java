@@ -7,24 +7,22 @@ import com.tanvir.features.agora.service.AgoraService;
 import com.tanvir.features.agora.service.AgoraTokenRequestDto;
 import com.tanvir.features.commonbusiness.CommonBusiness;
 import com.tanvir.features.content.application.port.in.ContentUseCase;
+import com.tanvir.features.content.domain.valueobjects.ContentTypeEnum;
 import com.tanvir.features.gifttransaction.application.port.out.GiftTransactionPersistencePort;
 import com.tanvir.features.gifttransaction.application.service.GiftTransactionService;
-import com.tanvir.features.host.application.port.in.dto.response.HostResponseDto;
 import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
+import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.application.port.out.LiveRoomPersistencePort;
-import com.tanvir.features.liveroom.domain.LiveRoomConfigEnums;
-import com.tanvir.features.liveroom.domain.OfficialIdEnum;
-import com.tanvir.features.liveroom.domain.Summary;
+import com.tanvir.features.liveroom.domain.*;
 import com.tanvir.features.liveroom.domain.valueobject.*;
-import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
 import com.tanvir.features.liveroomsummary.adapter.out.persistence.entity.LiveRoomSummaryEntity;
 import com.tanvir.features.liveroomsummary.application.port.in.LiveRoomSummaryUseCase;
@@ -36,12 +34,14 @@ import com.tanvir.features.user.domain.User;
 import io.netty.util.internal.StringUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
 import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuple2;
 import reactor.util.function.Tuple3;
 import reactor.util.function.Tuples;
 
@@ -154,7 +154,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
 
     private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host, User user) {
-
+        Integer audioSeatNumber = liveRoom.getAudioSeatNumber();
         return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
                 .flatMap(currentGems -> levelUseCase.getLevelDomainByLevel(host.getUserLevel())
                         .map(level -> {
@@ -179,9 +179,21 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .dailyStarProgress(starProgress)
                                     .profileFrameId(user.getProfileFrameId())
                                     .profileFrameUrl(user.getProfileFrameUrl())
-                                    .micOn("Yes")
+                                    .micOn(Constants.STATUS_YES.getValue())
                                     .build();
-
+                            Map<Integer, SeatNumberDto> seatAvailableStatusMap = new HashMap<>();
+                            SeatNumberDto seatDto = SeatNumberDto
+                                    .builder()
+                                    .availableStatus(true)
+                                    .userId(null)
+                                    .joinReqId(null)
+                                    .build();
+                            List<Boolean> seatAvailableStatus = new ArrayList<>();
+                            for (Integer seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
+                                seatAvailableStatusMap.put(seatNumber, seatDto);
+                                seatAvailableStatus.add(false);
+                            }
+                            log.debug("Seat 1 availability: {}", seatAvailableStatusMap.get(1));
                             return LiveRoomFirebaseEntity
                                     .builder()
                                     .id(liveRoom.getId())
@@ -199,10 +211,11 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .announcements(new ArrayList<>())
                                     .maxAudioParticipants(liveRoom.getMaxAudioParticipants())
                                     .audioParticipants(liveRoom.getAudioParticipants())
+                                    .audioSkinId(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinId())?liveRoom.getAudioSkinId():"")
+                                    .audioSkinUrl(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinUrl())?liveRoom.getAudioSkinUrl():"")
                                     .enableJoin(liveRoom.getEnableJoin())
-                                    .seatAvailableStatus(
-                                            Arrays.asList(false, false, false, false, false, false, false, false, false, false)
-                                    )
+                                    .seatAvailableStatus(seatAvailableStatus)
+                                    .seatMap(seatAvailableStatusMap)
                                     .summary(Summary.builder().build())
                                     .build();
                         }));
@@ -430,7 +443,6 @@ public class LiveRoomService implements LiveRoomUseCase {
         roomDataDto.setId(liveRoom.getId());
         roomDataDto.setHostMaxId(liveRoom.getHostMaxId());
         roomDataDto.setUserId(liveRoom.getUserId());
-
         roomDataDto.setThumbnailId(liveRoom.getThumbnailId());
         roomDataDto.setThumbnailUrl(liveRoom.getThumbnailUrl());
         roomDataDto.setTitle(liveRoom.getTitle());
@@ -444,6 +456,12 @@ public class LiveRoomService implements LiveRoomUseCase {
         roomDataDto.setHostDailyGems(liveRoom.getHostDailyGems());
         roomDataDto.setMaxAudioParticipants(liveRoom.getMaxAudioParticipants());
         roomDataDto.setAudioParticipants(liveRoom.getAudioParticipants());
+
+        roomDataDto.setAudioSeatNumber(liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
+                ? liveRoom.getAudioSeatNumber()
+                : null);
+        roomDataDto.setAudioSkinId(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinId())?liveRoom.getAudioSkinId():"");
+        roomDataDto.setAudioSkinUrl(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinUrl())?liveRoom.getAudioSkinUrl():"");
 
         requestDto.setTokenType(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue());
         AgoraTokenRequestDto agoraTokenRequestDto =
@@ -700,23 +718,23 @@ public class LiveRoomService implements LiveRoomUseCase {
                         "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .flatMap(liveRoom ->
-                    userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
-                        .flatMap(user -> {
-                            if (OfficialIdEnum.INVISIBLE_IDS.getValue().contains(user.getMaxId())) {
-                                log.info("Invisible user (maxId: {}) left silently.", user.getMaxId());
-                                return buildLeaveStreamResponseDto(liveRoom,
-                                        "Invisible user left silently.");
-                            }
-                            return this.updateLiveRoomForFanLeave(liveRoom, user)
-                                    .flatMap(updatedRoom -> port.saveLiveRoom(updatedRoom)
-                                            .thenReturn(updatedRoom))
-                                    .doOnNext(updatedRoom -> cachePort.updateForViewerLeave(updatedRoom)
-                                            .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                                            .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
-                                            .subscribeOn(Schedulers.boundedElastic()).subscribe())
-                                .flatMap(updatedRoom -> this.buildLeaveStreamResponseDto(updatedRoom,
-                                    "User successfully left the live room."));
-                        }))
+                        userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                                .flatMap(user -> {
+                                    if (OfficialIdEnum.INVISIBLE_IDS.getValue().contains(user.getMaxId())) {
+                                        log.info("Invisible user (maxId: {}) left silently.", user.getMaxId());
+                                        return buildLeaveStreamResponseDto(liveRoom,
+                                                "Invisible user left silently.");
+                                    }
+                                    return this.updateLiveRoomForFanLeave(liveRoom, user)
+                                            .flatMap(updatedRoom -> port.saveLiveRoom(updatedRoom)
+                                                    .thenReturn(updatedRoom))
+                                            .doOnNext(updatedRoom -> cachePort.updateForViewerLeave(updatedRoom)
+                                                    .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                                                    .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
+                                                    .subscribeOn(Schedulers.boundedElastic()).subscribe())
+                                            .flatMap(updatedRoom -> this.buildLeaveStreamResponseDto(updatedRoom,
+                                                    "User successfully left the live room."));
+                                }))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Leave. Error : {}", throwable.getMessage()));
     }
 
@@ -842,28 +860,70 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto) {
+        String viewMode = requestDto.getViewMode();
+        String country = requestDto.getCountry();
+        String keycloakId = requestDto.getKeycloakId();
+        Pageable pageable = requestDto.getPageable();
 
-        return this.validateGridViewRequest(requestDto)
-                .flatMap(requestDto1 -> requestDto.getViewMode().equals(Constants.TAB_PARTY.getValue())
-                        ? port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
-                        .zipWith(port.getActiveAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
-                        .map(countAndDataTuple -> LiveRoomGridViewResponseDto
-                                .builder()
-                                .userMessage("LiveRoom Grid View Fetched Successfully.")
-                                .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
-                                .count(countAndDataTuple.getT1().intValue())
-                                .build())
-                        : /*port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_VIDEO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
-                        .zipWith(port.getActiveVideoLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())*/
-                        port.getActiveLiveRoomsCountByTypeAndCountry(null, requestDto.getCountry(), requestDto.getViewMode())
-                                .zipWith(port.getActiveVideoAndAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
-                                .map(countAndDataTuple -> LiveRoomGridViewResponseDto
-                                        .builder()
-                                        .userMessage("LiveRoom Grid View Fetched Successfully.")
-                                        .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
-                                        .count(countAndDataTuple.getT1().intValue())
-                                        .build()));
+        if (viewMode.equals(Constants.VIEW_MODE_SK.getValue()) || viewMode.equals(Constants.VIEW_MODE_GUEST_CALL.getValue())) {
+            return Mono.just(LiveRoomGridViewResponseDto.builder()
+                    .userMessage("No data available for SK or GUEST_CALL view.")
+                    .data(Collections.emptyList())
+                    .count(0)
+                    .build());
+        }
+
+        return resolveRoomsAndCount(viewMode, keycloakId, country, pageable)
+                .map(tuple -> LiveRoomGridViewResponseDto.builder()
+                        .userMessage("LiveRoom Grid View Fetched Successfully.")
+                        .count(tuple.getT1().intValue())
+                        .data(buildLiveRoomResponse(tuple.getT2()))
+                        .build());
     }
+
+    private Mono<Tuple2<Long, List<LiveRoom>>> resolveRoomsAndCount(String viewMode, String keycloakId, String country, Pageable pageable) {
+        if (viewMode.equals(Constants.VIEW_MODE_FOLLOWING.getValue())) {
+            return Mono.zip(
+                    port.getFollowingLiveRoomsCount(keycloakId),
+                    port.getFollowingLiveRooms(keycloakId, pageable)
+            );
+        } else if (viewMode.equals(Constants.VIEW_MODE_EXPLORE.getValue())) {
+            return Mono.zip(
+                    port.getActiveLiveRoomsCountByTypeAndCountry(null, country, viewMode),
+                    port.getActiveVideoAndAudioLiveRooms(pageable, country).collectList()
+            );
+        }
+        return Mono.zip(
+                port.getActiveLiveRoomsCountByTypeAndCountry(null, null, viewMode),
+                port.getActiveVideoAndAudioLiveRooms(pageable, null).collectList()
+        );
+    }
+
+
+//    @Override
+//    public Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto) {
+//
+//        return this.validateGridViewRequest(requestDto)
+//                .flatMap(requestDto1 -> requestDto.getViewMode().equals(Constants.TAB_PARTY.getValue())
+//                        ? port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
+//                        .zipWith(port.getActiveAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
+//                        .map(countAndDataTuple -> LiveRoomGridViewResponseDto
+//                                .builder()
+//                                .userMessage("LiveRoom Grid View Fetched Successfully.")
+//                                .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
+//                                .count(countAndDataTuple.getT1().intValue())
+//                                .build())
+//                        : /*port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_VIDEO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
+//                        .zipWith(port.getActiveVideoLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())*/
+//                        port.getActiveLiveRoomsCountByTypeAndCountry(null, requestDto.getCountry(), requestDto.getViewMode())
+//                                .zipWith(port.getActiveVideoAndAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
+//                                .map(countAndDataTuple -> LiveRoomGridViewResponseDto
+//                                        .builder()
+//                                        .userMessage("LiveRoom Grid View Fetched Successfully.")
+//                                        .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
+//                                        .count(countAndDataTuple.getT1().intValue())
+//                                        .build()));
+//    }
 
     private Mono<LiveRoomGridViewResponseDto> getVideoLiveRooms(GridViewRequestDto requestDto) {
 //        todo : implement fetch according to popular index
@@ -1211,12 +1271,31 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto) {
+        Integer seatNumber = requestDto.getAudioSeatNumber() == null
+                ? AllowedSeatNumber.SEAT_5.getSeatNumber()
+                : requestDto.getAudioSeatNumber();
+
+        if (!AllowedSeatNumber.isValid(seatNumber)) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid seat number: " + seatNumber));
+        }
+
+        requestDto.setAudioSeatNumber(seatNumber);
         AtomicReference<String> liveRoomId = new AtomicReference<>();
         return userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
                 .doOnNext(user -> log.info("User received : {}", user))
                 .doOnError(throwable -> log.error("Error happened while retrieving user : {}", throwable.getMessage()))
                 .filter(user -> user.getUserType().equals(UserTypeEnum.USER_TYPE_HOST.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
+                .flatMap(user -> {
+                    String audioSkinId = requestDto.getAudioSkinId();
+                    if (audioSkinId == null || audioSkinId.trim().isEmpty()) {
+                        return Mono.just(user);
+                    }
+                    return contentUseCase.getContentByContentIdAndUserId(audioSkinId, user.getId())
+                            .filter(bagEntity -> bagEntity.getType().equalsIgnoreCase(ContentTypeEnum.AUDIO_SKIN.getValue()))
+                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Content type doesn't match!")))
+                            .thenReturn(user);
+                })
                 .flatMap(user -> hostUseCase.getHostByUserId(user.getId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User must be a host to create LiveRoom.")))
                         .filter(host -> host.getActive().equals(Constants.STATUS_YES.getValue()))
@@ -1230,7 +1309,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                                                 : Mono.just(liveRoom))
                                 .thenReturn(Tuples.of(user, host))))
                 .flatMap(userHostTuple2 -> this.buildAudioLiveRoomDomain(userHostTuple2.getT2(), requestDto)
-                        .doOnNext(liveRoom -> log.info("LiveRoom domain built: {}", liveRoom))
                         .flatMap(port::saveLiveRoom)
                         .map(liveRoom -> {
                             liveRoomId.set(liveRoom.getId());
@@ -1238,6 +1316,17 @@ public class LiveRoomService implements LiveRoomUseCase {
                         })
                         .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
                         .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
+                        .flatMap(liveRoom -> {
+                            String audioSkinId = requestDto.getAudioSkinId();
+                            if (audioSkinId == null || audioSkinId.trim().isEmpty()) {
+                                return Mono.just(liveRoom);
+                            }
+                            return this.findContentAndReturnResource(liveRoom.getAudioSkinId())
+                                    .flatMap(url ->{
+                                        liveRoom.setAudioSkinUrl(url);
+                                        return Mono.just(liveRoom);
+                                    });
+                        })
                         .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, userHostTuple2.getT2(), userHostTuple2.getT1())
                                 .flatMap(cachePort::create)
                                 .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
@@ -1259,6 +1348,19 @@ public class LiveRoomService implements LiveRoomUseCase {
                     }
                 });
     }
+
+    private Mono<String> findContentAndReturnResource(String audioSkinId) {
+        return contentUseCase.getContentById(audioSkinId)
+                .flatMap(content -> content.getResourceFormats().stream()
+                        .filter(format -> Constants.RESOURCES_TYPE_IMAGE.getValue()
+                                .equalsIgnoreCase(format.getResourceType()))
+                        .map(ResourceFormat::getResourceUrl)
+                        .findFirst()
+                        .map(Mono::just)
+                        .orElse(Mono.just(""))
+                );
+    }
+
 
     @Override
     public Mono<StreamResponseDto> joinAudioStream(LiveRoomViewerRequestDto liveRoomViewerRequestDto) {
@@ -1349,7 +1451,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
-                .flatMap(liveRoom1 -> this.buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom1, user,"User has successfully joined the room.", audioParticipantLimitReached.get()));
+                .flatMap(liveRoom1 -> this.buildJoinAudioStreamResponseDto(liveRoomViewerRequestDto, liveRoom1, user, "User has successfully joined the room.", audioParticipantLimitReached.get()));
     }
 
     @Override
@@ -1654,7 +1756,6 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
 
-
     /*private LiveRoomResponse sortAndLimitFansByEntryTimeAndCount(LiveRoomResponse liveRoomResponse, Long fanCount) {
         List<Fan> fanList = liveRoomResponse.getFans()
                 .stream()
@@ -1683,7 +1784,6 @@ public class LiveRoomService implements LiveRoomUseCase {
 
         return liveRoomResponse;
     }
-
 
     private List<LiveRoomResponse> buildLiveRoomResponse(List<LiveRoom> liveRoomList) {
         List<LiveRoomResponse> liveRoomResponseList = new ArrayList<>();
@@ -1810,6 +1910,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .maxAudioParticipants(LiveRoomConfigEnums.maxAudioParticipants.getValue())
                         .audioParticipants(new ArrayList<>())
                         .hostGender(host.getGender())
+
+                        .audioSeatNumber(requestDto.getAudioSeatNumber())
+                        .audioSkinId(Strings.isNotNullAndNotEmpty(requestDto.getAudioSkinId())?requestDto.getAudioSkinId():"")
                         .build());
     }
 

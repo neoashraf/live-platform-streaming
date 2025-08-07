@@ -1,6 +1,7 @@
 package com.tanvir.features.liveroom.adapter.in.web.handler;
 
 import com.tanvir.core.util.enums.AgoraTokenTypeEnum;
+import com.tanvir.core.util.enums.Constants;
 import com.tanvir.core.util.enums.QueryParams;
 import com.tanvir.core.util.exception.ErrorHandler;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
@@ -8,6 +9,7 @@ import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.EarningResponseDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.HostMicStatusRequestDto;
+import com.tanvir.features.liveroom.domain.AllowedSeatNumber;
 import com.tanvir.features.liveroom.domain.valueobject.Earning;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,6 +22,7 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.Map;
 
@@ -30,6 +33,7 @@ public class LiveRoomHandler {
     private final LiveRoomUseCase liveRoomUseCase;
 
     public Mono<ServerResponse> createStream(ServerRequest serverRequest) {
+
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
 //        String tokenType = serverRequest.queryParam(QueryParams.TOKEN_TYPE.getValue()).orElseThrow(() -> new IllegalArgumentException("Token type is required"));
         return serverRequest
@@ -162,13 +166,63 @@ public class LiveRoomHandler {
                 ;
     }
 
+
+
     public Mono<ServerResponse> homepage(ServerRequest serverRequest) {
-        return liveRoomUseCase.getHomepage(this.buildGridViewRequestDto(serverRequest))
+        return this.buildGridViewRequestDto(serverRequest)
+                .flatMap(gridViewRequestDto -> liveRoomUseCase.getHomepage(gridViewRequestDto))
                 .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(dto)
                 );
+    }
+
+    private Mono<GridViewRequestDto> buildGridViewRequestDto(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
+        String viewMode = serverRequest.queryParam(QueryParams.VIEW_MODE.getValue()).orElseThrow(() -> new IllegalArgumentException("viewMode is required"));
+        String mediaType = serverRequest.queryParam(QueryParams.MEDIA_TYPE.getValue()).orElseThrow(() -> new IllegalArgumentException("mediaType is required"));
+
+        List<String> liveRoomTypes = List.of(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), Constants.LIVE_ROOM_TYPE_VIDEO.getValue());
+
+        if (!liveRoomTypes.contains(mediaType)) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"mediaType must be either AUDIO or VIDEO"));
+        }
+
+        List<String> validViewModes = List.of(Constants.VIEW_MODE_FOLLOWING.getValue(),
+                Constants.VIEW_MODE_POPULAR.getValue(),
+                Constants.VIEW_MODE_EXPLORE.getValue(),
+                Constants.VIEW_MODE_SK.getValue(),
+                Constants.VIEW_MODE_GUEST_CALL.getValue()
+        );
+        if (!validViewModes.contains(viewMode.toUpperCase())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"Invalid viewMode. Must be one of: FOLLOWING, POPULAR, EXPLORE, SK, GUEST_CALL"));
+        }
+
+        if (mediaType.equalsIgnoreCase(Constants.LIVE_ROOM_TYPE_VIDEO.getValue())
+                && !(viewMode.equalsIgnoreCase(Constants.VIEW_MODE_SK.getValue()) || viewMode.equalsIgnoreCase(Constants.VIEW_MODE_GUEST_CALL.getValue()))) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "When mediaType is VIDEO, viewMode must be SK or GUEST_CALL"));
+        }
+
+
+        String country = null;
+        if (viewMode.equalsIgnoreCase(Constants.VIEW_MODE_EXPLORE.getValue())) {
+            country = serverRequest.queryParam(QueryParams.COUNTRY.getValue()).orElse(null);
+        }
+
+        int limit = Integer.parseInt(serverRequest.queryParam(QueryParams.LIMIT.getValue()).orElse("20"));
+        int offSet = Integer.parseInt(serverRequest.queryParam(QueryParams.OFFSET.getValue()).orElse("0"));
+        limit = Math.min(limit, 100);
+
+        Pageable pageable = PageRequest.of(offSet, limit);
+
+        return Mono.just(GridViewRequestDto.builder()
+                .keycloakId(keycloakId)
+                .viewMode(viewMode.toUpperCase())
+                .mediaType(mediaType.toUpperCase())
+                .country(country)
+                .pageable(pageable)
+                .build());
     }
 
     public Mono<ServerResponse> liveRoomById(ServerRequest serverRequest) {
@@ -191,24 +245,6 @@ public class LiveRoomHandler {
                 .keycloakId(liveRoomId)
                 .build();
     }
-
-
-    private GridViewRequestDto buildGridViewRequestDto(ServerRequest serverRequest) {
-        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));
-        String viewMode = serverRequest.queryParam(QueryParams.VIEW_MODE.getValue()).orElseThrow(() -> new IllegalArgumentException("viewMode is required"));
-        String country = serverRequest.queryParam(QueryParams.COUNTRY.getValue()).orElse(null);
-        int limit = Integer.parseInt(serverRequest.queryParam(QueryParams.LIMIT.getValue()).orElse("20"));
-        int offSet = Integer.parseInt(serverRequest.queryParam(QueryParams.OFFSET.getValue()).orElse("0"));
-        limit = Math.min(limit, 100);
-        Pageable pageable = PageRequest.of(offSet, limit);
-        return GridViewRequestDto.builder()
-                .keycloakId(keycloakId)
-                .viewMode(viewMode)
-                .country(country)
-                .pageable(pageable)
-                .build();
-    }
-
 
     public Mono<ServerResponse> setJoinPermission(ServerRequest serverRequest) {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("Keycloak id is required"));

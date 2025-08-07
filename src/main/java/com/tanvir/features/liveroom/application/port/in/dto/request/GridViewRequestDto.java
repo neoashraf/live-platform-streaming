@@ -14,8 +14,7 @@ import org.springframework.data.domain.Pageable;
 public class GridViewRequestDto {
     private String viewMode;
     private String country;
-    /*private Integer offset;
-    private Integer limit;*/
+    private String mediaType;
     private Pageable pageable;
     private String keycloakId;
 

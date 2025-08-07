@@ -61,6 +61,9 @@ public class LiveRoom {
     private int maxAudioParticipants;
     private List<Viewer> audioParticipants;
     private Summary summary;
+    private String audioSkinId;
+    private String audioSkinUrl;
+    private Integer audioSeatNumber;
 
     @Override
     public String toString() {

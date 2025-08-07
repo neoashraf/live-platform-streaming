@@ -3,13 +3,13 @@ package com.tanvir.features.liveroom.adapter.out.persistence;
 import com.tanvir.core.util.DateTimeUtil;
 import com.tanvir.core.util.FormatUtil;
 import com.tanvir.core.util.enums.Constants;
-import com.tanvir.core.util.enums.Status;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseRepository;
 import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestUpdateDto;
+import com.tanvir.features.liveroom.application.port.in.dto.request.SeatNumberDto;
 import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.Summary;
@@ -24,10 +24,7 @@ import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Component
 @Slf4j
@@ -144,11 +141,18 @@ public class FirebaseAdapter implements CachePort {
                     List<JoinRequests> currentJoinRequests = new ArrayList<>(firebaseEntity.getJoinRequests() != null ? firebaseEntity.getJoinRequests() : new ArrayList<>());
                     log.info("Current join requests: {}", currentJoinRequests);
                     if (!currentJoinRequests.isEmpty()) {
+
                         List<JoinRequests> updatedList = currentJoinRequests.stream()
                                 .peek(joinRequest -> {
                                     if (joinRequest.getUserId().equals(liveRoom.getViewer().getUserId())) {
 
                                         if (joinRequest.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
+                                            Map<Integer, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
+                                            SeatNumberDto seat = seatMap.get(joinRequest.getSeatIndex());
+                                            if (seat != null) {
+                                                seat.setAvailableStatus(true);
+                                                seat.setUserId(liveRoom.getViewer().getUserId());
+                                            }
                                             firebaseEntity.getSeatAvailableStatus().set(joinRequest.getSeatIndex(), false);
                                         }
                                         joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
@@ -203,6 +207,12 @@ public class FirebaseAdapter implements CachePort {
                                     if (joinRequests.getUserId().equals(liveRoom.getViewer().getUserId())) {
 
                                         if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
+                                            Map<Integer, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
+                                            SeatNumberDto seat = seatMap.get(joinRequests.getSeatIndex());
+                                            if (seat != null) {
+                                                seat.setAvailableStatus(true);
+                                                seat.setUserId(liveRoom.getViewer().getUserId());
+                                            }
                                             firebaseEntity.getSeatAvailableStatus().set(joinRequests.getSeatIndex(), false);
                                         }
                                         joinRequests.setStatus(Constants.STATUS_CLOSED.getValue());
@@ -381,7 +391,7 @@ public class FirebaseAdapter implements CachePort {
                                 joinRequests.setReason(requestDto.getReason());
 
                                 this.assignSeat(firebaseEntity, joinRequests);
-                                if (joinRequests.getSeatIndex() == firebaseEntity.getSeatAvailableStatus().size())
+                                if (joinRequests.getSeatIndex() == firebaseEntity.getSeatMap().size())
                                     Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat capacity crosses limit"));
                             },
                             () -> {
@@ -396,21 +406,26 @@ public class FirebaseAdapter implements CachePort {
     }
 
     private LiveRoomFirebaseEntity assignSeat(LiveRoomFirebaseEntity firebaseEntity, JoinRequests joinRequests) {
-        List<Boolean> seatAvailableStatus = firebaseEntity.getSeatAvailableStatus();
+        Map<Integer, SeatNumberDto> seatAvailableStatus = firebaseEntity.getSeatMap();
 
-        for (int i = 0; i < seatAvailableStatus.size(); i++) {
-            if (!seatAvailableStatus.get(i)) {
+        for (Map.Entry<Integer, SeatNumberDto> entry : seatAvailableStatus.entrySet()) {
+            Integer seatIndex = entry.getKey();
+            SeatNumberDto seat = entry.getValue();
 
-                seatAvailableStatus.set(i, true);
-
-                joinRequests.setSeatIndex(i);
-                firebaseEntity.setSeatAvailableStatus(seatAvailableStatus);
+            if (seat.isAvailableStatus()) {
+                seat.setAvailableStatus(false);
+                seat.setUserId(joinRequests.getUserId());
+                seat.setJoinReqId(joinRequests.getRequestId());
+                joinRequests.setSeatIndex(seatIndex);
 
                 return firebaseEntity;
             }
         }
+
+        // No available seat found
         return firebaseEntity;
     }
+
 
     @Override
     public Mono<LiveRoom> updateForStartingJoinCall(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
@@ -448,7 +463,12 @@ public class FirebaseAdapter implements CachePort {
                     optionalJoinRequests.ifPresentOrElse(joinRequests ->
                             {
                                 if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
-                                    firebaseEntity.getSeatAvailableStatus().set(joinRequests.getSeatIndex(), false);
+                                    Map<Integer, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
+                                    SeatNumberDto seat = seatMap.get(joinRequests.getSeatIndex());
+                                    if (seat != null) {
+                                        seat.setAvailableStatus(false);
+                                        seat.setUserId(liveRoom.getViewer().getUserId());
+                                    }
                                 }
                                 joinRequests.setStatus(Constants.STATUS_CLOSED.getValue());
                                 joinRequests.setSeatIndex(-1);

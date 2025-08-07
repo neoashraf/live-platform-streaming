@@ -64,6 +64,7 @@ public class UserEntity {
     private List<String> followings;
     private List<String> friends;
     private String deviceBanned;
+    private String audioSkinId;
 
     @Override
     public String toString() {

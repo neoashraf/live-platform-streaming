@@ -19,7 +19,6 @@ public interface LiveRoomUseCase {
     Mono<LiveRoomResponseDto> sendGift(SendGiftRequestDto requestDto);
     Mono<StreamResponseDto> comment(LiveRoomViewerRequestDto requestDto);
     Mono<LiveRoom> getLiveRoomById(String id);
-
     Mono<LiveRoom> updateLiveRoom(LiveRoom liveRoom);
     Mono<LiveRoomJoinPermissionResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO);
     Mono<JoinCallResponseDto> requestJoinCall(JoinCallRequestDto requestDto);
@@ -27,11 +26,9 @@ public interface LiveRoomUseCase {
     Mono<JoinCallResponseDto> startJoinCall(JoinCallRequestDto requestDto);
     Mono<JoinCallResponseDto> closeJoinedCall(JoinCallRequestDto requestDto);
     Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto);
-
     Mono<StreamResponseDto> joinAudioStream(LiveRoomViewerRequestDto requestDto);
     Mono<LiveRoomJoinPermissionResponseDto> setEnableAutoJoinAudioStream(JoinPermissionRequestDTO requestDTO);
     Mono<Earning> userEarning(String keycloakId);
     Mono<JoinCallResponseDto> updateJoinCall(JoinCallRequestUpdateDto requestDto);
-
     Mono<HostMicStatusResponseDto> setMicStatus(String liveRoomId, String micOn);
 }

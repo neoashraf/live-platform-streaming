@@ -40,13 +40,14 @@ public enum QueryParams {
     CREATED_BEFORE("createdBefore"),
     TOKEN_TYPE("tokenType"),
 
+    MEDIA_TYPE("mediaType"),
+
     LIMIT("limit"),
     OFFSET("offset"),
     REQUEST_ID("requestId"),
 
     MONTH("month"),
     YEAR("year"),
-
     ;
     private final String value;
 

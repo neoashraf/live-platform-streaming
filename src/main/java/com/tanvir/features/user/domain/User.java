@@ -58,6 +58,7 @@ public class User {
     private String remarks;
     private String markedAsDeleted;
     private String deviceBanned;
+    private String audioSkinId;
 
 
 	@Override

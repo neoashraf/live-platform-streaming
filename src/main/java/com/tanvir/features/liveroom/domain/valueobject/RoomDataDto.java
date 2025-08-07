@@ -50,4 +50,7 @@ public class RoomDataDto {
     private Double giftReceivedAmount;
     private String giftReceivedAmountString;
     private String endedBy;
+    private Integer audioSeatNumber;
+    private String audioSkinId;
+    private String audioSkinUrl;
 }
