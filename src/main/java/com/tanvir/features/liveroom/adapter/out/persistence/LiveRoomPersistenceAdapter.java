@@ -91,8 +91,8 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
     }
 
     @Override
-    public Flux<LiveRoom> getActiveVideoAndAudioLiveRooms(Pageable pageable, String country) {
-        return customRepository.findAllByFilters(null, Constants.STATUS_LIVE.getValue(), country, pageable)
+    public Flux<LiveRoom> getActiveVideoAndAudioLiveRooms(Pageable pageable, String country, String mediaType) {
+        return customRepository.findAllByFilters(mediaType, Constants.STATUS_LIVE.getValue(), country, pageable)
                 .map(liveRoomEntity -> modelMapper.map(liveRoomEntity, LiveRoom.class))
                 .doOnRequest(l -> log.info("Request received to get active video and audio live rooms"))
                 .doOnComplete(() -> log.info("Got active video and audio live rooms"))
@@ -115,14 +115,14 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
     }
 
     @Override
-    public Mono<List<LiveRoom>> getFollowingLiveRooms(String keycloakId, Pageable pageable) {
+    public Mono<List<LiveRoom>> getFollowingLiveRooms(String keycloakId, Pageable pageable, String mediaType) {
         return userUseCase.getUserByKeycloakId(keycloakId)
-                .flatMap(user -> customRepository.findByUserIds(user.getFollowings(), pageable));
+                .flatMap(user -> customRepository.findByUserIds(user.getFollowings(), pageable, mediaType));
     }
 
     @Override
-    public Mono<Long> getFollowingLiveRoomsCount(String keycloakId) {
+    public Mono<Long> getFollowingLiveRoomsCount(String keycloakId, String mediaType) {
         return userUseCase.getUserByKeycloakId(keycloakId)
-                .flatMap(user -> customRepository.getCountByFilters(user.getFollowings()));
+                .flatMap(user -> customRepository.getCountByFilters(user.getFollowings(),mediaType));
     }
 }

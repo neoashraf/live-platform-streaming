@@ -1,7 +1,6 @@
 package com.tanvir.features.liveroom.adapter.out.persistence.repository;
 
 import com.tanvir.core.util.enums.Constants;
-import com.tanvir.features.giftsummary.adapter.out.persistence.repository.GiftSummaryRepository;
 import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import org.modelmapper.ModelMapper;
@@ -12,12 +11,12 @@ import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Repository;
+import org.testng.util.Strings;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.logging.ConsoleHandler;
 
 @Repository
 public class LiveRoomRepositoryCustomImpl implements LiveRoomRepositoryCustom {
@@ -35,7 +34,7 @@ public class LiveRoomRepositoryCustomImpl implements LiveRoomRepositoryCustom {
 
         Criteria criteria = new Criteria();
 
-        if (type != null && !type.isEmpty()) {
+        if (Strings.isNotNullAndNotEmpty(type) && !Constants.LIVE_ROOM_TYPE_ALL.getValue().equals(type)) {
             criteria.and("type").is(type);
         }
         if (status != null && !status.isEmpty()) {
@@ -55,7 +54,7 @@ public class LiveRoomRepositoryCustomImpl implements LiveRoomRepositoryCustom {
 
         Criteria criteria = new Criteria();
 
-        if (type != null && !type.isEmpty()) {
+        if (Strings.isNotNullAndNotEmpty(type) && !Constants.LIVE_ROOM_TYPE_ALL.getValue().equals(type)) {
             criteria.and("type").is(type);
         }
         if (status != null && !status.isEmpty()) {
@@ -71,23 +70,36 @@ public class LiveRoomRepositoryCustomImpl implements LiveRoomRepositoryCustom {
     }
 
     @Override
-    public Mono<Long> getCountByFilters(List<String> followings) {
-            if (followings == null || followings.isEmpty()) {
-                return Mono.just(0L);
-            }
+    public Mono<Long> getCountByFilters(List<String> followings, String mediaType) {
+        if (followings == null || followings.isEmpty()) {
+            return Mono.just(0L);
+        }
 
-            Criteria criteria = Criteria.where("userId").in(followings).and("status").is(Constants.STATUS_LIVE.getValue());
+        Criteria criteria = Criteria.where("userId").in(followings)
+                .and("status").is(Constants.STATUS_LIVE.getValue());
 
-            Query query = new Query(criteria);
+        if (!Constants.LIVE_ROOM_TYPE_ALL.getValue().equals(mediaType)) {
+            criteria = criteria.and("type").is(mediaType);
+        }
 
-            return reactiveMongoTemplate.count(query, LiveRoomEntity.class);
+        Query query = new Query(criteria);
+
+        return reactiveMongoTemplate.count(query, LiveRoomEntity.class);
     }
 
-    public Mono<List<LiveRoom>> findByUserIds(List<String> userIds, Pageable pageable) {
+    public Mono<List<LiveRoom>> findByUserIds(List<String> userIds, Pageable pageable, String mediaType) {
+
+        System.out.println("\n MediaType : "+mediaType+"\n");
+
         if (userIds == null || userIds.isEmpty()) {
             return Mono.just(Collections.emptyList());
         }
-        Criteria criteria = Criteria.where("userId").in(userIds).and("status").is(Constants.STATUS_LIVE.getValue());
+        Criteria criteria = Criteria.where("userId").in(userIds)
+                .and("status").is(Constants.STATUS_LIVE.getValue());
+
+        if (!Constants.LIVE_ROOM_TYPE_ALL.getValue().equals(mediaType)) {
+            criteria = criteria.and("type").is(mediaType);
+        }
 
         Query query = new Query(criteria)
                 .with(pageable)

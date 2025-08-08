@@ -14,7 +14,6 @@ import com.tanvir.features.level.domain.valueobjects.ResourceFormat;
 import com.tanvir.features.host.application.port.in.HostUseCase;
 import com.tanvir.features.host.domain.Host;
 import com.tanvir.features.level.application.port.in.LevelUseCase;
-import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntity;
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.LiveRoomUseCase;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
@@ -864,6 +863,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         String country = requestDto.getCountry();
         String keycloakId = requestDto.getKeycloakId();
         Pageable pageable = requestDto.getPageable();
+        String mediaType = requestDto.getMediaType();
 
         if (viewMode.equals(Constants.VIEW_MODE_SK.getValue()) || viewMode.equals(Constants.VIEW_MODE_GUEST_CALL.getValue())) {
             return Mono.just(LiveRoomGridViewResponseDto.builder()
@@ -873,7 +873,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                     .build());
         }
 
-        return resolveRoomsAndCount(viewMode, keycloakId, country, pageable)
+        return resolveRoomsAndCount(viewMode, keycloakId, country, pageable,mediaType)
                 .map(tuple -> LiveRoomGridViewResponseDto.builder()
                         .userMessage("LiveRoom Grid View Fetched Successfully.")
                         .count(tuple.getT1().intValue())
@@ -881,49 +881,23 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .build());
     }
 
-    private Mono<Tuple2<Long, List<LiveRoom>>> resolveRoomsAndCount(String viewMode, String keycloakId, String country, Pageable pageable) {
+    private Mono<Tuple2<Long, List<LiveRoom>>> resolveRoomsAndCount(String viewMode, String keycloakId, String country, Pageable pageable, String mediaType) {
         if (viewMode.equals(Constants.VIEW_MODE_FOLLOWING.getValue())) {
             return Mono.zip(
-                    port.getFollowingLiveRoomsCount(keycloakId),
-                    port.getFollowingLiveRooms(keycloakId, pageable)
+                    port.getFollowingLiveRoomsCount(keycloakId, mediaType),
+                    port.getFollowingLiveRooms(keycloakId, pageable, mediaType)
             );
         } else if (viewMode.equals(Constants.VIEW_MODE_EXPLORE.getValue())) {
             return Mono.zip(
-                    port.getActiveLiveRoomsCountByTypeAndCountry(null, country, viewMode),
-                    port.getActiveVideoAndAudioLiveRooms(pageable, country).collectList()
+                    port.getActiveLiveRoomsCountByTypeAndCountry(mediaType, country, viewMode),
+                    port.getActiveVideoAndAudioLiveRooms(pageable, country, mediaType).collectList()
             );
         }
         return Mono.zip(
-                port.getActiveLiveRoomsCountByTypeAndCountry(null, null, viewMode),
-                port.getActiveVideoAndAudioLiveRooms(pageable, null).collectList()
+                port.getActiveLiveRoomsCountByTypeAndCountry(mediaType, null, viewMode),
+                port.getActiveVideoAndAudioLiveRooms(pageable, null, mediaType).collectList()
         );
     }
-
-
-//    @Override
-//    public Mono<LiveRoomGridViewResponseDto> getHomepage(GridViewRequestDto requestDto) {
-//
-//        return this.validateGridViewRequest(requestDto)
-//                .flatMap(requestDto1 -> requestDto.getViewMode().equals(Constants.TAB_PARTY.getValue())
-//                        ? port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
-//                        .zipWith(port.getActiveAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
-//                        .map(countAndDataTuple -> LiveRoomGridViewResponseDto
-//                                .builder()
-//                                .userMessage("LiveRoom Grid View Fetched Successfully.")
-//                                .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
-//                                .count(countAndDataTuple.getT1().intValue())
-//                                .build())
-//                        : /*port.getActiveLiveRoomsCountByTypeAndCountry(Constants.LIVE_ROOM_TYPE_VIDEO.getValue(), requestDto.getCountry(), requestDto.getViewMode())
-//                        .zipWith(port.getActiveVideoLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())*/
-//                        port.getActiveLiveRoomsCountByTypeAndCountry(null, requestDto.getCountry(), requestDto.getViewMode())
-//                                .zipWith(port.getActiveVideoAndAudioLiveRooms(requestDto.getPageable(), requestDto.getCountry()).collectList())
-//                                .map(countAndDataTuple -> LiveRoomGridViewResponseDto
-//                                        .builder()
-//                                        .userMessage("LiveRoom Grid View Fetched Successfully.")
-//                                        .data(this.buildLiveRoomResponse(countAndDataTuple.getT2()))
-//                                        .count(countAndDataTuple.getT1().intValue())
-//                                        .build()));
-//    }
 
     private Mono<LiveRoomGridViewResponseDto> getVideoLiveRooms(GridViewRequestDto requestDto) {
 //        todo : implement fetch according to popular index

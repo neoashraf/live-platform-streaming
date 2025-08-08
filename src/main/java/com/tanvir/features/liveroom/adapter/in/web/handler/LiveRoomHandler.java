@@ -167,7 +167,6 @@ public class LiveRoomHandler {
     }
 
 
-
     public Mono<ServerResponse> homepage(ServerRequest serverRequest) {
         return this.buildGridViewRequestDto(serverRequest)
                 .flatMap(gridViewRequestDto -> liveRoomUseCase.getHomepage(gridViewRequestDto))
@@ -183,10 +182,12 @@ public class LiveRoomHandler {
         String viewMode = serverRequest.queryParam(QueryParams.VIEW_MODE.getValue()).orElseThrow(() -> new IllegalArgumentException("viewMode is required"));
         String mediaType = serverRequest.queryParam(QueryParams.MEDIA_TYPE.getValue()).orElseThrow(() -> new IllegalArgumentException("mediaType is required"));
 
-        List<String> liveRoomTypes = List.of(Constants.LIVE_ROOM_TYPE_AUDIO.getValue(), Constants.LIVE_ROOM_TYPE_VIDEO.getValue());
+        List<String> liveRoomTypes = List.of(Constants.LIVE_ROOM_TYPE_AUDIO_UPPERCASE.getValue(),
+                Constants.LIVE_ROOM_TYPE_VIDEO_UPPERCASE.getValue(),
+                Constants.LIVE_ROOM_TYPE_ALL.getValue());
 
         if (!liveRoomTypes.contains(mediaType)) {
-            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"mediaType must be either AUDIO or VIDEO"));
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "MediaType must be one of: AUDIO,VIDEO,ALL"));
         }
 
         List<String> validViewModes = List.of(Constants.VIEW_MODE_FOLLOWING.getValue(),
@@ -196,12 +197,15 @@ public class LiveRoomHandler {
                 Constants.VIEW_MODE_GUEST_CALL.getValue()
         );
         if (!validViewModes.contains(viewMode.toUpperCase())) {
-            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"Invalid viewMode. Must be one of: FOLLOWING, POPULAR, EXPLORE, SK, GUEST_CALL"));
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid viewMode. Must be one of: FOLLOWING, POPULAR, EXPLORE, SK, GUEST_CALL."));
         }
 
-        if (mediaType.equalsIgnoreCase(Constants.LIVE_ROOM_TYPE_VIDEO.getValue())
-                && !(viewMode.equalsIgnoreCase(Constants.VIEW_MODE_SK.getValue()) || viewMode.equalsIgnoreCase(Constants.VIEW_MODE_GUEST_CALL.getValue()))) {
-            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "When mediaType is VIDEO, viewMode must be SK or GUEST_CALL"));
+        List<String> allAndAudioTypeLive = List.of(Constants.LIVE_ROOM_TYPE_AUDIO_UPPERCASE.getValue(),
+                Constants.LIVE_ROOM_TYPE_ALL.getValue());
+
+        if (allAndAudioTypeLive.contains(mediaType)
+                && (viewMode.equalsIgnoreCase(Constants.VIEW_MODE_SK.getValue()) || viewMode.equalsIgnoreCase(Constants.VIEW_MODE_GUEST_CALL.getValue()))) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "ViewMode be SK or GUEST_CALL is available only for AUDIO or ALL type media."));
         }
 
 
@@ -218,12 +222,22 @@ public class LiveRoomHandler {
 
         return Mono.just(GridViewRequestDto.builder()
                 .keycloakId(keycloakId)
-                .viewMode(viewMode.toUpperCase())
-                .mediaType(mediaType.toUpperCase())
+                .viewMode(viewMode)
+                .mediaType(this.buildUpperCaseMediaType(mediaType))
                 .country(country)
                 .pageable(pageable)
                 .build());
     }
+
+    private String buildUpperCaseMediaType(String mediaType) {
+        if (mediaType.equals(Constants.LIVE_ROOM_TYPE_AUDIO_UPPERCASE.getValue()))
+            return Constants.LIVE_ROOM_TYPE_AUDIO.getValue();
+        else if (mediaType.equals(Constants.LIVE_ROOM_TYPE_VIDEO_UPPERCASE.getValue()))
+            return Constants.LIVE_ROOM_TYPE_VIDEO.getValue();
+        else
+            return Constants.LIVE_ROOM_TYPE_ALL.getValue();
+    }
+
 
     public Mono<ServerResponse> liveRoomById(ServerRequest serverRequest) {
         return liveRoomUseCase.getLiveRoomById_1(this.buildGridViewRequestDto_1(serverRequest))
@@ -440,7 +454,7 @@ public class LiveRoomHandler {
         String liveRoomId = serverRequest.pathVariable(QueryParams.ID.getValue());
 
         return serverRequest.bodyToMono(HostMicStatusRequestDto.class)
-                .flatMap(hostMicStatusDto -> liveRoomUseCase.setMicStatus(liveRoomId,hostMicStatusDto.getMicOn()))
+                .flatMap(hostMicStatusDto -> liveRoomUseCase.setMicStatus(liveRoomId, hostMicStatusDto.getMicOn()))
                 .flatMap(hostResponseDto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)

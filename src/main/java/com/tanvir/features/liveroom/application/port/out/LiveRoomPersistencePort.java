@@ -16,12 +16,12 @@ public interface LiveRoomPersistencePort {
     Flux<LiveRoom> getActiveVideoLiveRoomsByPopularityLevel(Integer popularityLevel);
     Flux<LiveRoom> getActiveAudioLiveRooms(Pageable pageable, String country);
     Flux<LiveRoom> getActiveVideoLiveRooms(Pageable pageable, String country);
-    Flux<LiveRoom> getActiveVideoAndAudioLiveRooms(Pageable pageable, String country);
+    Flux<LiveRoom> getActiveVideoAndAudioLiveRooms(Pageable pageable, String country, String mediaType);
     Mono<Long> getActiveLiveRoomsCountByTypeAndCountry(String type, String country, String viewMode);
 
     Mono<LiveRoom> getActiveLiveRoomByHostId(String hostId);
 
-    Mono<List<LiveRoom>> getFollowingLiveRooms(String keycloakId, Pageable pageable);
+    Mono<List<LiveRoom>> getFollowingLiveRooms(String keycloakId, Pageable pageable, String mediaType);
 
-    Mono<Long> getFollowingLiveRoomsCount(String keycloakId);
+    Mono<Long> getFollowingLiveRoomsCount(String keycloakId, String mediaType);
 }
