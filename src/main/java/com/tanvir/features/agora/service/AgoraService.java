@@ -82,4 +82,21 @@ public class AgoraService {
                 .count(1)
                 .build());
     }
+
+
+
+    public Mono<String> generateAgoraToken(String liveRoomId, String maxId, String role, String tokenType) {
+        AgoraTokenRequestDto agoraTokenRequestDto =
+                AgoraTokenRequestDto
+                        .builder()
+                        .channelName(liveRoomId)
+                        .role(role)
+                        .uid(Integer.parseInt(maxId))
+                        .tokenExpirationInSeconds(86400)
+                        .tokenType(tokenType)
+                        .build();
+
+        return generateToken(agoraTokenRequestDto)
+                .map(agoraTokenResponseDto -> agoraTokenResponseDto.getData().get(0).getAgoraToken());
+    }
 }

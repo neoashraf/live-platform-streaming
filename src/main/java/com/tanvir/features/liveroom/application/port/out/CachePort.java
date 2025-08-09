@@ -4,6 +4,7 @@ import com.tanvir.features.liveroom.adapter.out.persistence.entity.LiveRoomEntit
 import com.tanvir.features.liveroom.adapter.out.persistence.firebase.LiveRoomFirebaseEntity;
 import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestUpdateDto;
+import com.tanvir.features.liveroom.application.port.in.dto.request.SeatNumberDto;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import reactor.core.publisher.Mono;
 
@@ -28,4 +29,6 @@ public interface CachePort {
     Mono<LiveRoom> updateJoinedCall(LiveRoom liveRoom, JoinCallRequestUpdateDto joinCallRequestUpdateDto);
 
     Mono<LiveRoomFirebaseEntity> getLiveRoomById(String id);
+
+    Mono<LiveRoomFirebaseEntity> updateAudioSeatMap(String liveRoomId, Integer seatNumber, SeatNumberDto seatNumberDto);
 }

@@ -526,4 +526,30 @@ public class FirebaseAdapter implements CachePort {
                 .doOnRequest(l -> log.info("Request received to get  firebase entity for processing join call with id: {}", id))
                 .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity for processing join call  with id: {}", firebaseEntity));
     }
+
+    @Override
+    public Mono<LiveRoomFirebaseEntity> updateAudioSeatMap(String liveRoomId, Integer seatNumber, SeatNumberDto seatNumberDto) {
+        if (Strings.isNullOrEmpty(seatNumberDto.getJoinReqId()))
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join request ID is required for updating seat map"));
+
+        return firebaseRepository.read(liveRoomId)
+                .doOnRequest(l -> log.info("Request received to get  firebase entity with id: {}", liveRoomId))
+                .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity with id: {}", firebaseEntity))
+                .map(firebaseEntity -> {
+                    // Free old seat if any
+                    firebaseEntity.getSeatMap().forEach((seatNum, seatDto) -> {
+                        if (seatNumberDto.getUserId().equals(seatDto.getUserId())) {
+                            seatDto.setAvailableStatus(true);
+                            seatDto.setUserId(null);
+                            seatDto.setJoinReqId(null);
+                        }
+                    });
+
+                    // Update the seat map with the new seat number
+                    firebaseEntity.getSeatMap().put(seatNumber, seatNumberDto);
+                    return firebaseEntity;
+                })
+                .doOnNext(firebaseEntity -> log.debug("Updated firebase entity: {}", firebaseEntity))
+                .flatMap(firebaseRepository::update);
+    }
 }

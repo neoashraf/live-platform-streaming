@@ -19,6 +19,7 @@ public class LiveRoomJoinRequestInfo {
     private String micOn;
     private String reason;
 
+    private String role;
     private String agoraToken;
 
     @Override

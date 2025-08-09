@@ -2031,98 +2031,94 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<JoinCallResponseDto> autoJoinProcess(JoinCallRequestDto requestDto) {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
-                .zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom or User not found")))
-                .flatMap(liveRoomUserTuple ->
-                        cachePort.getLiveRoomById(requestDto.getLiveRoomId())
-                                .map(firebaseEntity -> Tuples.of(liveRoomUserTuple.getT1(), liveRoomUserTuple.getT2(), firebaseEntity))
-                )
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found")))
+                .zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found"))))
+                .flatMap(liveRoomUserTuple -> cachePort.getLiveRoomById(requestDto.getLiveRoomId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found in firebase")))
+                        .map(firebaseEntity -> Tuples.of(liveRoomUserTuple.getT1(), liveRoomUserTuple.getT2(), firebaseEntity)))
                 .flatMap(tuple -> {
                     LiveRoom liveRoom = tuple.getT1();
                     User user = tuple.getT2();
                     LiveRoomFirebaseEntity firebaseEntity = tuple.getT3();
-
-                    Optional<JoinRequests> existingJoinRequest = firebaseEntity.getJoinRequests()
-                            .stream()
-                            .filter(jr -> jr.getUserId().equals(user.getId()))
-                            .findFirst();
 
                     SeatNumberDto requestedSeat = firebaseEntity.getSeatMap().get(requestDto.getSeatNumber());
-                    return validateJoinRequest(liveRoom, user, requestedSeat)
-                            .then(Mono.just(Tuples.of(liveRoom, user, firebaseEntity, existingJoinRequest, requestedSeat)));
+                    return this.validateJoinRequest(liveRoom, user, requestedSeat, firebaseEntity)
+                            .flatMap(liveRoomFirebaseEntity -> {
+                                Optional<JoinRequests> existingJoinRequest = firebaseEntity.getJoinRequests()
+                                        .stream()
+                                        .filter(jr -> jr.getUserId().equals(user.getId()))
+                                        .findFirst();
+
+                                SeatNumberDto seatNumberDto = new SeatNumberDto();
+                                seatNumberDto.setAvailableStatus(false);
+                                seatNumberDto.setUserId(user.getId());
+
+                                existingJoinRequest.ifPresent(joinRequests -> seatNumberDto.setJoinReqId(joinRequests.getRequestId()));
+
+                                return Strings.isNotNullAndNotEmpty(seatNumberDto.getJoinReqId())
+                                        ? this.updateFirebaseSeatMapForExistingJoinRequest(firebaseEntity, requestDto, seatNumberDto, liveRoom)
+                                        : this.buildJoinRequestAndUpdateFirebaseSeatMap(user, requestDto, seatNumberDto, liveRoom, firebaseEntity);
+                            })
+                            .map(liveRoomJoinRequestInfo -> Tuples.of(liveRoom.getId(), user.getMaxId(), liveRoomJoinRequestInfo));
                 })
-                .flatMap(tuple -> {
-                    LiveRoom liveRoom = tuple.getT1();
-                    User user = tuple.getT2();
-                    LiveRoomFirebaseEntity firebaseEntity = tuple.getT3();
-                    Optional<JoinRequests> existingJoinRequest = tuple.getT4();
-                    SeatNumberDto requestedSeat = tuple.getT5();
+                .flatMap(tuple3 -> agoraService
+                        .generateAgoraToken(tuple3.getT1(), tuple3.getT2(), AgoraTokenTypeEnum.ROLE_PUBLISHER.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())
+                        .map(token -> {
+                            tuple3.getT3().setAgoraToken(token);
+                            tuple3.getT3().setRole(AgoraTokenTypeEnum.ROLE_PUBLISHER.getValue());
+                            return tuple3.getT3();
+                        }))
+                .doOnError(throwable -> log.error("Error occurred while processing auto join call request: {}", throwable.getMessage()))
+                .map(response -> JoinCallResponseDto.builder()
+                        .message("Auto Start Join call request processed successfully.")
+                        .data(response)
+                        .count(1)
+                        .error(false)
+                        .build());
+    }
 
-                    // Free old seat if any
-                    firebaseEntity.getSeatMap().forEach((seatNum, seatDto) -> {
-                        if (user.getId().equals(seatDto.getUserId())) {
-                            seatDto.setAvailableStatus(true);
-                            seatDto.setUserId(null);
-                            seatDto.setJoinReqId(null);
-                        }
-                    });
+    private Mono<LiveRoomJoinRequestInfo> updateFirebaseSeatMapForExistingJoinRequest(LiveRoomFirebaseEntity firebaseEntity, JoinCallRequestDto requestDto, SeatNumberDto seatNumberDto, LiveRoom liveRoom) {
+        return Mono.just(firebaseEntity)
+                .flatMap(liveRoomFirebaseEntity -> cachePort.updateAudioSeatMap(liveRoomFirebaseEntity.getId(), requestDto.getSeatNumber(), seatNumberDto)
+                        .map(liveRoomFirebaseEntity1 -> LiveRoomJoinRequestInfo.builder()
+                                .roomId(requestDto.getLiveRoomId())
+                                .status(liveRoom.getStatus())
+                                .requestId(seatNumberDto.getJoinReqId())
+                                .micOn(requestDto.getMicOn())
+                                .cameraOn(requestDto.getCameraOn())
+                                .cameraView(requestDto.getCameraView())
+                                .build()));
+    }
 
-                    SeatNumberDto seatNumberDto = new SeatNumberDto();
-                    seatNumberDto.setAvailableStatus(false);
-                    seatNumberDto.setUserId(user.getId());
-                    seatNumberDto.setJoinReqId(requestDto.getRequestId());
-                    firebaseEntity.getSeatMap().put(requestDto.getSeatNumber(), seatNumberDto);
-
-                    if (existingJoinRequest.isPresent()) {
-                        JoinRequests joinReq = existingJoinRequest.get();
-                        if (joinReq.getRequestId().equals(requestDto.getRequestId())) {
-                            joinReq.setStatus(Constants.STATUS_STARTED.getValue());
-                        }
-                        liveRoom.getJoinRequests().removeIf(req -> req.getRequestId().equals(joinReq.getRequestId()));
-                        liveRoom.getJoinRequests().add(joinReq);
-                        return port.saveLiveRoom(liveRoom)
-                                .flatMap(savedRoom -> cachePort.updateForJoinRequest(savedRoom)
-                                        .thenReturn(Tuples.of(savedRoom, user)));
-                    }
-                    if (!requestedSeat.isAvailableStatus()) {
-                        return Mono.error(new IllegalAccessError("Seat is not available for join"));
-                    }
-
-                    return buildJoinRequest(user, requestDto)
-                            .flatMap(joinRequests -> {
-                                joinRequests.forEach(jr -> {
-                                    if (jr.getRequestId().equals(requestDto.getRequestId())) {
-                                        jr.setStatus(Constants.STATUS_STARTED.getValue());
-                                    }
-                                });
-                                liveRoom.setJoinRequests(joinRequests);
-                                return port.saveLiveRoom(liveRoom)
-                                        .flatMap(savedRoom -> cachePort.updateForJoinRequest(savedRoom)
-                                                .thenReturn(Tuples.of(savedRoom, user)));
-                            });
+    private Mono<LiveRoomJoinRequestInfo> buildJoinRequestAndUpdateFirebaseSeatMap(User user, JoinCallRequestDto requestDto, SeatNumberDto seatNumberDto, LiveRoom liveRoom, LiveRoomFirebaseEntity firebaseEntity) {
+        return buildJoinRequest(user, requestDto)
+                .flatMap(joinRequests -> {
+                    joinRequests.forEach(jr -> jr.setStatus(Constants.STATUS_STARTED.getValue()));
+                    liveRoom.setJoinRequests(joinRequests);
+                    return port.saveLiveRoom(liveRoom)
+                            .flatMap(savedRoom -> cachePort.updateForJoinRequest(savedRoom)
+                                    .thenReturn(Tuples.of(savedRoom, user)));
                 })
-                .flatMap(tuple ->
-                        buildJoinRequestResponse(tuple.getT1(), tuple.getT2(), requestDto)
-                                .map(response -> Tuples.of(response, tuple.getT1()))
-                )
+                .flatMap(tuple -> buildJoinRequestResponse(tuple.getT1(), tuple.getT2(), requestDto)
+                                .map(response -> Tuples.of(response, tuple.getT1())))
                 .flatMap(tuple -> {
                     LiveRoomJoinRequestInfo response = tuple.getT1();
                     LiveRoom room = tuple.getT2();
                     return cachePort.updateForStartingJoinCall(room, requestDto)
                             .thenReturn(response);
                 })
-                .map(response -> JoinCallResponseDto.builder()
-                        .message("Start Join call request processed successfully.")
-                        .data(response)
-                        .count(1)
-                        .error(false)
-                        .build()
-                );
+                .flatMap(liveRoomJoinRequestInfo -> {
+                    String joinReqId = liveRoomJoinRequestInfo.getRequestId();
+                    seatNumberDto.setJoinReqId(joinReqId);
+                    return cachePort.updateAudioSeatMap(firebaseEntity.getId(), requestDto.getSeatNumber(), seatNumberDto)
+                            .thenReturn(liveRoomJoinRequestInfo);
+                });
     }
 
-    private Mono<Void> validateJoinRequest(LiveRoom liveRoom, User user, SeatNumberDto requestedSeat) {
-        if (liveRoom.getEnableAutoJoin().equals("No")) {
-            return Mono.error(new IllegalAccessError("Join call is not enabled for the LiveRoom"));
+    private Mono<LiveRoomFirebaseEntity> validateJoinRequest(LiveRoom liveRoom, User user, SeatNumberDto requestedSeat, LiveRoomFirebaseEntity firebaseEntity) {
+        if (liveRoom.getEnableAutoJoin().equals(Constants.STATUS_NO.getValue())) {
+            return Mono.error(new IllegalAccessError("Auto Join call is not enabled for the LiveRoom"));
         }
         if (!Constants.STATUS_YES.getValue().equalsIgnoreCase(user.getActive())) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active"));
@@ -2141,7 +2137,11 @@ public class LiveRoomService implements LiveRoomUseCase {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant."));
         }
 
-        return Mono.empty();
+        if (!requestedSeat.isAvailableStatus()) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat is not available to join"));
+        }
+
+        return Mono.just(firebaseEntity);
     }
 
 }
