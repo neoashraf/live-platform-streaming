@@ -461,4 +461,9 @@ public class LiveRoomHandler {
                         .bodyValue(hostResponseDto)
                 );
     }
+    public Mono<ServerResponse> enableAutoJoinAudioStream(ServerRequest serverRequest) {
+        return serverRequest.bodyToMono(JoinCallRequestDto.class)
+                .flatMap(liveRoomUseCase::autoJoinProcess)
+                .flatMap(responseDto -> ServerResponse.ok().bodyValue(responseDto));
+    }
 }
