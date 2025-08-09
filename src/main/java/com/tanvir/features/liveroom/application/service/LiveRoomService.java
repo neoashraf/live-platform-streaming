@@ -2084,6 +2084,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 .flatMap(savedRoom -> cachePort.updateForJoinRequest(savedRoom)
                                         .thenReturn(Tuples.of(savedRoom, user)));
                     }
+                    if (!requestedSeat.isAvailableStatus()) {
+                        return Mono.error(new IllegalAccessError("Seat is not available for join"));
+                    }
 
                     return buildJoinRequest(user, requestDto)
                             .flatMap(joinRequests -> {
@@ -2137,9 +2140,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 liveRoom.getViewerIds().stream().noneMatch(id -> id.equalsIgnoreCase(user.getId()))) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant."));
         }
-        if (requestedSeat == null || !requestedSeat.isAvailableStatus()) {
-            return Mono.error(new IllegalAccessError("Seat is not available for join"));
-        }
+
         return Mono.empty();
     }
 
