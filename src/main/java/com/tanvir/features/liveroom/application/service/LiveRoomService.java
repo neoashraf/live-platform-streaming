@@ -188,11 +188,17 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .joinReqId(null)
                                     .build();
                             List<Boolean> seatAvailableStatus = new ArrayList<>();
-                            for (Integer seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
-                                seatAvailableStatusMap.put(seatNumber, seatDto);
-                                seatAvailableStatus.add(false);
+
+
+                            if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
+                                for (Integer seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
+                                    seatAvailableStatusMap.put(seatNumber, seatDto);
+                                    seatAvailableStatus.add(false);
+                                }
+                            } else {
+                                seatAvailableStatus = Arrays.asList(false, false, false, false, false, false, false, false, false, false);
                             }
-                            log.debug("Seat 1 availability: {}", seatAvailableStatusMap.get(1));
+
                             return LiveRoomFirebaseEntity
                                     .builder()
                                     .id(liveRoom.getId())
