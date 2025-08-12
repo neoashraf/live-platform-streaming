@@ -219,6 +219,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .audioSkinId(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinId()) ? liveRoom.getAudioSkinId() : "")
                                     .audioSkinUrl(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinUrl()) ? liveRoom.getAudioSkinUrl() : "")
                                     .enableJoin(liveRoom.getEnableJoin())
+                                    .enableAutoJoin(liveRoom.getEnableAutoJoin())
                                     .seatAvailableStatus(seatAvailableStatus)
                                     .seatMap(seatAvailableStatusMap)
                                     .summary(Summary.builder().build())
@@ -1890,9 +1891,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .maxAudioParticipants(LiveRoomConfigEnums.maxAudioParticipants.getValue())
                         .audioParticipants(new ArrayList<>())
                         .hostGender(host.getGender())
-
                         .audioSeatNumber(requestDto.getAudioSeatNumber())
                         .audioSkinId(Strings.isNotNullAndNotEmpty(requestDto.getAudioSkinId()) ? requestDto.getAudioSkinId() : "")
+                        .enableJoin(Constants.STATUS_YES.getValue())
+                        .enableAutoJoin(Constants.STATUS_NO.getValue())
                         .build());
     }
 

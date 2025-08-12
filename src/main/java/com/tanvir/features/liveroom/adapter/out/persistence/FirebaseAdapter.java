@@ -84,7 +84,7 @@ public class FirebaseAdapter implements CachePort {
 
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
-                .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
+                .doOnNext(firebaseEntity -> log.info("Firebase entity received with id: {}", firebaseEntity))
                 .map(firebaseEntity -> {
                     List<Viewer> currentViewersInFirebase = new ArrayList<>(firebaseEntity.getViewers() != null ? firebaseEntity.getViewers() : new ArrayList<>());
                     currentViewersInFirebase.add(liveRoom.getViewer());
