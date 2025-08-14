@@ -147,7 +147,7 @@ public class FirebaseAdapter implements CachePort {
                                     if (joinRequest.getUserId().equals(liveRoom.getViewer().getUserId())) {
 
                                         if (joinRequest.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
-                                            Map<Integer, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
+                                            Map<String, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
                                             SeatNumberDto seat = seatMap.get(joinRequest.getSeatIndex());
                                             if (seat != null) {
                                                 seat.setAvailableStatus(true);
@@ -207,7 +207,7 @@ public class FirebaseAdapter implements CachePort {
                                     if (joinRequests.getUserId().equals(liveRoom.getViewer().getUserId())) {
 
                                         if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
-                                            Map<Integer, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
+                                            Map<String, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
                                             SeatNumberDto seat = seatMap.get(joinRequests.getSeatIndex());
                                             if (seat != null) {
                                                 seat.setAvailableStatus(true);
@@ -406,10 +406,12 @@ public class FirebaseAdapter implements CachePort {
     }
 
     private LiveRoomFirebaseEntity assignSeat(LiveRoomFirebaseEntity firebaseEntity, JoinRequests joinRequests) {
-        Map<Integer, SeatNumberDto> seatAvailableStatus = firebaseEntity.getSeatMap();
+        Map<String, SeatNumberDto> seatAvailableStatus = firebaseEntity.getSeatMap();
 
-        for (Map.Entry<Integer, SeatNumberDto> entry : seatAvailableStatus.entrySet()) {
-            Integer seatIndex = entry.getKey();
+        for (Map.Entry<String, SeatNumberDto> entry : seatAvailableStatus.entrySet()) {
+            String key = entry.getKey();
+            String number = key.split("_")[1]; // split by underscore and take the second part
+            int seatIndex = Integer.parseInt(number);
             SeatNumberDto seat = entry.getValue();
 
             if (seat.isAvailableStatus()) {
@@ -463,7 +465,7 @@ public class FirebaseAdapter implements CachePort {
                     optionalJoinRequests.ifPresentOrElse(joinRequests ->
                             {
                                 if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
-                                    Map<Integer, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
+                                    Map<String, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
                                     SeatNumberDto seat = seatMap.get(joinRequests.getSeatIndex());
                                     if (seat != null) {
                                         seat.setAvailableStatus(false);
@@ -546,7 +548,7 @@ public class FirebaseAdapter implements CachePort {
                     });
 
                     // Update the seat map with the new seat number
-                    firebaseEntity.getSeatMap().put(seatNumber, seatNumberDto);
+                    firebaseEntity.getSeatMap().put("Seat_"+seatNumber, seatNumberDto);
                     return firebaseEntity;
                 })
                 .doOnNext(firebaseEntity -> log.debug("Updated firebase entity: {}", firebaseEntity))

@@ -180,7 +180,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .profileFrameUrl(user.getProfileFrameUrl())
                                     .micOn(Constants.STATUS_YES.getValue())
                                     .build();
-                            Map<Integer, SeatNumberDto> seatAvailableStatusMap = new HashMap<>();
+                            Map<String, SeatNumberDto> seatAvailableStatusMap = new HashMap<>();
                             SeatNumberDto seatDto = SeatNumberDto
                                     .builder()
                                     .availableStatus(true)
@@ -188,11 +188,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .joinReqId(null)
                                     .build();
                             List<Boolean> seatAvailableStatus = new ArrayList<>();
-
-
                             if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                                for (Integer seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
-                                    seatAvailableStatusMap.put(seatNumber, seatDto);
+                                for (int seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
+                                    seatAvailableStatusMap.put("Seat_"+seatNumber, seatDto);
                                     seatAvailableStatus.add(false);
                                 }
                             } else {
