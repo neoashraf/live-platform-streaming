@@ -31,4 +31,5 @@ public interface LiveRoomUseCase {
     Mono<Earning> userEarning(String keycloakId);
     Mono<JoinCallResponseDto> updateJoinCall(JoinCallRequestUpdateDto requestDto);
     Mono<HostMicStatusResponseDto> setMicStatus(String liveRoomId, String micOn);
+    Mono<JoinCallResponseDto> autoJoinProcess(JoinCallRequestDto requestDto);
 }

@@ -19,6 +19,7 @@ public class JoinCallRequestDto {
     private String action;
     private String reason;
     private String requestId;
+    private Integer seatNumber;
 
     @Override
     public String toString() {

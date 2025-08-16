@@ -100,6 +100,10 @@ public class LiveRoomRouter {
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder.PATCH(LIVE_ROOMS.concat(ID).concat(HOST).concat(AUDIO), handler::setMicStatus)
                                 )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
+                                                .POST(LIVE_ROOMS.concat(AUDIO).concat(ID).concat(AUTO_JOIN), handler::enableAutoJoinAudioStream)
+                                )
 
 
                 )

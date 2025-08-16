@@ -29,6 +29,7 @@ public class JoinRequests {
     private double giftsReceivedInThisSession=0.0;
     private String giftsReceivedInThisSessionString;
     private int seatIndex;
+    private Integer availableSeats;
     @Override
     public String toString() {
         return CommonFunctions.buildGsonBuilder(this);

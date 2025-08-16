@@ -180,7 +180,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .profileFrameUrl(user.getProfileFrameUrl())
                                     .micOn(Constants.STATUS_YES.getValue())
                                     .build();
-                            Map<Integer, SeatNumberDto> seatAvailableStatusMap = new HashMap<>();
+                            Map<String, SeatNumberDto> seatAvailableStatusMap = new HashMap<>();
                             SeatNumberDto seatDto = SeatNumberDto
                                     .builder()
                                     .availableStatus(true)
@@ -188,11 +188,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .joinReqId(null)
                                     .build();
                             List<Boolean> seatAvailableStatus = new ArrayList<>();
-
-
                             if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                                for (Integer seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
-                                    seatAvailableStatusMap.put(seatNumber, seatDto);
+                                for (int seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
+                                    seatAvailableStatusMap.put("Seat_"+seatNumber, seatDto);
                                     seatAvailableStatus.add(false);
                                 }
                             } else {
@@ -216,9 +214,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .announcements(new ArrayList<>())
                                     .maxAudioParticipants(liveRoom.getMaxAudioParticipants())
                                     .audioParticipants(liveRoom.getAudioParticipants())
-                                    .audioSkinId(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinId())?liveRoom.getAudioSkinId():"")
-                                    .audioSkinUrl(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinUrl())?liveRoom.getAudioSkinUrl():"")
+                                    .audioSkinId(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinId()) ? liveRoom.getAudioSkinId() : "")
+                                    .audioSkinUrl(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinUrl()) ? liveRoom.getAudioSkinUrl() : "")
                                     .enableJoin(liveRoom.getEnableJoin())
+                                    .enableAutoJoin(liveRoom.getEnableAutoJoin())
                                     .seatAvailableStatus(seatAvailableStatus)
                                     .seatMap(seatAvailableStatusMap)
                                     .summary(Summary.builder().build())
@@ -465,8 +464,8 @@ public class LiveRoomService implements LiveRoomUseCase {
         roomDataDto.setAudioSeatNumber(liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
                 ? liveRoom.getAudioSeatNumber()
                 : null);
-        roomDataDto.setAudioSkinId(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinId())?liveRoom.getAudioSkinId():"");
-        roomDataDto.setAudioSkinUrl(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinUrl())?liveRoom.getAudioSkinUrl():"");
+        roomDataDto.setAudioSkinId(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinId()) ? liveRoom.getAudioSkinId() : "");
+        roomDataDto.setAudioSkinUrl(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinUrl()) ? liveRoom.getAudioSkinUrl() : "");
 
         requestDto.setTokenType(AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue());
         AgoraTokenRequestDto agoraTokenRequestDto =
@@ -1302,7 +1301,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 return Mono.just(liveRoom);
                             }
                             return this.findContentAndReturnResource(liveRoom.getAudioSkinId())
-                                    .flatMap(url ->{
+                                    .flatMap(url -> {
                                         liveRoom.setAudioSkinUrl(url);
                                         return Mono.just(liveRoom);
                                     });
@@ -1890,9 +1889,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .maxAudioParticipants(LiveRoomConfigEnums.maxAudioParticipants.getValue())
                         .audioParticipants(new ArrayList<>())
                         .hostGender(host.getGender())
-
                         .audioSeatNumber(requestDto.getAudioSeatNumber())
-                        .audioSkinId(Strings.isNotNullAndNotEmpty(requestDto.getAudioSkinId())?requestDto.getAudioSkinId():"")
+                        .audioSkinId(Strings.isNotNullAndNotEmpty(requestDto.getAudioSkinId()) ? requestDto.getAudioSkinId() : "")
+                        .enableJoin(Constants.STATUS_YES.getValue())
+                        .enableAutoJoin(Constants.STATUS_NO.getValue())
                         .build());
     }
 
@@ -2027,4 +2027,121 @@ public class LiveRoomService implements LiveRoomUseCase {
                 );
 
     }
+
+    @Override
+    public Mono<JoinCallResponseDto> autoJoinProcess(JoinCallRequestDto requestDto) {
+        return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found")))
+                .zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found"))))
+                .flatMap(liveRoomUserTuple -> cachePort.getLiveRoomById(requestDto.getLiveRoomId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found in firebase")))
+                        .map(firebaseEntity -> Tuples.of(liveRoomUserTuple.getT1(), liveRoomUserTuple.getT2(), firebaseEntity)))
+                .flatMap(tuple -> {
+                    LiveRoom liveRoom = tuple.getT1();
+                    User user = tuple.getT2();
+                    LiveRoomFirebaseEntity firebaseEntity = tuple.getT3();
+
+                    SeatNumberDto requestedSeat = firebaseEntity.getSeatMap().get(requestDto.getSeatNumber());
+                    return this.validateJoinRequest(liveRoom, user, requestedSeat, firebaseEntity)
+                            .flatMap(liveRoomFirebaseEntity -> {
+                                Optional<JoinRequests> existingJoinRequest = firebaseEntity.getJoinRequests()
+                                        .stream()
+                                        .filter(jr -> jr.getUserId().equals(user.getId()))
+                                        .findFirst();
+
+                                SeatNumberDto seatNumberDto = new SeatNumberDto();
+                                seatNumberDto.setAvailableStatus(false);
+                                seatNumberDto.setUserId(user.getId());
+
+                                existingJoinRequest.ifPresent(joinRequests -> seatNumberDto.setJoinReqId(joinRequests.getRequestId()));
+
+                                return Strings.isNotNullAndNotEmpty(seatNumberDto.getJoinReqId())
+                                        ? this.updateFirebaseSeatMapForExistingJoinRequest(firebaseEntity, requestDto, seatNumberDto, liveRoom)
+                                        : this.buildJoinRequestAndUpdateFirebaseSeatMap(user, requestDto, seatNumberDto, liveRoom, firebaseEntity);
+                            })
+                            .map(liveRoomJoinRequestInfo -> Tuples.of(liveRoom.getId(), user.getMaxId(), liveRoomJoinRequestInfo));
+                })
+                .flatMap(tuple3 -> agoraService
+                        .generateAgoraToken(tuple3.getT1(), tuple3.getT2(), AgoraTokenTypeEnum.ROLE_PUBLISHER.getValue(), AgoraTokenTypeEnum.TOKEN_WITH_UID.getValue())
+                        .map(token -> {
+                            tuple3.getT3().setAgoraToken(token);
+                            tuple3.getT3().setRole(AgoraTokenTypeEnum.ROLE_PUBLISHER.getValue());
+                            return tuple3.getT3();
+                        }))
+                .doOnError(throwable -> log.error("Error occurred while processing auto join call request: {}", throwable.getMessage()))
+                .map(response -> JoinCallResponseDto.builder()
+                        .message("Auto Start Join call request processed successfully.")
+                        .data(response)
+                        .count(1)
+                        .error(false)
+                        .build());
+    }
+
+    private Mono<LiveRoomJoinRequestInfo> updateFirebaseSeatMapForExistingJoinRequest(LiveRoomFirebaseEntity firebaseEntity, JoinCallRequestDto requestDto, SeatNumberDto seatNumberDto, LiveRoom liveRoom) {
+        return Mono.just(firebaseEntity)
+                .flatMap(liveRoomFirebaseEntity -> cachePort.updateAudioSeatMap(liveRoomFirebaseEntity.getId(), requestDto.getSeatNumber(), seatNumberDto)
+                        .map(liveRoomFirebaseEntity1 -> LiveRoomJoinRequestInfo.builder()
+                                .roomId(requestDto.getLiveRoomId())
+                                .status(liveRoom.getStatus())
+                                .requestId(seatNumberDto.getJoinReqId())
+                                .micOn(requestDto.getMicOn())
+                                .cameraOn(requestDto.getCameraOn())
+                                .cameraView(requestDto.getCameraView())
+                                .build()));
+    }
+
+    private Mono<LiveRoomJoinRequestInfo> buildJoinRequestAndUpdateFirebaseSeatMap(User user, JoinCallRequestDto requestDto, SeatNumberDto seatNumberDto, LiveRoom liveRoom, LiveRoomFirebaseEntity firebaseEntity) {
+        return buildJoinRequest(user, requestDto)
+                .flatMap(joinRequests -> {
+                    joinRequests.forEach(jr -> jr.setStatus(Constants.STATUS_STARTED.getValue()));
+                    liveRoom.setJoinRequests(joinRequests);
+                    return port.saveLiveRoom(liveRoom)
+                            .flatMap(savedRoom -> cachePort.updateForJoinRequest(savedRoom)
+                                    .thenReturn(Tuples.of(savedRoom, user)));
+                })
+                .flatMap(tuple -> buildJoinRequestResponse(tuple.getT1(), tuple.getT2(), requestDto)
+                                .map(response -> Tuples.of(response, tuple.getT1())))
+                .flatMap(tuple -> {
+                    LiveRoomJoinRequestInfo response = tuple.getT1();
+                    LiveRoom room = tuple.getT2();
+                    return cachePort.updateForStartingJoinCall(room, requestDto)
+                            .thenReturn(response);
+                })
+                .flatMap(liveRoomJoinRequestInfo -> {
+                    String joinReqId = liveRoomJoinRequestInfo.getRequestId();
+                    seatNumberDto.setJoinReqId(joinReqId);
+                    return cachePort.updateAudioSeatMap(firebaseEntity.getId(), requestDto.getSeatNumber(), seatNumberDto)
+                            .thenReturn(liveRoomJoinRequestInfo);
+                });
+    }
+
+    private Mono<LiveRoomFirebaseEntity> validateJoinRequest(LiveRoom liveRoom, User user, SeatNumberDto requestedSeat, LiveRoomFirebaseEntity firebaseEntity) {
+        if (liveRoom.getEnableAutoJoin().equals(Constants.STATUS_NO.getValue())) {
+            return Mono.error(new IllegalAccessError("Auto Join call is not enabled for the LiveRoom"));
+        }
+        if (!Constants.STATUS_YES.getValue().equalsIgnoreCase(user.getActive())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active"));
+        }
+        if (liveRoom.getHostId().equals(user.getId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user is the host of the LiveRoom and cannot join as a participant."));
+        }
+        if (liveRoom.getKickedOutUserIds().stream().anyMatch(id -> id.equalsIgnoreCase(user.getId()))) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user has been kicked out of the LiveRoom and cannot rejoin as a participant."));
+        }
+        if (!Constants.STATUS_LIVE.getValue().equalsIgnoreCase(liveRoom.getStatus())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live"));
+        }
+        if (liveRoom.getViewerIds() == null ||
+                liveRoom.getViewerIds().stream().noneMatch(id -> id.equalsIgnoreCase(user.getId()))) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not a viewer of the LiveRoom and cannot join as a participant."));
+        }
+
+        if (!requestedSeat.isAvailableStatus()) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat is not available to join"));
+        }
+
+        return Mono.just(firebaseEntity);
+    }
+
 }
