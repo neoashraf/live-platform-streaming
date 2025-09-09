@@ -120,6 +120,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
                         .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
                         .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, userHostTuple2.getT2(), userHostTuple2.getT1())
+                                .doOnNext(firebaseEntity -> log.info("\nBuilt FirebaseEntity: {}", firebaseEntity))
                                 .flatMap(cachePort::create)
                                 .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
                                 .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
@@ -153,7 +154,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
 
     private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host, User user) {
-        Integer audioSeatNumber = liveRoom.getAudioSeatNumber();
+        int audioSeatNumber = Optional.ofNullable(liveRoom.getAudioSeatNumber()).orElse(5);
         return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
                 .flatMap(currentGems -> levelUseCase.getLevelDomainByLevel(host.getUserLevel())
                         .map(level -> {
@@ -223,7 +224,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .summary(Summary.builder().build())
                                     .build();
                         }));
-
     }
 
     private DailyStarProgress calculateStarProgress(double currentGems) {
@@ -1861,6 +1861,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .hostDailyGems(dailyReceivedGems)
                         .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .hostGender(host.getGender())
+                        .audioSeatNumber(Optional.ofNullable(requestDto.getAudioSeatNumber()).orElse(5))
                         .build());
     }
 
@@ -1889,7 +1890,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .maxAudioParticipants(LiveRoomConfigEnums.maxAudioParticipants.getValue())
                         .audioParticipants(new ArrayList<>())
                         .hostGender(host.getGender())
-                        .audioSeatNumber(requestDto.getAudioSeatNumber())
+                        .audioSeatNumber(Optional.ofNullable(requestDto.getAudioSeatNumber()).orElse(5))
                         .audioSkinId(Strings.isNotNullAndNotEmpty(requestDto.getAudioSkinId()) ? requestDto.getAudioSkinId() : "")
                         .enableJoin(Constants.STATUS_YES.getValue())
                         .enableAutoJoin(Constants.STATUS_NO.getValue())

@@ -41,7 +41,13 @@ public class FirebaseAdapter implements CachePort {
 
     @Override
     public Mono<LiveRoomFirebaseEntity> create(LiveRoomFirebaseEntity entity) {
-        return firebaseRepository.createLiveRoom(entity, entity.getId());
+        log.info("Calling Firebase create for LiveRoom entity: {}", entity);
+        log.info("Entity ID: {}", entity.getId());
+        log.info("AudioSeatNumber: {}", entity.getAudioSeatNumber());
+        return firebaseRepository.createLiveRoom(entity, entity.getId())
+                .doOnSubscribe(sub -> log.info("Creating LiveRoom in Firebase with ID {}", entity.getId()))
+                .doOnSuccess(result -> log.info("Successfully created LiveRoom: {}", result))
+                .doOnError(error -> log.error("Error while creating LiveRoom in Firebase", error));
     }
 
     @Override
