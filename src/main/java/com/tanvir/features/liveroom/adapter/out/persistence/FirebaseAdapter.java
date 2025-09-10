@@ -152,14 +152,15 @@ public class FirebaseAdapter implements CachePort {
                                 .peek(joinRequest -> {
                                     if (joinRequest.getUserId().equals(liveRoom.getViewer().getUserId())) {
 
-                                        if (joinRequest.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
+                                        if (joinRequest.getStatus().equals(Constants.STATUS_STARTED.getValue()) && liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
                                             Map<String, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
                                             SeatNumberDto seat = seatMap.get(joinRequest.getSeatIndex());
                                             if (seat != null) {
                                                 seat.setAvailableStatus(true);
-                                                seat.setUserId(liveRoom.getViewer().getUserId());
+                                                seat.setUserId(null);
+                                                seat.setJoinReqId(null);
                                             }
-                                            firebaseEntity.getSeatAvailableStatus().set(joinRequest.getSeatIndex(), false);
+//                                            firebaseEntity.getSeatAvailableStatus().set(joinRequest.getSeatIndex(), false);
                                         }
                                         joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
                                         joinRequest.setSeatIndex(-1);
@@ -212,14 +213,15 @@ public class FirebaseAdapter implements CachePort {
                                 .peek(joinRequests -> {
                                     if (joinRequests.getUserId().equals(liveRoom.getViewer().getUserId())) {
 
-                                        if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
+                                        if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue()) && liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
                                             Map<String, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
                                             SeatNumberDto seat = seatMap.get(joinRequests.getSeatIndex());
                                             if (seat != null) {
                                                 seat.setAvailableStatus(true);
-                                                seat.setUserId(liveRoom.getViewer().getUserId());
+                                                seat.setUserId(null);
+                                                seat.setJoinReqId(null);
                                             }
-                                            firebaseEntity.getSeatAvailableStatus().set(joinRequests.getSeatIndex(), false);
+//                                            firebaseEntity.getSeatAvailableStatus().set(joinRequests.getSeatIndex(), false);
                                         }
                                         joinRequests.setStatus(Constants.STATUS_CLOSED.getValue());
                                         joinRequests.setSeatIndex(-1);
@@ -387,25 +389,29 @@ public class FirebaseAdapter implements CachePort {
                 })
                 .doOnRequest(l -> log.info("Request received to get  firebase entity for processing join call with id: {}", liveRoom.getId()))
                 .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity for processing join call  with id: {}", firebaseEntity))
-                .map(firebaseEntity -> {
+                .flatMap(firebaseEntity -> {
                     Optional<JoinRequests> optionalJoinRequests = firebaseEntity.getJoinRequests().stream()
                             .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
                             .findFirst();
 
-                    optionalJoinRequests.ifPresentOrElse(joinRequests -> {
-                                joinRequests.setStatus(requestDto.getAction());
-                                joinRequests.setReason(requestDto.getReason());
+                    if (optionalJoinRequests.isEmpty()) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
+                    }
 
-                                this.assignSeat(firebaseEntity, joinRequests);
-                                if (joinRequests.getSeatIndex() == firebaseEntity.getSeatMap().size())
-                                    Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat capacity crosses limit"));
-                            },
-                            () -> {
-                                Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
-                            });
+                    JoinRequests joinRequests = optionalJoinRequests.get();
+                    joinRequests.setStatus(requestDto.getAction());
+                    joinRequests.setReason(requestDto.getReason());
 
-                    return firebaseEntity;
+                    if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
+                        this.assignSeat(firebaseEntity, joinRequests);
+                        if (joinRequests.getSeatIndex() == firebaseEntity.getSeatMap().size()) {
+                            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat capacity crosses limit"));
+                        }
+                    }
+
+                    return Mono.just(firebaseEntity);
                 })
+
                 .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
@@ -440,18 +446,18 @@ public class FirebaseAdapter implements CachePort {
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Request received to get  firebase entity for processing join call with id: {}", liveRoom.getId()))
                 .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity for processing join call  with id: {}", firebaseEntity))
-                .map(firebaseEntity -> {
+                .flatMap(firebaseEntity -> {
                     Optional<JoinRequests> optionalJoinRequests = firebaseEntity.getJoinRequests().stream()
                             .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
                             .findFirst();
 
-                    optionalJoinRequests.ifPresentOrElse(joinRequests -> {
-                        joinRequests.setStatus(Constants.STATUS_STARTED.getValue());
-                    }, () -> {
-                        Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
-                    });
+                    if (optionalJoinRequests.isEmpty()) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
+                    }
+                    JoinRequests joinRequests = optionalJoinRequests.get();
+                    joinRequests.setStatus(Constants.STATUS_STARTED.getValue());
 
-                    return firebaseEntity;
+                    return Mono.just(firebaseEntity);
                 })
                 .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)
@@ -463,27 +469,29 @@ public class FirebaseAdapter implements CachePort {
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Request received to get  firebase entity for processing join call with id: {}", liveRoom.getId()))
                 .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity for processing join call  with id: {}", firebaseEntity))
-                .map(firebaseEntity -> {
+                .flatMap(firebaseEntity -> {
                     Optional<JoinRequests> optionalJoinRequests = firebaseEntity.getJoinRequests().stream()
                             .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
                             .findFirst();
 
-                    optionalJoinRequests.ifPresentOrElse(joinRequests ->
-                            {
-                                if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
-                                    Map<String, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
-                                    SeatNumberDto seat = seatMap.get(joinRequests.getSeatIndex());
-                                    if (seat != null) {
-                                        seat.setAvailableStatus(false);
-                                        seat.setUserId(liveRoom.getViewer().getUserId());
-                                    }
-                                }
-                                joinRequests.setStatus(Constants.STATUS_CLOSED.getValue());
-                                joinRequests.setSeatIndex(-1);
-                            },
-                            () -> Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found")));
+                    if (optionalJoinRequests.isEmpty()) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
+                    }
+                    JoinRequests joinRequests = optionalJoinRequests.get();
 
-                    return firebaseEntity;
+                    if (joinRequests.getStatus().equals(Constants.STATUS_STARTED.getValue()) && liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
+                        Map<String, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
+                        SeatNumberDto seat = seatMap.get(joinRequests.getSeatIndex());
+                        if (seat != null) {
+                            seat.setAvailableStatus(true);
+                            seat.setUserId(null);
+                            seat.setJoinReqId(null);
+                        }
+                    }
+                    joinRequests.setStatus(Constants.STATUS_CLOSED.getValue());
+                    joinRequests.setSeatIndex(-1);
+
+                    return Mono.just(firebaseEntity);
                 })
                 .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
                 .flatMap(firebaseRepository::update)

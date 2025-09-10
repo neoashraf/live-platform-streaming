@@ -1164,6 +1164,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<JoinCallResponseDto> startJoinCall(JoinCallRequestDto requestDto) {
+        AtomicReference<User> userRef = new AtomicReference<>();
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                 .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
@@ -1173,7 +1174,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
                         .filter(user -> user.getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active")))
-                        .thenReturn(liveRoom))
+                        .map(user -> {
+                            userRef.set(user);
+                            return liveRoom;
+                        }))
                 .flatMap(liveRoom -> cachePort.getLiveRoomById(liveRoom.getId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                         .flatMap(liveRoomEntity -> {
@@ -1188,12 +1192,34 @@ public class LiveRoomService implements LiveRoomUseCase {
 
                             return Mono.just(liveRoomEntity);
                         })
+                        .flatMap(firebaseEntity -> {
+                            User user = userRef.get();
+
+                            if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_VIDEO.getValue())) {
+                                return Mono.just(firebaseEntity);
+                            }
+
+                            SeatNumberDto requestedSeat = firebaseEntity.getSeatMap().get(requestDto.getSeatNumber());
+                            return this.validateJoinRequest(liveRoom, user, requestedSeat, firebaseEntity)
+                                    .flatMap(liveRoomFirebaseEntity -> {
+                                        Optional<JoinRequests> existingJoinRequest = firebaseEntity.getJoinRequests()
+                                                .stream()
+                                                .filter(jr -> jr.getUserId().equals(user.getId()))
+                                                .findFirst();
+
+                                        SeatNumberDto seatNumberDto = new SeatNumberDto();
+                                        seatNumberDto.setAvailableStatus(false);
+                                        seatNumberDto.setUserId(user.getId());
+
+                                        existingJoinRequest.ifPresent(joinRequests -> seatNumberDto.setJoinReqId(joinRequests.getRequestId()));
+
+                                        return Strings.isNotNullAndNotEmpty(seatNumberDto.getJoinReqId())
+                                                ? this.updateFirebaseSeatMapForExistingJoinRequest(firebaseEntity, requestDto, seatNumberDto, liveRoom)
+                                                : this.buildJoinRequestAndUpdateFirebaseSeatMap(user, requestDto, seatNumberDto, liveRoom, firebaseEntity);
+                                    })
+                                    .map(liveRoomJoinRequestInfo -> firebaseEntity);
+                        })
                         .map(liveRoomEntity -> liveRoom))
-                .doOnNext(liveRoom -> cachePort.updateForStartingJoinCall(liveRoom, requestDto)
-                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
-                        .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .subscribe())
                 .map(liveRoom -> buildJoinCallProcessData(liveRoom, requestDto, Constants.STATUS_STARTED.getValue()))
                 .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
                         .message("Start Join call request processed successfully.")
