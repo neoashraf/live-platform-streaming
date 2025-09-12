@@ -13,5 +13,6 @@ import lombok.NoArgsConstructor;
 public class JoinPermissionRequestDTO {
     private String liveRoomId;
     private String keycloakId;
+    private String enableAutoJoin;
     private String enableJoin;
 }

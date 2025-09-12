@@ -524,7 +524,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     private Mono<LiveRoomJoinPermissionResponseDto> buildEnableJoinResponseDTO(LiveRoom liveRoom, String message) {
         EnableJoinPermission joinPermission = new EnableJoinPermission();
         joinPermission.setJoinCallAvailable(liveRoom.getEnableJoin());
-        joinPermission.setAutoJoinAudioStreamAvailable(liveRoom.getEnableAutoJoin());
+        joinPermission.setAutoJoinEnabled(liveRoom.getEnableAutoJoin());
         joinPermission.setRoomId(liveRoom.getId());
         return Mono.just(LiveRoomJoinPermissionResponseDto
                 .builder()
@@ -1009,10 +1009,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> {
                     List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
 
-                    if (!validTypes.contains(requestDTO.getEnableJoin())) {
+                    if (!validTypes.contains(requestDTO.getEnableAutoJoin())) {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
                     }
-                    liveRoom.setEnableJoin(requestDTO.getEnableJoin());
+                    liveRoom.setEnableJoin(requestDTO.getEnableAutoJoin());
                     return port.saveLiveRoom(liveRoom);
                 })
                 .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
@@ -1476,10 +1476,16 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> {
                     List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
 
+                    if (!validTypes.contains(requestDTO.getEnableAutoJoin())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
+                    }
+
                     if (!validTypes.contains(requestDTO.getEnableJoin())) {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
                     }
-                    liveRoom.setEnableAutoJoin(requestDTO.getEnableJoin());
+
+                    liveRoom.setEnableJoin(requestDTO.getEnableJoin());
+                    liveRoom.setEnableAutoJoin(requestDTO.getEnableAutoJoin());
                     return port.saveLiveRoom(liveRoom);
                 })
                 .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
@@ -1488,6 +1494,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
                 .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom, "Auto Join AudioStream updated successfully."))
+                .map(liveRoomJoinPermissionResponseDto -> {
+                    liveRoomJoinPermissionResponseDto.getData().setJoinCallAvailable(null);
+                    return liveRoomJoinPermissionResponseDto;
+                })
                 .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
 
@@ -1919,7 +1929,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .hostGender(host.getGender())
                         .audioSeatNumber(Optional.ofNullable(requestDto.getAudioSeatNumber()).orElse(5))
                         .audioSkinId(Strings.isNotNullAndNotEmpty(requestDto.getAudioSkinId()) ? requestDto.getAudioSkinId() : "")
-                        .enableJoin(Constants.STATUS_YES.getValue())
+                        .enableJoin(Constants.STATUS_NO.getValue())
                         .enableAutoJoin(Constants.STATUS_NO.getValue())
                         .build());
     }
