@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 
 @Data
-@Builder
+@Builder(toBuilder = true)
 @AllArgsConstructor
 @NoArgsConstructor
 public class GiftTransaction {

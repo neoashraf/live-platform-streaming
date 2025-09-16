@@ -6,6 +6,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
@@ -15,6 +16,7 @@ import java.util.Map;
 public class SenderReceiverDto {
     private User sender;
     private User receiver;
+    private List<User> receivers;
     private Map<String, Object> senderUpdatedFields;
     private Map<String, Object> receiverUpdatedFields;
 }

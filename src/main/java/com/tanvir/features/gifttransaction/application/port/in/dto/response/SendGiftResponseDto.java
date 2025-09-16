@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -12,6 +14,7 @@ import lombok.NoArgsConstructor;
 public class SendGiftResponseDto {
     private String message;
     private DataDto data;
+    private List<DataDto> giftData;
     private int count;
     private boolean error;
 

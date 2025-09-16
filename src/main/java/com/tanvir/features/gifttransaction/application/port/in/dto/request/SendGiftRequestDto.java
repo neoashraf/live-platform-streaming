@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @Builder
 @AllArgsConstructor
@@ -13,6 +15,7 @@ public class  SendGiftRequestDto {
     private String keycloakId;
     private String senderId;
     private String receiverId;
+    private List<String> receiverIds;
     private String giftId;
     private int quantity;
     private String liveSession;
