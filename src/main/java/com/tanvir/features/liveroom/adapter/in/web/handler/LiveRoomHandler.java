@@ -479,4 +479,16 @@ public class LiveRoomHandler {
                         .contentType(MediaType.APPLICATION_JSON)
                         .bodyValue(responseDto));
     }
+
+    public Mono<ServerResponse> updateLivenessHeartbeat(ServerRequest serverRequest) {
+        String liveRoomId = serverRequest.pathVariable("id");
+        log.info("Received liveness heartbeat for liveRoomId: {}", liveRoomId);
+
+        return liveRoomUseCase.updateLivenessHeartbeat(liveRoomId)
+                .then(ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(Map.of("message", "Liveness heartbeat updated successfully", "liveRoomId", liveRoomId)))
+                .onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest));
+    }
 }

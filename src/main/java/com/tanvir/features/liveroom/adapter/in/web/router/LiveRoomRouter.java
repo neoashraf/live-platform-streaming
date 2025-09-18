@@ -104,6 +104,10 @@ public class LiveRoomRouter {
                                         nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(AUDIO).concat(ID).concat(AUTO_JOIN), handler::enableAutoJoinAudioStream)
                                 )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
+                                                .POST(LIVE_ROOMS.concat(ID).concat(HEART_BEAT), handler::updateLivenessHeartbeat)
+                                )
 
 
                 )

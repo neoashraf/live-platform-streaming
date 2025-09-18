@@ -5,6 +5,7 @@ import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
 import java.util.List;
 
 
@@ -24,4 +25,7 @@ public interface LiveRoomPersistencePort {
     Mono<List<LiveRoom>> getFollowingLiveRooms(String keycloakId, Pageable pageable, String mediaType);
 
     Mono<Long> getFollowingLiveRoomsCount(String keycloakId, String mediaType);
+
+    Flux<LiveRoom> findLiveRoomsForOfflineCheck(Instant cutoffTime);
+    Mono<LiveRoom> save(LiveRoom liveRoom);
 }

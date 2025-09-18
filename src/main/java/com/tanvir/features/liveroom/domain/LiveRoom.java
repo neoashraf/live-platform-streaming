@@ -64,6 +64,7 @@ public class LiveRoom {
     private String audioSkinId;
     private String audioSkinUrl;
     private Integer audioSeatNumber;
+    private Instant lastSeen;
 
     @Override
     public String toString() {

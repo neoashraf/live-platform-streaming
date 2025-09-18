@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
 import java.util.List;
 
 
@@ -124,5 +125,16 @@ public class LiveRoomPersistenceAdapter implements LiveRoomPersistencePort {
     public Mono<Long> getFollowingLiveRoomsCount(String keycloakId, String mediaType) {
         return userUseCase.getUserByKeycloakId(keycloakId)
                 .flatMap(user -> customRepository.getCountByFilters(user.getFollowings(),mediaType));
+    }
+
+    @Override
+    public Flux<LiveRoom> findLiveRoomsForOfflineCheck(Instant cutoffTime) {
+        return repository.findByStatusAndLastSeenBefore(Constants.STATUS_LIVE.getValue(), cutoffTime)
+                .map(entity -> modelMapper.map(entity, LiveRoom.class));
+    }
+
+    @Override
+    public Mono<LiveRoom> save(LiveRoom liveRoom) {
+        return this.saveLiveRoom(liveRoom);
     }
 }

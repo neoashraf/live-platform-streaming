@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 @Component
 public class LiveRoomFirebaseRepository extends ReactiveFirebaseRepository<LiveRoomFirebaseEntity> {
@@ -18,4 +19,8 @@ public class LiveRoomFirebaseRepository extends ReactiveFirebaseRepository<LiveR
     /*public LiveRoomFirebaseRepository(@Qualifier("firebasePath") String firebasePath, Class<LiveRoomFirebaseEntity> entityClass) {
         super(firebasePath, entityClass, new ObjectMapper());
     }*/
+
+    public Mono<Void> deleteLiveRoom(String liveRoomId) {
+        return this.delete(liveRoomId);
+    }
 }
