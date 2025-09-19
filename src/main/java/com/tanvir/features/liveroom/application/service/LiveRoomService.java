@@ -121,7 +121,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .doOnSuccess(liveRoom -> log.info("LiveRoom saved into db"))
                         .doOnError(throwable -> log.error("Error happened while saving LiveRoom into db : {}", throwable.getMessage()))
                         .doOnNext(liveRoom -> this.buildFirebaseEntity(liveRoom, userHostTuple2.getT2(), userHostTuple2.getT1())
-                                .doOnNext(firebaseEntity -> log.info("\nBuilt FirebaseEntity: {}", firebaseEntity))
                                 .flatMap(cachePort::create)
                                 .doOnNext(firebaseEntity -> log.info("LiveRoom saved into firebase successfully"))
                                 .doOnError(throwable -> log.error("Error Happened while saving LiveRoom into Firebase : {}", throwable.getMessage()))
@@ -155,7 +154,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
 
     private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host, User user) {
-        int audioSeatNumber = Optional.ofNullable(liveRoom.getAudioSeatNumber()).orElse(5);
+        Integer audioSeatNumber = liveRoom.getAudioSeatNumber();
         return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
                 .flatMap(currentGems -> levelUseCase.getLevelDomainByLevel(host.getUserLevel())
                         .map(level -> {
@@ -225,6 +224,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .summary(Summary.builder().build())
                                     .build();
                         }));
+
     }
 
     private DailyStarProgress calculateStarProgress(double currentGems) {
@@ -524,7 +524,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     private Mono<LiveRoomJoinPermissionResponseDto> buildEnableJoinResponseDTO(LiveRoom liveRoom, String message) {
         EnableJoinPermission joinPermission = new EnableJoinPermission();
         joinPermission.setJoinCallAvailable(liveRoom.getEnableJoin());
-        joinPermission.setAutoJoinAudioStreamAvailable(liveRoom.getEnableAutoJoin());
+        joinPermission.setAutoJoinEnabled(liveRoom.getEnableAutoJoin());
         joinPermission.setRoomId(liveRoom.getId());
         return Mono.just(LiveRoomJoinPermissionResponseDto
                 .builder()
@@ -1009,10 +1009,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> {
                     List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
 
-                    if (!validTypes.contains(requestDTO.getEnableJoin())) {
+                    if (!validTypes.contains(requestDTO.getEnableAutoJoin())) {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
                     }
-                    liveRoom.setEnableJoin(requestDTO.getEnableJoin());
+                    liveRoom.setEnableJoin(requestDTO.getEnableAutoJoin());
                     return port.saveLiveRoom(liveRoom);
                 })
                 .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
@@ -1165,7 +1165,6 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<JoinCallResponseDto> startJoinCall(JoinCallRequestDto requestDto) {
-        AtomicReference<User> userRef = new AtomicReference<>();
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                 .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
@@ -1175,10 +1174,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
                         .filter(user -> user.getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active")))
-                        .map(user -> {
-                            userRef.set(user);
-                            return liveRoom;
-                        }))
+                        .thenReturn(liveRoom))
                 .flatMap(liveRoom -> cachePort.getLiveRoomById(liveRoom.getId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                         .flatMap(liveRoomEntity -> {
@@ -1193,34 +1189,12 @@ public class LiveRoomService implements LiveRoomUseCase {
 
                             return Mono.just(liveRoomEntity);
                         })
-                        .flatMap(firebaseEntity -> {
-                            User user = userRef.get();
-
-                            if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_VIDEO.getValue())) {
-                                return Mono.just(firebaseEntity);
-                            }
-
-                            SeatNumberDto requestedSeat = firebaseEntity.getSeatMap().get(requestDto.getSeatNumber());
-                            return this.validateJoinRequest(liveRoom, user, requestedSeat, firebaseEntity)
-                                    .flatMap(liveRoomFirebaseEntity -> {
-                                        Optional<JoinRequests> existingJoinRequest = firebaseEntity.getJoinRequests()
-                                                .stream()
-                                                .filter(jr -> jr.getUserId().equals(user.getId()))
-                                                .findFirst();
-
-                                        SeatNumberDto seatNumberDto = new SeatNumberDto();
-                                        seatNumberDto.setAvailableStatus(false);
-                                        seatNumberDto.setUserId(user.getId());
-
-                                        existingJoinRequest.ifPresent(joinRequests -> seatNumberDto.setJoinReqId(joinRequests.getRequestId()));
-
-                                        return Strings.isNotNullAndNotEmpty(seatNumberDto.getJoinReqId())
-                                                ? this.updateFirebaseSeatMapForExistingJoinRequest(firebaseEntity, requestDto, seatNumberDto, liveRoom)
-                                                : this.buildJoinRequestAndUpdateFirebaseSeatMap(user, requestDto, seatNumberDto, liveRoom, firebaseEntity);
-                                    })
-                                    .map(liveRoomJoinRequestInfo -> firebaseEntity);
-                        })
                         .map(liveRoomEntity -> liveRoom))
+                .doOnNext(liveRoom -> cachePort.updateForStartingJoinCall(liveRoom, requestDto)
+                        .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
+                        .doOnError(throwable -> log.error("Error happened while updating LiveRoom into Firebase: {}", throwable.getMessage()))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe())
                 .map(liveRoom -> buildJoinCallProcessData(liveRoom, requestDto, Constants.STATUS_STARTED.getValue()))
                 .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
                         .message("Start Join call request processed successfully.")
@@ -1476,10 +1450,16 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> {
                     List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
 
+                    if (!validTypes.contains(requestDTO.getEnableAutoJoin())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
+                    }
+
                     if (!validTypes.contains(requestDTO.getEnableJoin())) {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
                     }
-                    liveRoom.setEnableAutoJoin(requestDTO.getEnableJoin());
+
+                    liveRoom.setEnableJoin(requestDTO.getEnableJoin());
+                    liveRoom.setEnableAutoJoin(requestDTO.getEnableAutoJoin());
                     return port.saveLiveRoom(liveRoom);
                 })
                 .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
@@ -1488,6 +1468,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe())
                 .flatMap(liveRoom -> this.buildEnableJoinResponseDTO(liveRoom, "Auto Join AudioStream updated successfully."))
+                .map(liveRoomJoinPermissionResponseDto -> {
+                    liveRoomJoinPermissionResponseDto.getData().setJoinCallAvailable(null);
+                    return liveRoomJoinPermissionResponseDto;
+                })
                 .doOnError(throwable -> log.error("Error Happened while setting join permission: {}", throwable.getMessage()));
     }
 
@@ -1888,7 +1872,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .hostDailyGems(dailyReceivedGems)
                         .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .hostGender(host.getGender())
-                        .audioSeatNumber(Optional.ofNullable(requestDto.getAudioSeatNumber()).orElse(5))
                         .build());
     }
 
@@ -1917,9 +1900,9 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .maxAudioParticipants(LiveRoomConfigEnums.maxAudioParticipants.getValue())
                         .audioParticipants(new ArrayList<>())
                         .hostGender(host.getGender())
-                        .audioSeatNumber(Optional.ofNullable(requestDto.getAudioSeatNumber()).orElse(5))
+                        .audioSeatNumber(requestDto.getAudioSeatNumber())
                         .audioSkinId(Strings.isNotNullAndNotEmpty(requestDto.getAudioSkinId()) ? requestDto.getAudioSkinId() : "")
-                        .enableJoin(Constants.STATUS_YES.getValue())
+                        .enableJoin(Constants.STATUS_NO.getValue())
                         .enableAutoJoin(Constants.STATUS_NO.getValue())
                         .build());
     }
@@ -2069,7 +2052,8 @@ public class LiveRoomService implements LiveRoomUseCase {
                     LiveRoom liveRoom = tuple.getT1();
                     User user = tuple.getT2();
                     LiveRoomFirebaseEntity firebaseEntity = tuple.getT3();
-                    SeatNumberDto requestedSeat = firebaseEntity.getSeatMap().get(String.valueOf(requestDto.getSeatNumber()));
+
+                    SeatNumberDto requestedSeat = firebaseEntity.getSeatMap().get(requestDto.getSeatNumber());
                     return this.validateJoinRequest(liveRoom, user, requestedSeat, firebaseEntity)
                             .flatMap(liveRoomFirebaseEntity -> {
                                 Optional<JoinRequests> existingJoinRequest = firebaseEntity.getJoinRequests()
@@ -2169,29 +2153,6 @@ public class LiveRoomService implements LiveRoomUseCase {
         }
 
         return Mono.just(firebaseEntity);
-    }
-
-    @Override
-    public Mono<GenericResponseDto> updateLivenessHeartbeat(String liveRoomId) {
-        log.info("Updating liveness heartbeat for liveroom: {}", liveRoomId);
-        return this.getLiveRoomById(liveRoomId)
-                .doOnNext(liveRoom -> log.info("Found liveroom for heartbeat update: {}", liveRoom.getId()))
-                .filter(liveRoom -> Constants.STATUS_LIVE.getValue().equalsIgnoreCase(liveRoom.getStatus()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not in live status")))
-                .map(liveRoom -> {
-                    liveRoom.setLastSeen(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
-                    return liveRoom;
-                })
-                .flatMap(this::updateLiveRoom)
-                .doOnNext(updatedRoom -> log.info("Successfully updated liveness heartbeat for liveroom: {}", updatedRoom.getId()))
-                .map(liveRoom -> GenericResponseDto
-                        .builder()
-                        .message("Liveness heartbeat updated successfully.")
-                        .data(List.of())
-                        .count(0)
-                        .error(false)
-                        .build())
-                .doOnError(error -> log.error("Error updating liveness heartbeat for liveroom {}: {}", liveRoomId, error.getMessage()));
     }
 
 }
