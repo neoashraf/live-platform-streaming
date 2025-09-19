@@ -2069,8 +2069,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                     LiveRoom liveRoom = tuple.getT1();
                     User user = tuple.getT2();
                     LiveRoomFirebaseEntity firebaseEntity = tuple.getT3();
-
-                    SeatNumberDto requestedSeat = firebaseEntity.getSeatMap().get(requestDto.getSeatNumber());
+                    SeatNumberDto requestedSeat = firebaseEntity.getSeatMap().get(String.valueOf(requestDto.getSeatNumber()));
                     return this.validateJoinRequest(liveRoom, user, requestedSeat, firebaseEntity)
                             .flatMap(liveRoomFirebaseEntity -> {
                                 Optional<JoinRequests> existingJoinRequest = firebaseEntity.getJoinRequests()
