@@ -12,8 +12,8 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZonedDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder(toBuilder = true)
@@ -39,6 +39,8 @@ public class GiftTransaction {
     private String agencyId;
     private DailyStarProgress dailyStarProgress;
     private LiveRoom liveRoom;
+
+    private Map<String, List<String>> hostCohostIdsMap;
 
     @Override
     public String toString() {

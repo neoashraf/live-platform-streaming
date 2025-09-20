@@ -38,6 +38,8 @@ public class GiftSummaryService implements GiftSummaryUseCase {
     @Override
     public Mono<GiftTransaction> processGiftSummary(GiftTransaction transaction) {
 // Get the receiver's userId and the transactionDate
+        System.out.println("\n LiveRoom in processGiftSummary: "+transaction.getLiveRoom()+"\n");
+
         String receiverId = transaction.getReceiverId();
         String transactionDateStr = transaction.getTransactionDate();
 

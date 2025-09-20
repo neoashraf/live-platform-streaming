@@ -485,10 +485,11 @@ public class LiveRoomHandler {
         log.info("Received liveness heartbeat for liveRoomId: {}", liveRoomId);
 
         return liveRoomUseCase.updateLivenessHeartbeat(liveRoomId)
-                .then(ServerResponse
+                .flatMap(liveRoomTimeUpdateResponse -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(Map.of("message", "Liveness heartbeat updated successfully", "liveRoomId", liveRoomId)))
+                        .bodyValue(liveRoomTimeUpdateResponse)
+                )
                 .onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest));
     }
 }

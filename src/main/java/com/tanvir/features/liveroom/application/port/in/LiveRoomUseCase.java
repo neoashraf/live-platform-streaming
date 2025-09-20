@@ -1,7 +1,5 @@
 package com.tanvir.features.liveroom.application.port.in;
 
-import com.tanvir.core.util.helper.GenericResponseDto;
-import com.tanvir.features.host.application.port.in.dto.response.HostResponseDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
@@ -33,5 +31,5 @@ public interface LiveRoomUseCase {
     Mono<JoinCallResponseDto> updateJoinCall(JoinCallRequestUpdateDto requestDto);
     Mono<HostMicStatusResponseDto> setMicStatus(String liveRoomId, String micOn);
     Mono<JoinCallResponseDto> autoJoinProcess(JoinCallRequestDto requestDto);
-    Mono<GenericResponseDto> updateLivenessHeartbeat(String liveRoomId);
+    Mono<LiveRoomHeartBeatResponse> updateLivenessHeartbeat(String liveRoomId);
 }

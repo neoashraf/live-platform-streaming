@@ -3,7 +3,6 @@ package com.tanvir.features.liveroom.application.service;
 import com.tanvir.core.util.FormatUtil;
 import com.tanvir.core.util.enums.*;
 import com.tanvir.core.util.exception.ExceptionHandlerUtil;
-import com.tanvir.core.util.helper.GenericResponseDto;
 import com.tanvir.features.agora.service.AgoraService;
 import com.tanvir.features.agora.service.AgoraTokenRequestDto;
 import com.tanvir.features.commonbusiness.CommonBusiness;
@@ -2153,6 +2152,34 @@ public class LiveRoomService implements LiveRoomUseCase {
         }
 
         return Mono.just(firebaseEntity);
+    }
+
+
+    @Override
+    public Mono<LiveRoomHeartBeatResponse> updateLivenessHeartbeat(String liveRoomId) {
+        log.info("Updating liveness heartbeat for liveroom: {}", liveRoomId);
+        return this.getLiveRoomById(liveRoomId)
+                .doOnNext(liveRoom -> log.info("Found liveroom for heartbeat update: {}", liveRoom.getId()))
+                .filter(liveRoom -> Constants.STATUS_LIVE.getValue().equalsIgnoreCase(liveRoom.getStatus()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not in live status")))
+                .map(liveRoom -> {
+                    liveRoom.setLastSeen(ZonedDateTime.now(ZoneOffset.UTC).toInstant());
+                    return liveRoom;
+                })
+                .flatMap(this::updateLiveRoom)
+                .doOnNext(updatedRoom -> log.info("Successfully updated liveness heartbeat for liveroom: {}", updatedRoom.getId()))
+                .map(liveRoom -> LiveRoomHeartBeatDto.builder()
+                        .liveRoomId(liveRoom.getId())
+                        .time(liveRoom.getLastSeen())
+                        .build())
+                .map(liveRoomHeartBeatDto -> LiveRoomHeartBeatResponse
+                        .builder()
+                        .message("Liveness heartbeat updated successfully.")
+                        .data(liveRoomHeartBeatDto)
+                        .count(1)
+                        .error(false)
+                        .build())
+                .doOnError(error -> log.error("Error updating liveness heartbeat for liveroom {}: {}", liveRoomId, error.getMessage()));
     }
 
 }

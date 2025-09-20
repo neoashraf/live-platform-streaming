@@ -25,6 +25,7 @@ import com.tanvir.features.liveroom.application.port.out.CachePort;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.AnnouncementUser;
+import com.tanvir.features.liveroom.domain.valueobject.DailyStarProgress;
 import com.tanvir.features.liveroom.domain.valueobject.JoinRequests;
 import com.tanvir.features.liveroomactivity.LiveRoomActivityService;
 import com.tanvir.features.user.application.port.in.UserUseCase;
@@ -33,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.reactive.TransactionalOperator;
+import org.testng.util.Strings;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.function.Tuples;
@@ -78,22 +80,6 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         this.giftAnnouncementRepository = giftAnnouncementRepository;
     }
 
-    public static List<Announcement.Resources> buildResourceCollectionRide(Content content) {
-
-        return content.getResourceFormats().stream()
-                .filter(resourceFormat -> resourceFormat.getResourceType()
-                        .equals(ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue())
-                        || resourceFormat.getResourceType().equals(
-                        ResourceTypeEnum.RESOURCE_TYPE_ANIMATION.getValue()))
-                .map(resourceFormat -> Announcement.Resources.builder()
-                        .id(resourceFormat.getResourceId())
-                        .type(resourceFormat.getResourceType())
-                        .url(resourceFormat.getResourceUrl())
-                        .name(content.getName())
-                        .thumbnailUrl(resourceFormat.getThumbnailUrl())
-                        .build())
-                .toList();
-    }
 
     @Override
     public Mono<SendGiftResponseDto> sendGifts(SendGiftRequestDto requestDto) {
@@ -123,66 +109,166 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                 return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Receiver must be host or co-host in the live room"));
                             }
                         }
-                        // Common transaction pipeline
-                        return processGiftTransactions(requestDto)
-                                .flatMapMany(Flux::fromIterable)
-                                .map(giftTransaction -> {
-                                    // Ensure liveRoom is set for each transaction
-                                    // If GiftTransaction is immutable, use builder; else set directly
-                                    giftTransaction.setLiveRoom(liveRoom);
-                                    return giftTransaction;
-                                })
-                                .collectList()
+
+                        Map<String, List<String>> hostAndCoHostMap = new HashMap<>();
+                        hostAndCoHostMap.put("Host", Collections.singletonList(firebaseEntity.getHost().getUserId()));
+                        if (firebaseEntity.getJoinRequests() != null) {
+                            List<String> coHostIds = firebaseEntity.getJoinRequests().stream()
+                                    .filter(jr -> Constants.STATUS_APPROVED.getValue().equalsIgnoreCase(jr.getStatus()) || Constants.STATUS_STARTED.getValue().equalsIgnoreCase(jr.getStatus()))
+                                    .map(JoinRequests::getUserId)
+                                    .toList();
+                            hostAndCoHostMap.put("Co-Host", coHostIds);
+                        }
+                        // Validate sender balance upfront before any processing
+                        return validateSenderBalanceUpfront(requestDto)
+                                .then(processGiftTransactions(requestDto, liveRoom, hostAndCoHostMap)
+                                        .flatMapMany(Flux::fromIterable)
+                                        .map(giftTransaction -> {
+                                            // Ensure liveRoom is set for each transaction
+                                            giftTransaction.setLiveRoom(liveRoom);
+                                            return giftTransaction;
+                                        })
+                                        // Note: Don't call updateHostDailyGemsIfNeeded here for live room gifts
+                                        // Daily gems are already updated in calculateHostDailyStarProgress
+                                        .collectList()
+                                        .as(transactionalOperator::transactional))
                                 .flatMap(giftTransactions -> {
-                                    // Build all announcements for all receivers
-                                    return Flux.fromIterable(giftTransactions)
-                                            .concatMap(giftTransaction -> buildGiftAnnouncement(giftTransaction)
-                                                    .flatMap(announcement -> pushPublicGiftAnnouncementIfSupported(announcement).thenReturn(announcement)))
-                                            .collectList()
-                                            .flatMap(announcements ->
-                                                    cachePort.getLiveRoomById(liveRoom.getId())
-                                                            .flatMap(firebaseEntity2 -> {
-                                                                List<Announcement> current = firebaseEntity2.getAnnouncements() != null ? new ArrayList<>(firebaseEntity2.getAnnouncements()) : new ArrayList<>();
-                                                                current.addAll(announcements);
-                                                                firebaseEntity2.setAnnouncements(current);
-                                                                return cachePort.updateByEntity(firebaseEntity2);
-                                                            })
-                                            )
+                                    // Firebase operations outside transaction boundary
+                                    return publishFirebaseUpdates(giftTransactions, liveRoom)
                                             .thenReturn(giftTransactions);
                                 })
-                                .flatMapMany(Flux::fromIterable)
-                                .flatMap(this::updateHostDailyGemsIfNeeded)
-                                .collectList()
-                                .map(giftTransactions -> this.buildSendGiftResponseDto(giftTransactions, "Gift sent successfully"))
-                                .as(transactionalOperator::transactional);
+                                .map(giftTransactions -> this.buildSendGiftResponseDto(giftTransactions, "Gift sent successfully"));
                     });
         } else {
-            // Offline gift
-            return processGiftTransactions(requestDto)
-                    .flatMapMany(Flux::fromIterable)
-                    .concatMap(this::updateHostDailyGemsIfNeeded)
-                    .collectList()
-                    .map(giftTransactions -> this.buildSendGiftResponseDto(giftTransactions, "Gift sent successfully"))
-                    .as(transactionalOperator::transactional);
+            // Offline gift - also validate upfront
+            return validateSenderBalanceUpfront(requestDto)
+                    .then(processGiftTransactions(requestDto, null, null)
+                            .flatMapMany(Flux::fromIterable)
+                            .concatMap(this::updateHostDailyGemsIfNeeded)
+                            .collectList()
+                            .as(transactionalOperator::transactional))
+                    .map(giftTransactions -> this.buildSendGiftResponseDto(giftTransactions, "Gift sent successfully"));
         }
     }
 
+    public static List<Announcement.Resources> buildResourceCollectionRide(Content content) {
+
+        return content.getResourceFormats().stream()
+                .filter(resourceFormat -> resourceFormat.getResourceType()
+                        .equals(ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue())
+                        || resourceFormat.getResourceType().equals(
+                        ResourceTypeEnum.RESOURCE_TYPE_ANIMATION.getValue()))
+                .map(resourceFormat -> Announcement.Resources.builder()
+                        .id(resourceFormat.getResourceId())
+                        .type(resourceFormat.getResourceType())
+                        .url(resourceFormat.getResourceUrl())
+                        .name(content.getName())
+                        .thumbnailUrl(resourceFormat.getThumbnailUrl())
+                        .build())
+                .toList();
+    }
+
+    private Mono<Void> validateSenderBalanceUpfront(SendGiftRequestDto requestDto) {
+        return userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Sender User not found")))
+                .flatMap(sender -> giftUseCase.getGiftById(requestDto.getGiftId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Gift not found")))
+                        .flatMap(gift -> {
+                            int numReceivers = requestDto.getReceiverIds() != null && !requestDto.getReceiverIds().isEmpty()
+                                    ? requestDto.getReceiverIds().size()
+                                    : 1;
+                            double totalAmount = gift.getCost() * requestDto.getQuantity() * numReceivers;
+                            if (sender.getBeans() < totalAmount) {
+                                ExceptionHandlerUtil exception = new ExceptionHandlerUtil();
+                                exception.setCode(HttpStatus.BAD_REQUEST);
+                                exception.setMessage("Insufficient Beans!");
+                                return Mono.error(exception);
+                            }
+                            return Mono.just(sender);
+                        }))
+                .then();
+    }
+
+    private Mono<Void> publishFirebaseUpdates(List<GiftTransaction> giftTransactions, LiveRoom liveRoom) {
+        // Build all announcements for all receivers
+        return Flux.fromIterable(giftTransactions)
+                .concatMap(giftTransaction -> buildGiftAnnouncement(giftTransaction)
+                        .flatMap(announcement -> pushPublicGiftAnnouncementIfSupported(announcement).thenReturn(announcement)))
+                .collectList()
+                .flatMap(announcements -> {
+                    // Preserve existing gift session updates by applying them to fresh Firebase entity
+                    Map<String, Double> hostGiftUpdates = new HashMap<>();
+                    Map<String, Double> coHostGiftUpdates = new HashMap<>();
+
+                    // Calculate accumulated gift amounts for audio streams
+                    for (GiftTransaction gt : giftTransactions) {
+                        if (gt.getLiveRoom() != null && gt.getLiveRoom().getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
+                                && gt.getLiveRoom().getStatus().equals(Constants.STATUS_LIVE.getValue())) {
+                            String receiverId = gt.getReceiverId();
+                            if (gt.getSenderReceiverDto().getReceiver().getUserType().equalsIgnoreCase(Constants.HOST_TYPE.getValue())
+                                    && receiverId.equalsIgnoreCase(gt.getLiveRoom().getUserId())) {
+                                hostGiftUpdates.merge(receiverId, gt.getBeans(), Double::sum);
+                            } else {
+                                coHostGiftUpdates.merge(receiverId, gt.getBeans(), Double::sum);
+                            }
+                        }
+                    }
+
+                    return cachePort.getLiveRoomById(liveRoom.getId())
+                            .flatMap(firebaseEntity2 -> {
+                                // Update announcements
+                                List<Announcement> current = firebaseEntity2.getAnnouncements() != null ? new ArrayList<>(firebaseEntity2.getAnnouncements()) : new ArrayList<>();
+                                current.addAll(announcements);
+                                firebaseEntity2.setAnnouncements(current);
+
+                                // Apply host gift session updates
+                                hostGiftUpdates.forEach((userId, giftAmount) -> {
+                                    if (firebaseEntity2.getHost() != null && userId.equals(firebaseEntity2.getHost().getUserId())) {
+                                        double currentAmount = firebaseEntity2.getHost().getGiftsReceivedInThisSession();
+                                        double newAmount = currentAmount + giftAmount;
+                                        firebaseEntity2.getHost().setGiftsReceivedInThisSession(newAmount);
+                                        firebaseEntity2.getHost().setGiftsReceivedInThisSessionString(CommonBusiness.convertToShortName(newAmount));
+                                    }
+                                });
+
+                                // Apply co-host gift session updates
+                                if (firebaseEntity2.getJoinRequests() != null) {
+                                    firebaseEntity2.getJoinRequests().forEach(joinRequest -> {
+                                        if (coHostGiftUpdates.containsKey(joinRequest.getUserId())
+                                                && (Constants.STATUS_APPROVED.getValue().equalsIgnoreCase(joinRequest.getStatus())
+                                                || Constants.STATUS_STARTED.getValue().equalsIgnoreCase(joinRequest.getStatus()))) {
+                                            double giftAmount = coHostGiftUpdates.get(joinRequest.getUserId());
+                                            double currentAmount = joinRequest.getGiftsReceivedInThisSession();
+                                            double newAmount = currentAmount + giftAmount;
+                                            joinRequest.setGiftsReceivedInThisSession(newAmount);
+                                            joinRequest.setGiftsReceivedInThisSessionString(CommonBusiness.convertToShortName(newAmount));
+                                        }
+                                    });
+                                }
+
+                                return cachePort.updateByEntity(firebaseEntity2);
+                            })
+                            .then();
+                });
+    }
+
     // Common transaction pipeline for both online and offline gifts
-    private Mono<List<GiftTransaction>> processGiftTransactions(SendGiftRequestDto requestDto) {
+    private Mono<List<GiftTransaction>> processGiftTransactions(SendGiftRequestDto requestDto, LiveRoom liveRoom, Map<String, List<String>> hostAndCoHostMap) {
         return validateSenderReceiver(requestDto)
                 .flatMap(giftTransaction -> this.calculateGiftAmount(giftTransaction, requestDto))
                 .flatMap(giftTransaction -> this.validateGiftAmount(giftTransaction, requestDto))
-                .flatMapMany(giftTransaction -> this.buildGiftTransaction(giftTransaction, requestDto))
+                .flatMapMany(giftTransaction -> this.buildGiftTransaction(giftTransaction, requestDto, liveRoom))
                 .flatMap(giftTransaction -> port.saveTransaction(giftTransaction)
                         .doOnError(throwable -> log.error("Error while saving gift transaction"))
                         .map(savedTransaction -> {
                             giftTransaction.setId(savedTransaction.getId());
+                            giftTransaction.setHostCohostIdsMap(hostAndCoHostMap);
                             return giftTransaction;
                         }))
                 .flatMap(this::updateUserForGiftTransaction)
                 .flatMap(giftSummaryUseCase::processGiftSummary)
                 .doOnNext(giftTransaction -> log.info("processed gift summary"))
-                .flatMap(this::processGiftTransactionForAudioStream)
+                .flatMap(this::calculateHostDailyStarProgress)
                 .doOnNext(giftTransaction -> log.info("sender level : {}", giftTransaction.getSenderReceiverDto().getSender().getUserLevel()))
                 .flatMap(giftTransaction -> userUseCase
                         .updateUserForGiftTransaction(giftTransaction.getSenderReceiverDto().getSender(), Constants.USER_TYPE_SENDER.getValue())
@@ -192,6 +278,97 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                         "Error while updating receiver user"))
                                 .thenReturn(giftTransaction)))
                 .collectList();
+    }
+
+    private Mono<GiftTransaction> calculateHostDailyStarProgress(GiftTransaction giftTransaction) {
+        // Only process daily star progress for live room gifts (not offline gifts)
+        if (giftTransaction.getHostCohostIdsMap() == null || giftTransaction.getHostCohostIdsMap().get("Host") == null ||
+            giftTransaction.getLiveSession() == null || !Constants.STATUS_YES.getValue().equals(giftTransaction.getLiveSession())) {
+            log.info("Skipping calculateHostDailyStarProgress - not a live room gift or missing data");
+            return Mono.just(giftTransaction);
+        }
+
+        // Only process daily star progress for host receivers, not co-hosts
+        List<String> hostIds = giftTransaction.getHostCohostIdsMap().get("Host");
+        if (!hostIds.contains(giftTransaction.getReceiverId())) {
+            log.info("Skipping calculateHostDailyStarProgress - receiver {} is not host (host IDs: {})",
+                     giftTransaction.getReceiverId(), hostIds);
+            return Mono.just(giftTransaction); // Skip if receiver is not the host
+        }
+
+        log.info("Processing calculateHostDailyStarProgress for host {} with {} gems",
+                 giftTransaction.getReceiverId(), giftTransaction.getBeans());
+
+        return liveRoomActivityService
+                .updateDailyReceivedGems(giftTransaction.getReceiverId(), giftTransaction.getBeans())
+                .flatMap(liveRoomActivityEntity -> {
+                    double currentGems = liveRoomActivityEntity.getDailyReceivedGems();
+                    DailyStarProgress starProgress = this.calculateStarProgress(currentGems);
+                    giftTransaction.setDailyStarProgress(starProgress);
+
+                    return Strings.isNotNullAndNotEmpty(giftTransaction.getLiveSession()) && giftTransaction.getLiveSession().equals(Constants.STATUS_YES.getValue())
+                            ? liveRoomUseCase.getLiveRoomById(giftTransaction.getLiveRoomId())
+                            .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
+                            .flatMap(liveRoom -> {
+                                liveRoom.setHostDailyGems(currentGems);
+                                giftTransaction.setLiveRoom(liveRoom);
+                                return liveRoomUseCase
+                                        .updateLiveRoom(liveRoom)
+                                        .flatMap(liveRoom1 ->
+                                                cachePort.getLiveRoomById(liveRoom1.getId())
+                                                        .flatMap(liveRoomFirebaseEntity -> {
+                                                            liveRoomFirebaseEntity.getHost().setDailyStarProgress(starProgress);
+                                                            return cachePort.updateForCurrentLiveRoomGiftReceived(liveRoomFirebaseEntity, liveRoom1.getId());
+                                                        })
+                                                        .map(liveRoomEntity -> giftTransaction));
+                            })
+                            : Mono.just(giftTransaction);
+                })
+                .doOnError(throwable -> log.error("Error while calculating host daily star progress"));
+    }
+
+    private DailyStarProgress calculateStarProgress(double currentGems) {
+        int currentStar = 0;
+        double nextStarGems = 0;
+        double gemsNeededForNextStar = 0;
+
+        if (currentGems >= 2000000) {
+            currentStar = 5;
+            nextStarGems = 2000000;
+            gemsNeededForNextStar = 0;
+        } else if (currentGems >= 1000000) {
+            currentStar = 4;
+            nextStarGems = 2000000;
+            gemsNeededForNextStar = 2000000 - currentGems;
+        } else if (currentGems >= 200000) {
+            currentStar = 3;
+            nextStarGems = 1000000;
+            gemsNeededForNextStar = 1000000 - currentGems;
+        } else if (currentGems >= 50000) {
+            currentStar = 2;
+            nextStarGems = 200000;
+            gemsNeededForNextStar = 200000 - currentGems;
+        } else if (currentGems >= 10000) {
+            currentStar = 1;
+            nextStarGems = 50000;
+            gemsNeededForNextStar = 50000 - currentGems;
+        } else {
+            currentStar = 0;
+            nextStarGems = 10000;
+            gemsNeededForNextStar = 10000 - currentGems;
+        }
+
+        return DailyStarProgress
+                .builder()
+                .starLevel(currentStar)
+                .nextStarLevel(Math.min(currentStar + 1, 5))
+                .dailyReceivedGemsValue(currentGems)
+                .dailyReceivedGemsName(CommonBusiness.convertToShortName(currentGems))
+                .nextLevelGemsValue(nextStarGems)
+                .nextLevelGemsName(CommonBusiness.convertToShortName(nextStarGems))
+                .trailingByNextLevelGemsValue(gemsNeededForNextStar)
+                .trailingByNextLevelGemsName(CommonBusiness.convertToShortName(gemsNeededForNextStar))
+                .build();
     }
 
 
@@ -207,11 +384,14 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         if (giftTransaction.getSenderReceiverDto() != null &&
                 giftTransaction.getSenderReceiverDto().getReceiver() != null &&
                 Constants.HOST_TYPE.getValue().equalsIgnoreCase(giftTransaction.getSenderReceiverDto().getReceiver().getUserType())) {
+            log.info("Processing updateHostDailyGemsIfNeeded for host {} with {} gems",
+                     giftTransaction.getSenderReceiverDto().getReceiver().getId(), giftTransaction.getBeans());
             return liveRoomActivityService.updateDailyReceivedGems(
                     giftTransaction.getSenderReceiverDto().getReceiver().getId(),
                     giftTransaction.getBeans()
             ).thenReturn(giftTransaction);
         }
+        log.info("Skipping updateHostDailyGemsIfNeeded - receiver is not a host");
         return Mono.just(giftTransaction);
     }
 
@@ -230,7 +410,6 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     }
 
     private Mono<GiftTransaction> processGiftTransactionForAudioStream(GiftTransaction giftTransaction) {
-
         if (giftTransaction.getLiveRoom() != null && giftTransaction.getLiveRoom().getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
                 && giftTransaction.getLiveRoom().getStatus().equals(Constants.STATUS_LIVE.getValue())) {
 
@@ -242,7 +421,6 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                 && giftTransaction.getReceiverId().equalsIgnoreCase(giftTransaction.getLiveRoom().getUserId())) {
 
                             double giftsReceivedInThisSessionAsHost = liveRoomFirebaseEntity.getHost().getGiftsReceivedInThisSession();
-
                             double newGiftsReceivedInThisSessionAsHost = giftsReceivedInThisSessionAsHost + giftTransaction.getBeans();
 
                             liveRoomFirebaseEntity.getHost().setGiftsReceivedInThisSession(newGiftsReceivedInThisSessionAsHost);
@@ -257,7 +435,6 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             String receiverId = giftTransaction.getReceiverId();
                             Optional.ofNullable(this.receiverValidation(joinRequests, receiverId))
                                     .ifPresent(joinRequests2 -> {
-
                                         double newGiftsReceivedInThisSession = joinRequests2.getGiftsReceivedInThisSession() + giftTransaction.getBeans();
                                         joinRequests2.setGiftsReceivedInThisSession(newGiftsReceivedInThisSession);
                                         joinRequests2.setGiftsReceivedInThisSessionString(CommonBusiness.convertToShortName(newGiftsReceivedInThisSession));
@@ -345,10 +522,12 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                             .receivers(userIdUserMap.values().stream().toList())
                                             .build());
                         }))
-                .map(senderReceiverDto -> GiftTransaction
-                        .builder()
-                        .senderReceiverDto(senderReceiverDto)
-                        .build())
+                .map(senderReceiverDto -> {
+                    return GiftTransaction
+                            .builder()
+                            .senderReceiverDto(senderReceiverDto)
+                            .build();
+                })
                 .doOnError(throwable -> log.error("Error while validating sender and receiver"));
     }
 
@@ -383,7 +562,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     }
 
     private Flux<GiftTransaction> buildGiftTransaction(GiftTransaction giftTransaction,
-                                                       SendGiftRequestDto requestDto) {
+                                                       SendGiftRequestDto requestDto, LiveRoom liveRoom) {
         log.info("Building gift transaction for request: {}", requestDto);
 
         double perReceiverAmount = giftTransaction.getGift().getCost() * requestDto.getQuantity();
@@ -407,6 +586,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                         .giftId(requestDto.getGiftId())
                                         .quantity(requestDto.getQuantity())
                                         .beans(perReceiverAmount)
+                                        .liveRoom(liveRoom)
                                         .liveSession(requestDto.getLiveSession())
                                         .liveRoomId(requestDto.getLiveRoomId() != null ? requestDto.getLiveRoomId() : "")
                                         .transactionDate(ZonedDateTime.now(ZoneOffset.UTC).toLocalDate()
@@ -432,6 +612,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .giftId(requestDto.getGiftId())
                             .quantity(requestDto.getQuantity())
                             .beans(perReceiverAmount)
+                            .liveRoom(liveRoom != null ? liveRoom : LiveRoom.builder().build())
                             .liveSession(requestDto.getLiveSession())
                             .liveRoomId(requestDto.getLiveRoomId() != null ? requestDto.getLiveRoomId() : "")
                             .transactionDate(ZonedDateTime.now(ZoneOffset.UTC).toLocalDate().toString())
@@ -604,7 +785,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
 
 
     private Mono<GiftTransaction> updateUserForGiftTransaction(GiftTransaction giftTransaction) {
-        log.info("Updating users for gift transaction: {}", giftTransaction);
+
         User sender = giftTransaction.getSenderReceiverDto().getSender();
         User receiver = giftTransaction.getSenderReceiverDto().getReceiver();
         Map<String, Object> senderUpdatedFields = giftTransaction.getSenderReceiverDto().getSenderUpdatedFields() == null
