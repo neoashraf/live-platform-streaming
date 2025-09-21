@@ -335,9 +335,9 @@ public class FirebaseAdapter implements CachePort {
                             joinRequests.setProfileLevelUrl(liveRoom.getJoinRequests().get(0).getProfileLevelUrl());
                             joinRequests.setProfileImageUrl(liveRoom.getJoinRequests().get(0).getProfileImageUrl());
                             joinRequests.setDisplayName(liveRoom.getJoinRequests().get(0).getDisplayName());
-                            joinRequests.setSeatIndex(-1);
+//                            joinRequests.setSeatIndex(-1);
                         }, () -> {
-                            liveRoom.getJoinRequests().get(0).setSeatIndex(-1);
+//                            liveRoom.getJoinRequests().get(0).setSeatIndex(-1);
                             currentJoinRequestsInFirebase.addAll(liveRoom.getJoinRequests());
                         });
                     } else {
@@ -563,6 +563,15 @@ public class FirebaseAdapter implements CachePort {
 
                     // Update the seat map with the new seat number
                     firebaseEntity.getSeatMap().put("Seat_"+seatNumber, seatNumberDto);
+
+                    if (firebaseEntity.getJoinRequests() != null) {
+                        firebaseEntity.getJoinRequests().forEach(joinRequests -> {
+                            if (joinRequests.getRequestId().equals(seatNumberDto.getJoinReqId())) {
+                                joinRequests.setSeatIndex(seatNumber);
+                            }
+                        });
+                    }
+
                     return firebaseEntity;
                 })
                 .doOnNext(firebaseEntity -> log.debug("Updated firebase entity: {}", firebaseEntity))
