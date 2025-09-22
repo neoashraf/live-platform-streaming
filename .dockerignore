@@ -1,0 +1,66 @@
+# Build outputs and caches
+build/
+.gradle/
+out/
+target/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS specific files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs and temporary files
+*.log
+*.tmp
+*.pid
+log/
+logs/
+temp/
+
+# Git and version control
+.git/
+.gitignore
+.gitattributes
+
+# Docker related
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# CI/CD files
+.gitlab-ci.yml
+.github/
+Jenkinsfile
+
+# Documentation and README files
+README.md
+docs/
+*.md
+
+# Test outputs and coverage
+coverage/
+.nyc_output/
+test-results/
+
+# Environment and configuration files that shouldn't be in image
+.env*
+*.properties.local
+application-local.yml
+application-local.properties
+
+# Gradle wrapper (we use the base image's gradle)
+gradlew
+gradlew.bat
+
+# JVM crash dumps
+hs_err_*.log
+replay_*.log
