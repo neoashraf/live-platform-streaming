@@ -1008,10 +1008,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> {
                     List<String> validTypes = Arrays.asList(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
 
-                    if (!validTypes.contains(requestDTO.getEnableAutoJoin())) {
+                    if (!validTypes.contains(requestDTO.getEnableJoin())) {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
                     }
-                    liveRoom.setEnableJoin(requestDTO.getEnableAutoJoin());
+                    liveRoom.setEnableJoin(requestDTO.getEnableJoin());
                     return port.saveLiveRoom(liveRoom);
                 })
                 .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
@@ -1050,7 +1050,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(tupleOfLiveRoomAndUser ->
                 {
 //                    log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
-                    return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto)
+                    return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto, tupleOfLiveRoomAndUser.getT1())
                             .flatMap(joinRequests -> {
                                 LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
                                 liveRoom.setJoinRequests(joinRequests);
@@ -1559,7 +1559,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         });
     }
 
-    private Mono<List<JoinRequests>> buildJoinRequest(User user, JoinCallRequestDto requestDto) {
+    private Mono<List<JoinRequests>> buildJoinRequest(User user, JoinCallRequestDto requestDto, LiveRoom liveRoom) {
         return levelUseCase.getLevelDomainByLevel(user.getUserLevel())
                 .map(level -> {
                     ResourceFormat imageResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
@@ -1578,8 +1578,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .gender(user.getGender())
                             .profileFrameId(user.getProfileFrameId())
                             .profileFrameUrl(user.getProfileFrameUrl())
-                            .seatIndex(requestDto.getSeatNumber())
                             .build();
+                    if(liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())){
+                        joinRequest.setSeatIndex(requestDto.getSeatNumber() != null ? requestDto.getSeatNumber() : 5);
+                    }
                     return List.of(joinRequest);
                 });
     }
@@ -2115,7 +2117,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     private Mono<LiveRoomJoinRequestInfo> buildJoinRequestAndUpdateFirebaseSeatMap(User user, JoinCallRequestDto requestDto, SeatNumberDto seatNumberDto, LiveRoom liveRoom, LiveRoomFirebaseEntity firebaseEntity) {
-        return buildJoinRequest(user, requestDto)
+        return buildJoinRequest(user, requestDto,liveRoom)
                 .flatMap(joinRequests -> {
                     joinRequests.forEach(jr -> jr.setStatus(Constants.STATUS_STARTED.getValue()));
                     liveRoom.setJoinRequests(joinRequests);
