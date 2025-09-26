@@ -20,6 +20,7 @@ public class JoinCallRequestDto {
     private String reason;
     private String requestId;
     private Integer seatNumber;
+    private String mediaType;
 
     @Override
     public String toString() {
