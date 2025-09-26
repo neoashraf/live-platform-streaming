@@ -4,9 +4,11 @@ import com.tanvir.features.liveroom.application.port.in.dto.request.*;
 import com.tanvir.features.liveroom.application.port.in.dto.response.*;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.liveroom.domain.valueobject.Earning;
+import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 public interface LiveRoomUseCase {
+    Mono<LiveRoomJoinPermissionResponseDto> setJoinSettings(JoinSettingsRequestDto joinSettingsRequestDto);
     Mono<StreamResponseDto> createStream(LiveRoomRequestDto requestDto);
     Mono<StreamResponseDto> joinStream(LiveRoomViewerRequestDto requestDto);
     Mono<StreamResponseDto> leaveStream(LiveRoomViewerRequestDto requestDto);

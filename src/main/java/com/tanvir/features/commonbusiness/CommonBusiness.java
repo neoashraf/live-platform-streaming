@@ -126,6 +126,7 @@ public class CommonBusiness {
     public Mono<User> setUserLevelUrl(User user) {
         return levelUseCase.getLevelDomainByLevel(user.getUserLevel())
                 .map(level -> {
+                    System.out.println("\n User Level : "+level);
                     ResourceFormat levelResource = CommonBusiness.getResourceFormatByResourceType(level.getResourceFormats(), ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue());
                     user.setLevelBadgeUrl(levelResource.getResourceUrl());
                     return user;

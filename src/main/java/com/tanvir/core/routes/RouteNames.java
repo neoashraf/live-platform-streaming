@@ -8,6 +8,7 @@ public class RouteNames {
 	public static String LIVE_ROOM = "/live-room";
 	public static String OFFSET = "/offset";
 	public static String ID = "/{id}";
+	public static String ROOM_ID = "/{roomId}";
 	public static String USERS = "/users";
 	public static String JOIN = "/join";
 	public static String LEAVE = "/leave";
@@ -16,8 +17,10 @@ public class RouteNames {
 	public static String AGORA = "/agora";
 	public static String TOKEN = "/token";
 	public static String JOIN_REQUESTS = "/join-requests";
+	public static String JOIN_SETTINGS = "/join-settings";
 	public static String REQUEST_ID = "/{requestId}";
 	public static String AUTO_JOIN = "/auto-join";
+	public static String AUTO = "/auto";
 	public static String ADMIN = "/admin";
 	public static String NOTICES = "/notices";
 	public static String HEART_BEAT = "/heartbeat";
@@ -32,6 +35,7 @@ public class RouteNames {
 	public static String HOSTS = "/hosts";
 	public static String GLOBAL = "/global";
 	public static String AGENCY = "/agency";
+	public static String MEDIA_TYPE = "/{mediaType}";
 	public static String VIDEO = "/video";
 	public static String AUDIO = "/audio";
 	public static String SET = "/set";

@@ -68,6 +68,10 @@ public class LiveRoomRouter {
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
+                                                .POST(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_SETTINGS), handler::setJoinSettings)
+                                )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(SET), handler::setJoinPermission)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
@@ -76,40 +80,40 @@ public class LiveRoomRouter {
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
-                                                .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(CREATE), handler::joinRequest)
+                                                .POST(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_REQUESTS), handler::joinRequest)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
-                                                .PATCH(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(UPDATE), handler::updateJoinRequest)
+                                                .PATCH(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID), handler::updateJoinRequest)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
-                                                .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(PERMIT), handler::processJoinRequest)
+                                                .PATCH(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(PERMIT), handler::processJoinRequest)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
-                                                .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(START), handler::startJoinCall)
+                                                .PATCH(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(START), handler::startJoinCall)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
-                                                .POST(LIVE_ROOMS.concat(VIDEO).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(CLOSE), handler::closeJoinedCallRequest)
+                                                .POST(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(CLOSE), handler::closeJoinedCallRequest)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
-                                        nestedBuilder.GET(USERS.concat(EARNINGS), handler::earnings)
+                                        nestedBuilder
+                                                .GET(USERS.concat(EARNINGS), handler::earnings)
                                         )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
-                                        nestedBuilder.PATCH(LIVE_ROOMS.concat(ID).concat(HOST).concat(AUDIO), handler::setMicStatus)
+                                        nestedBuilder
+                                                .PATCH(LIVE_ROOMS.concat(ID).concat(HOST).concat(AUDIO), handler::setMicStatus)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
-                                                .POST(LIVE_ROOMS.concat(AUDIO).concat(ID).concat(AUTO_JOIN), handler::enableAutoJoinAudioStream)
+                                                .POST(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_REQUESTS).concat(AUTO), handler::enableAutoJoinAudioStream)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
                                                 .POST(LIVE_ROOMS.concat(ID).concat(HEART_BEAT), handler::updateLivenessHeartbeat)
                                 )
-
-
                 )
                 .build();
     }

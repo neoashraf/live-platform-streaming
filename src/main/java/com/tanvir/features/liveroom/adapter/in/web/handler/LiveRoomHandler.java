@@ -300,12 +300,14 @@ public class LiveRoomHandler {
     public Mono<ServerResponse> joinRequest(ServerRequest serverRequest) {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
         String liveRoomId = serverRequest.pathVariable("id");
+        String mediaType = serverRequest.pathVariable(QueryParams.MEDIA_TYPE.getValue());
 
         return serverRequest
                 .bodyToMono(JoinCallRequestDto.class)
                 .map(requestDto -> {
                     requestDto.setKeycloakId(keycloakId);
                     requestDto.setLiveRoomId(liveRoomId);
+                    requestDto.setMediaType(mediaType);
                     return requestDto;
                 })
                 .flatMap(liveRoomUseCase::requestJoinCall)
@@ -320,7 +322,7 @@ public class LiveRoomHandler {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
         String liveRoomId = serverRequest.pathVariable("id");
         String requestId = serverRequest.pathVariable(QueryParams.REQUEST_ID.getValue());
-
+        String mediaType = serverRequest.pathVariable(QueryParams.MEDIA_TYPE.getValue());
 
         return serverRequest
                 .bodyToMono(JoinCallRequestUpdateDto.class)
@@ -328,6 +330,7 @@ public class LiveRoomHandler {
                     requestDto.setKeycloakId(keycloakId);
                     requestDto.setLiveRoomId(liveRoomId);
                     requestDto.setRequestId(requestId);
+                    requestDto.setMediaType(mediaType);
                     return requestDto;
                 })
                 .flatMap(liveRoomUseCase::updateJoinCall)
@@ -342,6 +345,7 @@ public class LiveRoomHandler {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
         String liveRoomId = serverRequest.pathVariable(QueryParams.ID.getValue());
         String requestId = serverRequest.pathVariable(QueryParams.REQUEST_ID.getValue());
+        String mediaType = serverRequest.pathVariable(QueryParams.MEDIA_TYPE.getValue());
 
         return serverRequest
                 .bodyToMono(JoinCallRequestDto.class)
@@ -349,6 +353,7 @@ public class LiveRoomHandler {
                     requestDto.setKeycloakId(keycloakId);
                     requestDto.setLiveRoomId(liveRoomId);
                     requestDto.setRequestId(requestId);
+                    requestDto.setMediaType(mediaType);
                     return requestDto;
                 })
                 .flatMap(liveRoomUseCase::processJoinCall)
@@ -363,6 +368,7 @@ public class LiveRoomHandler {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
         String liveRoomId = serverRequest.pathVariable(QueryParams.ID.getValue());
         String requestId = serverRequest.pathVariable(QueryParams.REQUEST_ID.getValue());
+        String mediaType = serverRequest.pathVariable(QueryParams.MEDIA_TYPE.getValue());
 
         return serverRequest
                 .bodyToMono(JoinCallRequestDto.class)
@@ -371,6 +377,7 @@ public class LiveRoomHandler {
                     requestDto.setKeycloakId(keycloakId);
                     requestDto.setLiveRoomId(liveRoomId);
                     requestDto.setRequestId(requestId);
+                    requestDto.setMediaType(mediaType);
                     return requestDto;
                 })
                 .flatMap(liveRoomUseCase::startJoinCall)
@@ -461,14 +468,17 @@ public class LiveRoomHandler {
                         .bodyValue(hostResponseDto)
                 );
     }
+
     public Mono<ServerResponse> enableAutoJoinAudioStream(ServerRequest serverRequest) {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
         String liveRoomId = serverRequest.pathVariable("id");
+        String mediaType = serverRequest.pathVariable(QueryParams.MEDIA_TYPE.getValue());
         log.info("Request received to auto join audio stream for keycloakId: {} and liveRoomId: {}", keycloakId, liveRoomId);
         return serverRequest.bodyToMono(JoinCallRequestDto.class)
                 .map(requestDto -> {
                     requestDto.setKeycloakId(keycloakId);
                     requestDto.setLiveRoomId(liveRoomId);
+                    requestDto.setMediaType(mediaType);
                     return requestDto;
                 })
                 .filter(requestDto -> requestDto.getSeatNumber() != null && requestDto.getSeatNumber() > 0)
@@ -491,5 +501,23 @@ public class LiveRoomHandler {
                         .bodyValue(liveRoomTimeUpdateResponse)
                 )
                 .onErrorResume(ExceptionHandlerUtil.class, e -> ErrorHandler.buildErrorResponseForBusiness(e, serverRequest));
+    }
+
+    public Mono<ServerResponse> setJoinSettings(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
+        String liveRoomId = serverRequest.pathVariable("id");
+        String mediaType = serverRequest.pathVariable(QueryParams.MEDIA_TYPE.getValue());
+        return serverRequest.bodyToMono(JoinSettingsRequestDto.class)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    requestDto.setLiveRoomId(liveRoomId);
+                    requestDto.setMediaType(mediaType);
+                    return requestDto;
+                })
+                .flatMap(liveRoomUseCase::setJoinSettings)
+                .flatMap(responseDto -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(responseDto));
     }
 }

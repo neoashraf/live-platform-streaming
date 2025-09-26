@@ -190,7 +190,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             List<Boolean> seatAvailableStatus = new ArrayList<>();
                             if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
                                 for (int seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
-                                    seatAvailableStatusMap.put("Seat_"+seatNumber, seatDto);
+                                    seatAvailableStatusMap.put("Seat_" + seatNumber, seatDto);
                                     seatAvailableStatus.add(false);
                                 }
                             } else {
@@ -285,8 +285,7 @@ public class LiveRoomService implements LiveRoomUseCase {
         }
 
         return port.getLiveRoomById(liveRoomViewerRequestDto.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,
-                        "No LiveRoom found with Id : " + liveRoomViewerRequestDto.getLiveRoomId())))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + liveRoomViewerRequestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
                 .filter(liveRoom -> liveRoom.getStatus().equalsIgnoreCase(Constants.STATUS_LIVE.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Sorry! Host is offline.")))
@@ -878,7 +877,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                     .build());
         }
 
-        return resolveRoomsAndCount(viewMode, keycloakId, country, pageable,mediaType)
+        return resolveRoomsAndCount(viewMode, keycloakId, country, pageable, mediaType)
                 .map(tuple -> LiveRoomGridViewResponseDto.builder()
                         .userMessage("LiveRoom Grid View Fetched Successfully.")
                         .count(tuple.getT1().intValue())
@@ -993,6 +992,58 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
+    public Mono<LiveRoomJoinPermissionResponseDto> setJoinSettings(JoinSettingsRequestDto joinSettingsRequestDto) {
+        if (Strings.isNullOrEmpty(joinSettingsRequestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Media Type is required."));
+        }
+        if (Strings.isNullOrEmpty(joinSettingsRequestDto.getLiveRoomId())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is required."));
+        }
+        if (Strings.isNullOrEmpty(joinSettingsRequestDto.getMode())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Mode Type is required."));
+        }
+        if (Strings.isNullOrEmpty(joinSettingsRequestDto.getStatus())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Status is required."));
+        }
+
+        String mediaType = joinSettingsRequestDto.getMediaType();
+        String liveRoomId = joinSettingsRequestDto.getLiveRoomId();
+        String mode = joinSettingsRequestDto.getMode();
+        String status = joinSettingsRequestDto.getStatus();
+
+        List<String> validMediaType = List.of(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue(), Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue());
+        if (!validMediaType.contains(mediaType)) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid media type!"));
+        }
+
+        List<String> validModeType = List.of(Constants.MODE_APPROVAL.getValue(), Constants.MODE_AUTO.getValue());
+        if (!validModeType.contains(mode)) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid mode type!"));
+        }
+
+        if (mediaType.equals(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue()) && mode.equals(Constants.MODE_AUTO.getValue())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Auto Mode is not available for video media."));
+        }
+        if (mediaType.equals(Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue()) && mode.equals(Constants.MODE_APPROVAL.getValue())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Approval Mode is not available for Audio media."));
+        }
+
+        JoinPermissionRequestDTO joinPermissionRequestDTO = JoinPermissionRequestDTO.builder()
+                .liveRoomId(liveRoomId)
+                .keycloakId(joinSettingsRequestDto.getKeycloakId())
+                .build();
+
+        if (mediaType.equals(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue())) {
+            joinPermissionRequestDTO.setEnableJoin(status);
+            return this.setJoinPermission(joinPermissionRequestDTO);
+        }
+
+        joinPermissionRequestDTO.setEnableAutoJoin(status);
+        return this.setEnableAutoJoinAudioStream(joinPermissionRequestDTO);
+
+    }
+
+    @Override
     public Mono<LiveRoomJoinPermissionResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO) {
         return port.getLiveRoomById(requestDTO.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom does not exist by the given id")))
@@ -1025,8 +1076,14 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<JoinCallResponseDto> requestJoinCall(JoinCallRequestDto requestDto) {
-        return port.getLiveRoomById(requestDto.getLiveRoomId()).zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId()))
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom or User not found")))
+        List<String> validMedia = List.of(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue(), Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue());
+        if (!validMedia.contains(requestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid media type!"));
+        }
+        return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found")))
+                .zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
                 .filter(tupleOfLiveRoomAndUser -> tupleOfLiveRoomAndUser.getT2().getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "The user is the host of the LiveRoom and cannot join as a participant.")))
                 .flatMap(tupleOfLiveRoomAndUser -> {
@@ -1050,6 +1107,11 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(tupleOfLiveRoomAndUser ->
                 {
 //                    log.info("live room {} and userInfo : {}", tupleOfLiveRoomAndUser.getT1(), tupleOfLiveRoomAndUser.getT2());
+
+                    if (requestDto.getMediaType().equals(Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue())) {
+                        requestDto.setCameraOn(null);
+                        requestDto.setCameraView(null);
+                    }
                     return buildJoinRequest(tupleOfLiveRoomAndUser.getT2(), requestDto, tupleOfLiveRoomAndUser.getT1())
                             .flatMap(joinRequests -> {
                                 LiveRoom liveRoom = tupleOfLiveRoomAndUser.getT1();
@@ -1079,6 +1141,11 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<JoinCallResponseDto> processJoinCall(JoinCallRequestDto requestDto) {
+        List<String> validMedia = List.of(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue(), Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue());
+        if (!validMedia.contains(requestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid media type!"));
+        }
+
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                 .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
@@ -1103,6 +1170,20 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> cachePort.getLiveRoomById(liveRoom.getId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                         .flatMap(liveRoomEntity -> {
+
+                            if (requestDto.getMediaType().equals(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue())) {
+                                if (!liveRoomEntity.getEnableJoin().equals(Constants.STATUS_YES.getValue())) {
+                                    return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Enable join value is No currently for Video media!"));
+                                }
+                            }
+                            if (requestDto.getMediaType().equals(Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue())) {
+                                if (!liveRoomEntity.getEnableJoin().equals(Constants.STATUS_YES.getValue())
+                                        || !liveRoomEntity.getEnableAutoJoin().equals(Constants.STATUS_NO.getValue())
+                                ) {
+                                    return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Enable join value isn't Yes OR enable auto join value isn't No currently for audio media"));
+                                }
+                            }
+
                             if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
                                 return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No Join Requests found for the LiveRoom"));
                             } else if (liveRoomEntity.getJoinRequests().stream().noneMatch(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))) {
@@ -1164,6 +1245,10 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<JoinCallResponseDto> startJoinCall(JoinCallRequestDto requestDto) {
+        List<String> validMedia = List.of(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue(), Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue());
+        if (!validMedia.contains(requestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid media type!"));
+        }
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                 .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
@@ -1177,6 +1262,20 @@ public class LiveRoomService implements LiveRoomUseCase {
                 .flatMap(liveRoom -> cachePort.getLiveRoomById(liveRoom.getId())
                         .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
                         .flatMap(liveRoomEntity -> {
+
+                            if (requestDto.getMediaType().equals(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue())) {
+                                if (!liveRoomEntity.getEnableJoin().equals(Constants.STATUS_YES.getValue())) {
+                                    return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Enable join value is No currently for Video media!"));
+                                }
+                            }
+                            if (requestDto.getMediaType().equals(Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue())) {
+                                if (!liveRoomEntity.getEnableJoin().equals(Constants.STATUS_YES.getValue())
+                                        || !liveRoomEntity.getEnableAutoJoin().equals(Constants.STATUS_NO.getValue())
+                                ) {
+                                    return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Enable join value isn't Yes OR enable auto join value isn't No currently for audio media"));
+                                }
+                            }
+
                             if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
                                 return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No Join Requests found for the LiveRoom"));
                             } else if (liveRoomEntity.getJoinRequests().stream().noneMatch(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))) {
@@ -1454,15 +1553,15 @@ public class LiveRoomService implements LiveRoomUseCase {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableAutoJoin Type!"));
                     }
 
-                    if (requestDTO.getEnableJoin() != null && !validTypes.contains(requestDTO.getEnableJoin())) {
-                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
-                    }
+//                    if (requestDTO.getEnableJoin() != null && !validTypes.contains(requestDTO.getEnableJoin())) {
+//                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid EnableJoin Type!"));
+//                    }
 
-                    liveRoom.setEnableJoin(requestDTO.getEnableJoin());
+//                    liveRoom.setEnableJoin(requestDTO.getEnableJoin());
                     liveRoom.setEnableAutoJoin(requestDTO.getEnableAutoJoin());
                     return port.saveLiveRoom(liveRoom);
                 })
-                .doOnNext(liveRoom1 -> cachePort.updateForJoinPermission(liveRoom1)
+                .doOnNext(liveRoom1 -> cachePort.updateForAutoJoinPermission(liveRoom1)
                         .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                         .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
                         .subscribeOn(Schedulers.boundedElastic())
@@ -1480,14 +1579,14 @@ public class LiveRoomService implements LiveRoomUseCase {
         if (liveRoomEntity.getJoinRequests() == null || liveRoomEntity.getJoinRequests().isEmpty()) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No Join Requests found for the LiveRoom"));
         } else if (liveRoomEntity.getJoinRequests().stream().noneMatch(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))) {
-            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join Request not found for the LiveRoom"));
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join Request Id doesn't match with any join Request of the LiveRoom"));
         }
 
         List<String> validPersonRequested = liveRoomEntity.getJoinRequests().stream()
                 .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
                 .map(JoinRequests::getUserId)
                 .filter(joinRequestUserId -> user.getId().equals(joinRequestUserId) || liveRoomEntity.getHost().getUserId().equals(joinRequestUserId))
-                .toList();
+                .toList(); //If Host or Co-host
 
         List<String> validStatus = liveRoomEntity.getJoinRequests().stream()
                 .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
@@ -1579,7 +1678,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .profileFrameId(user.getProfileFrameId())
                             .profileFrameUrl(user.getProfileFrameUrl())
                             .build();
-                    if(liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())){
+                    if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
                         joinRequest.setSeatIndex(requestDto.getSeatNumber() != null ? requestDto.getSeatNumber() : 5);
                     }
                     return List.of(joinRequest);
@@ -1968,16 +2067,28 @@ public class LiveRoomService implements LiveRoomUseCase {
     public Mono<JoinCallResponseDto> updateJoinCall(JoinCallRequestUpdateDto requestDto) {
         List<String> validValue = List.of(Constants.STATUS_YES.getValue(), Constants.STATUS_NO.getValue());
         List<String> validCameraViewValue = List.of(Constants.CAMERA_VIEW_FRONT.getValue(), Constants.CAMERA_VIEW_BACK.getValue());
+        List<String> validMediaType = List.of(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue(), Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue());
 
-        if (Strings.isNotNullAndNotEmpty(requestDto.getCameraOn()) && !validValue.contains(requestDto.getCameraOn())) {
+        if (Strings.isNullOrEmpty(requestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Media Type is required!"));
+        }
+        if (!validMediaType.contains(requestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid media type!"));
+        }
+
+        String mediaType = requestDto.getMediaType();
+
+        if (mediaType.equals(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue()) && Strings.isNotNullAndNotEmpty(requestDto.getCameraOn()) && !validValue.contains(requestDto.getCameraOn())) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid CameraOn value"));
         } else if (Strings.isNotNullAndNotEmpty(requestDto.getMicOn()) && !validValue.contains(requestDto.getMicOn())) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid MicOn value"));
-        } else if (Strings.isNotNullAndNotEmpty(requestDto.getCameraOn())
+        } else if (mediaType.equals(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue())
+                && Strings.isNotNullAndNotEmpty(requestDto.getCameraOn())
                 && requestDto.getCameraOn().equals(Constants.STATUS_YES.getValue())
+                && Strings.isNotNullAndNotEmpty(requestDto.getCameraView())
                 && !validCameraViewValue.contains(requestDto.getCameraView())) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid CameraView value"));
-        } else if (Strings.isNotNullAndNotEmpty(requestDto.getCameraView()) && requestDto.getCameraOn().equals(Constants.STATUS_NO.getValue())) {
+        } else if (mediaType.equals(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue()) && Strings.isNotNullAndNotEmpty(requestDto.getCameraView()) && requestDto.getCameraOn().equals(Constants.STATUS_NO.getValue())) {
             return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid CameraView value"));
         }
 
@@ -2045,6 +2156,16 @@ public class LiveRoomService implements LiveRoomUseCase {
 
     @Override
     public Mono<JoinCallResponseDto> autoJoinProcess(JoinCallRequestDto requestDto) {
+
+        List<String> validMedia = List.of(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue(), Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue());
+        if (!validMedia.contains(requestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid media type!"));
+        }
+
+        if (Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue().equals(requestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Auto join is only available for Video type media."));
+        }
+
         return port.getLiveRoomById(requestDto.getLiveRoomId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found")))
                 .zipWith(userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
@@ -2068,7 +2189,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                                             .filter(jr -> jr.getUserId().equals(user.getId()))
                                             .toList();
                                 }
-
 
                                 SeatNumberDto seatNumberDto = new SeatNumberDto();
                                 seatNumberDto.setAvailableStatus(false);
@@ -2117,7 +2237,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     private Mono<LiveRoomJoinRequestInfo> buildJoinRequestAndUpdateFirebaseSeatMap(User user, JoinCallRequestDto requestDto, SeatNumberDto seatNumberDto, LiveRoom liveRoom, LiveRoomFirebaseEntity firebaseEntity) {
-        return buildJoinRequest(user, requestDto,liveRoom)
+        return buildJoinRequest(user, requestDto, liveRoom)
                 .flatMap(joinRequests -> {
                     joinRequests.forEach(jr -> jr.setStatus(Constants.STATUS_STARTED.getValue()));
                     liveRoom.setJoinRequests(joinRequests);
@@ -2126,7 +2246,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .thenReturn(Tuples.of(savedRoom, user)));
                 })
                 .flatMap(tuple -> buildJoinRequestResponse(tuple.getT1(), tuple.getT2(), requestDto)
-                                .map(response -> Tuples.of(response, tuple.getT1())))
+                        .map(response -> Tuples.of(response, tuple.getT1())))
                 .map(Tuple2::getT1)
                 .flatMap(liveRoomJoinRequestInfo -> {
                     String joinReqId = liveRoomJoinRequestInfo.getRequestId();
