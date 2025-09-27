@@ -153,7 +153,7 @@ public class LiveRoomService implements LiveRoomUseCase {
 
 
     private Mono<LiveRoomFirebaseEntity> buildFirebaseEntity(LiveRoom liveRoom, Host host, User user) {
-        Integer audioSeatNumber = liveRoom.getAudioSeatNumber();
+//        Integer audioSeatNumber = liveRoom.getAudioSeatNumber();
         return liveRoomActivityService.getDailyReceivedGems(host.getUserId())
                 .flatMap(currentGems -> levelUseCase.getLevelDomainByLevel(host.getUserLevel())
                         .map(level -> {
@@ -187,14 +187,20 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .userId(null)
                                     .joinReqId(null)
                                     .build();
-                            List<Boolean> seatAvailableStatus = new ArrayList<>();
+//                            List<Boolean> seatAvailableStatus = new ArrayList<>();
+
+                            int videoLiveMaxSeat = 5;
+                            int seatNumber=0;
+
                             if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                                for (int seatNumber = 1; seatNumber <= audioSeatNumber; seatNumber++) {
-                                    seatAvailableStatusMap.put("Seat_" + seatNumber, seatDto);
-                                    seatAvailableStatus.add(false);
-                                }
-                            } else {
-                                seatAvailableStatus = Arrays.asList(false, false, false, false, false, false, false, false, false, false);
+                                seatNumber = liveRoom.getAudioSeatNumber();
+                            }
+                            else if(liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_VIDEO.getValue())){
+                                seatNumber = videoLiveMaxSeat;
+                            }
+                            for (int i = 1; i <= seatNumber; i++) {
+                                seatAvailableStatusMap.put("Seat_" + i, seatDto);
+//                                seatAvailableStatus.add(false);
                             }
 
                             return LiveRoomFirebaseEntity
@@ -218,7 +224,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .audioSkinUrl(Strings.isNotNullAndNotEmpty(liveRoom.getAudioSkinUrl()) ? liveRoom.getAudioSkinUrl() : "")
                                     .enableJoin(liveRoom.getEnableJoin())
                                     .enableAutoJoin(liveRoom.getEnableAutoJoin())
-                                    .seatAvailableStatus(seatAvailableStatus)
+//                                    .seatAvailableStatus(seatAvailableStatus)
                                     .seatMap(seatAvailableStatusMap)
                                     .summary(Summary.builder().build())
                                     .build();
@@ -740,7 +746,6 @@ public class LiveRoomService implements LiveRoomUseCase {
                                 }))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Leave. Error : {}", throwable.getMessage()));
     }
-
 
     @Override
     public Mono<StreamResponseDto> endStream(String liveRoomId, String keycloakId) {
@@ -1679,7 +1684,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .profileFrameUrl(user.getProfileFrameUrl())
                             .build();
                     if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                        joinRequest.setSeatIndex(requestDto.getSeatNumber() != null ? requestDto.getSeatNumber() : 5);
+                        joinRequest.setSeatIndex(requestDto.getSeatNumber() != null ? requestDto.getSeatNumber() : 0);
                     }
                     return List.of(joinRequest);
                 });
