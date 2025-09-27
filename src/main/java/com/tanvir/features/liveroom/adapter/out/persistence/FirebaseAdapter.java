@@ -309,6 +309,7 @@ public class FirebaseAdapter implements CachePort {
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }
+
     @Override
     public Mono<LiveRoom> updateForAutoJoinPermission(LiveRoom liveRoom) {
         return firebaseRepository.read(liveRoom.getId())
@@ -396,9 +397,6 @@ public class FirebaseAdapter implements CachePort {
     @Override
     public Mono<LiveRoom> updateForProcessingJoinCall(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
         return firebaseRepository.read(liveRoom.getId())
-                .map(entity -> {
-                    return entity;
-                })
                 .doOnRequest(l -> log.info("Request received to get  firebase entity for processing join call with id: {}", liveRoom.getId()))
                 .doOnNext(firebaseEntity -> log.debug("Fetch firebase entity for processing join call  with id: {}", firebaseEntity))
                 .flatMap(firebaseEntity -> {
@@ -414,11 +412,10 @@ public class FirebaseAdapter implements CachePort {
                     joinRequests.setStatus(requestDto.getAction());
                     joinRequests.setReason(requestDto.getReason());
 
-                    if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                        this.assignSeat(firebaseEntity, joinRequests);
-                        if (joinRequests.getSeatIndex() == firebaseEntity.getSeatMap().size()) {
-                            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat capacity crosses limit"));
-                        }
+                    this.assignSeat(firebaseEntity, joinRequests);
+
+                    if (joinRequests.getSeatIndex() > firebaseEntity.getSeatMap().size()) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat capacity crosses limit"));
                     }
 
                     return Mono.just(firebaseEntity);
@@ -448,7 +445,7 @@ public class FirebaseAdapter implements CachePort {
             }
         }
 
-        // No available seat found
+        joinRequests.setSeatIndex(seatAvailableStatus.size()+1); // indicate run out of seatMap
         return firebaseEntity;
     }
 
@@ -491,10 +488,10 @@ public class FirebaseAdapter implements CachePort {
                     }
                     JoinRequests joinRequest = optionalJoinRequests.get();
 
-                    if (joinRequest.getStatus().equals(Constants.STATUS_STARTED.getValue()) && liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
+                    if (joinRequest.getStatus().equals(Constants.STATUS_STARTED.getValue())) {
                         Map<String, SeatNumberDto> seatMap = firebaseEntity.getSeatMap();
 
-                        String strSeat = "Seat_"+joinRequest.getSeatIndex();
+                        String strSeat = "Seat_" + joinRequest.getSeatIndex();
 
                         SeatNumberDto seat = seatMap.get(strSeat);
                         if (seat != null) {
@@ -504,7 +501,7 @@ public class FirebaseAdapter implements CachePort {
                         }
                     }
                     joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
-                    joinRequest.setSeatIndex(-1);
+                    joinRequest.setSeatIndex(0);
 
                     return Mono.just(firebaseEntity);
                 })
@@ -584,7 +581,7 @@ public class FirebaseAdapter implements CachePort {
                     });
 
                     // Update the seat map with the new seat number
-                    firebaseEntity.getSeatMap().put("Seat_"+seatNumber, seatNumberDto);
+                    firebaseEntity.getSeatMap().put("Seat_" + seatNumber, seatNumberDto);
 
                     if (firebaseEntity.getJoinRequests() != null) {
                         firebaseEntity.getJoinRequests().forEach(joinRequests -> {
