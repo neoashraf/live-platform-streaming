@@ -412,7 +412,9 @@ public class FirebaseAdapter implements CachePort {
                     joinRequests.setStatus(requestDto.getAction());
                     joinRequests.setReason(requestDto.getReason());
 
-                    this.assignSeat(firebaseEntity, joinRequests);
+                    if(!requestDto.getAction().equals(Constants.STATUS_DECLINE.getValue())){
+                        this.assignSeat(firebaseEntity, joinRequests);
+                    }
 
                     if (joinRequests.getSeatIndex() > firebaseEntity.getSeatMap().size()) {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat capacity crosses limit"));
@@ -429,23 +431,30 @@ public class FirebaseAdapter implements CachePort {
     private LiveRoomFirebaseEntity assignSeat(LiveRoomFirebaseEntity firebaseEntity, JoinRequests joinRequests) {
         Map<String, SeatNumberDto> seatAvailableStatus = firebaseEntity.getSeatMap();
 
+        int minSeatIndex = Integer.MAX_VALUE;
+        SeatNumberDto selectedSeat = null;
+
         for (Map.Entry<String, SeatNumberDto> entry : seatAvailableStatus.entrySet()) {
             String key = entry.getKey();
-            String number = key.split("_")[1];
-            int seatIndex = Integer.parseInt(number);
+            int seatIndex = Integer.parseInt(key.split("_")[1]);
             SeatNumberDto seat = entry.getValue();
 
-            if (seat.isAvailableStatus()) {
-                seat.setAvailableStatus(false);
-                seat.setUserId(joinRequests.getUserId());
-                seat.setJoinReqId(joinRequests.getRequestId());
-                joinRequests.setSeatIndex(seatIndex);
-
-                return firebaseEntity;
+            if (seat.isAvailableStatus() && seatIndex < minSeatIndex) {
+                minSeatIndex = seatIndex;
+                selectedSeat = seat;
             }
         }
 
-        joinRequests.setSeatIndex(seatAvailableStatus.size()+1); // indicate run out of seatMap
+        if (selectedSeat != null) {
+            selectedSeat.setAvailableStatus(false);
+            selectedSeat.setUserId(joinRequests.getUserId());
+            selectedSeat.setJoinReqId(joinRequests.getRequestId());
+            joinRequests.setSeatIndex(minSeatIndex);
+        }
+        else {
+            joinRequests.setSeatIndex(seatAvailableStatus.size() + 1);
+        }
+
         return firebaseEntity;
     }
 
@@ -501,7 +510,7 @@ public class FirebaseAdapter implements CachePort {
                         }
                     }
                     joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
-                    joinRequest.setSeatIndex(0);
+                    joinRequest.setSeatIndex(-1);
 
                     return Mono.just(firebaseEntity);
                 })

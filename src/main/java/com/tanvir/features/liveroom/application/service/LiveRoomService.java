@@ -187,20 +187,17 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .userId(null)
                                     .joinReqId(null)
                                     .build();
-//                            List<Boolean> seatAvailableStatus = new ArrayList<>();
 
                             int videoLiveMaxSeat = 5;
-                            int seatNumber=0;
+                            int seatNumber = 0;
 
                             if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
                                 seatNumber = liveRoom.getAudioSeatNumber();
-                            }
-                            else if(liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_VIDEO.getValue())){
+                            } else if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_VIDEO.getValue())) {
                                 seatNumber = videoLiveMaxSeat;
                             }
-                            for (int i = 1; i <= seatNumber; i++) {
+                            for (int i = 0; i < seatNumber; i++) {
                                 seatAvailableStatusMap.put("Seat_" + i, seatDto);
-//                                seatAvailableStatus.add(false);
                             }
 
                             return LiveRoomFirebaseEntity
@@ -1683,9 +1680,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                             .profileFrameId(user.getProfileFrameId())
                             .profileFrameUrl(user.getProfileFrameUrl())
                             .build();
-                    if (liveRoom.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())) {
-                        joinRequest.setSeatIndex(requestDto.getSeatNumber() != null ? requestDto.getSeatNumber() : 0);
-                    }
+                    joinRequest.setSeatIndex(requestDto.getSeatNumber() != null ? requestDto.getSeatNumber() : -1);
                     return List.of(joinRequest);
                 });
     }
