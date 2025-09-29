@@ -2004,7 +2004,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .hostGender(host.getGender())
                         .audioSeatNumber(requestDto.getAudioSeatNumber())
                         .audioSkinId(Strings.isNotNullAndNotEmpty(requestDto.getAudioSkinId()) ? requestDto.getAudioSkinId() : "")
-                        .enableJoin(Constants.STATUS_NO.getValue())
+                        .enableJoin(Constants.STATUS_YES.getValue())
                         .enableAutoJoin(Constants.STATUS_NO.getValue())
                         .build());
     }

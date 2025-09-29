@@ -481,8 +481,8 @@ public class LiveRoomHandler {
                     requestDto.setMediaType(mediaType);
                     return requestDto;
                 })
-                .filter(requestDto -> requestDto.getSeatNumber() != null && requestDto.getSeatNumber() > 0)
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat number must be provided and greater than 0.")))
+                .filter(requestDto -> requestDto.getSeatNumber() != null && requestDto.getSeatNumber() >= 0)
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Seat number must be provided and greater than or equal to 0.")))
                 .flatMap(liveRoomUseCase::autoJoinProcess)
                 .flatMap(responseDto -> ServerResponse
                         .ok()
