@@ -80,6 +80,22 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         this.giftAnnouncementRepository = giftAnnouncementRepository;
     }
 
+    public static List<Announcement.Resources> buildResourceCollectionRide(Content content) {
+
+        return content.getResourceFormats().stream()
+                .filter(resourceFormat -> resourceFormat.getResourceType()
+                        .equals(ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue())
+                        || resourceFormat.getResourceType().equals(
+                        ResourceTypeEnum.RESOURCE_TYPE_ANIMATION.getValue()))
+                .map(resourceFormat -> Announcement.Resources.builder()
+                        .id(resourceFormat.getResourceId())
+                        .type(resourceFormat.getResourceType())
+                        .url(resourceFormat.getResourceUrl())
+                        .name(content.getName())
+                        .thumbnailUrl(resourceFormat.getThumbnailUrl())
+                        .build())
+                .toList();
+    }
 
     @Override
     public Mono<SendGiftResponseDto> sendGifts(SendGiftRequestDto requestDto) {
@@ -149,23 +165,6 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                             .as(transactionalOperator::transactional))
                     .map(giftTransactions -> this.buildSendGiftResponseDto(giftTransactions, "Gift sent successfully"));
         }
-    }
-
-    public static List<Announcement.Resources> buildResourceCollectionRide(Content content) {
-
-        return content.getResourceFormats().stream()
-                .filter(resourceFormat -> resourceFormat.getResourceType()
-                        .equals(ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue())
-                        || resourceFormat.getResourceType().equals(
-                        ResourceTypeEnum.RESOURCE_TYPE_ANIMATION.getValue()))
-                .map(resourceFormat -> Announcement.Resources.builder()
-                        .id(resourceFormat.getResourceId())
-                        .type(resourceFormat.getResourceType())
-                        .url(resourceFormat.getResourceUrl())
-                        .name(content.getName())
-                        .thumbnailUrl(resourceFormat.getThumbnailUrl())
-                        .build())
-                .toList();
     }
 
     private Mono<Void> validateSenderBalanceUpfront(SendGiftRequestDto requestDto) {
@@ -283,7 +282,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     private Mono<GiftTransaction> calculateHostDailyStarProgress(GiftTransaction giftTransaction) {
         // Only process daily star progress for live room gifts (not offline gifts)
         if (giftTransaction.getHostCohostIdsMap() == null || giftTransaction.getHostCohostIdsMap().get("Host") == null ||
-            giftTransaction.getLiveSession() == null || !Constants.STATUS_YES.getValue().equals(giftTransaction.getLiveSession())) {
+                giftTransaction.getLiveSession() == null || !Constants.STATUS_YES.getValue().equals(giftTransaction.getLiveSession())) {
             log.info("Skipping calculateHostDailyStarProgress - not a live room gift or missing data");
             return Mono.just(giftTransaction);
         }
@@ -292,12 +291,12 @@ public class GiftTransactionService implements GiftTransactionUseCase {
         List<String> hostIds = giftTransaction.getHostCohostIdsMap().get("Host");
         if (!hostIds.contains(giftTransaction.getReceiverId())) {
             log.info("Skipping calculateHostDailyStarProgress - receiver {} is not host (host IDs: {})",
-                     giftTransaction.getReceiverId(), hostIds);
+                    giftTransaction.getReceiverId(), hostIds);
             return Mono.just(giftTransaction); // Skip if receiver is not the host
         }
 
         log.info("Processing calculateHostDailyStarProgress for host {} with {} gems",
-                 giftTransaction.getReceiverId(), giftTransaction.getBeans());
+                giftTransaction.getReceiverId(), giftTransaction.getBeans());
 
         return liveRoomActivityService
                 .updateDailyReceivedGems(giftTransaction.getReceiverId(), giftTransaction.getBeans())
@@ -385,7 +384,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                 giftTransaction.getSenderReceiverDto().getReceiver() != null &&
                 Constants.HOST_TYPE.getValue().equalsIgnoreCase(giftTransaction.getSenderReceiverDto().getReceiver().getUserType())) {
             log.info("Processing updateHostDailyGemsIfNeeded for host {} with {} gems",
-                     giftTransaction.getSenderReceiverDto().getReceiver().getId(), giftTransaction.getBeans());
+                    giftTransaction.getSenderReceiverDto().getReceiver().getId(), giftTransaction.getBeans());
             return liveRoomActivityService.updateDailyReceivedGems(
                     giftTransaction.getSenderReceiverDto().getReceiver().getId(),
                     giftTransaction.getBeans()
@@ -741,10 +740,11 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                                                  GiftTransaction giftTransaction) {
 
         return resourceFormats.stream()
-                .filter(resourceFormat -> resourceFormat.getResourceType()
-                        .equals(ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue())
-                        || resourceFormat.getResourceType().equals(
-                        ResourceTypeEnum.RESOURCE_TYPE_ANIMATION.getValue()))
+                .filter(resourceFormat ->
+                        resourceFormat.getResourceType().equals(ResourceTypeEnum.RESOURCE_TYPE_IMAGE.getValue())
+                                || resourceFormat.getResourceType().equals(ResourceTypeEnum.RESOURCE_TYPE_ANIMATION.getValue())
+                                || resourceFormat.getResourceType().equals(ResourceTypeEnum.RESOURCE_TYPE_MP3.getValue())
+                )
                 .map(resourceFormat -> Announcement.Resources.builder()
                         .id(resourceFormat.getResourceId())
                         .type(resourceFormat.getResourceType())
