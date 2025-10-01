@@ -1972,6 +1972,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .viewerCount(0)
                         .hostDailyGems(dailyReceivedGems)
                         .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
+                        .lastSeen(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .hostGender(host.getGender())
                         .audioSeatNumber(requestDto.getAudioSeatNumber() != null ? requestDto.getAudioSeatNumber() : 10)
                         .build());
@@ -1999,6 +2000,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .viewerCount(0)
                         .hostDailyGems(dailyReceivedGems)
                         .createdOn(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
+                        .lastSeen(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .maxAudioParticipants(LiveRoomConfigEnums.maxAudioParticipants.getValue())
                         .audioParticipants(new ArrayList<>())
                         .hostGender(host.getGender())
