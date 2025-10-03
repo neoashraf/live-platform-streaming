@@ -1963,6 +1963,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .enableJoin(requestDto.getType().equals(Constants.LIVE_ROOM_TYPE_AUDIO.getValue())
                                 ? Constants.STATUS_YES.getValue()
                                 : Constants.STATUS_NO.getValue())
+                        .enableAutoJoin(Constants.STATUS_NO.getValue())
                         .status(Constants.STATUS_LIVE.getValue())
                         .country(host.getCountry())
                         .hostId(host.getId())
