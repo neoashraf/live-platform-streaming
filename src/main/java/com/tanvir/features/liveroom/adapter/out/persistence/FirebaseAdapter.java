@@ -19,9 +19,12 @@ import com.tanvir.features.liveroom.domain.valueobject.Viewer;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.testng.util.Strings;
 import reactor.core.publisher.Mono;
+import java.time.Duration;
+import java.util.concurrent.TimeoutException;
 
 import java.time.Instant;
 import java.util.*;
@@ -32,6 +35,9 @@ public class FirebaseAdapter implements CachePort {
     private final LiveRoomFirebaseRepository firebaseRepository;
     private final ModelMapper modelMapper;
     private final DateTimeUtil dateTimeUtil;
+
+    @Value("${firebase.operation.timeout.ms:10000}")
+    private long firebaseOpTimeoutMs;
 
     public FirebaseAdapter(LiveRoomFirebaseRepository firebaseRepository, ModelMapper modelMapper, DateTimeUtil dateTimeUtil) {
         this.firebaseRepository = firebaseRepository;
@@ -46,6 +52,11 @@ public class FirebaseAdapter implements CachePort {
         log.info("AudioSeatNumber: {}", entity.getAudioSeatNumber());
         return firebaseRepository.createLiveRoom(entity, entity.getId())
                 .doOnSubscribe(sub -> log.info("Creating LiveRoom in Firebase with ID {}", entity.getId()))
+                .timeout(Duration.ofMillis(firebaseOpTimeoutMs))
+                .onErrorMap(TimeoutException.class, e -> {
+                    log.error("Firebase create timed out after {} ms for LiveRoom ID {}", firebaseOpTimeoutMs, entity.getId());
+                    return new ExceptionHandlerUtil(HttpStatus.GATEWAY_TIMEOUT, "Firebase create timed out");
+                })
                 .doOnSuccess(result -> log.info("Successfully created LiveRoom: {}", result))
                 .doOnError(error -> log.error("Error while creating LiveRoom in Firebase", error));
     }
