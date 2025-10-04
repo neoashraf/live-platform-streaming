@@ -1976,6 +1976,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                         .lastSeen(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .hostGender(host.getGender())
                         .audioSeatNumber(requestDto.getAudioSeatNumber() != null ? requestDto.getAudioSeatNumber() : 10)
+                        .lastSeen(ZonedDateTime.now(ZoneOffset.UTC).toInstant())
                         .build());
     }
 

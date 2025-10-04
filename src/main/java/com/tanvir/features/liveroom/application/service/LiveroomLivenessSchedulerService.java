@@ -7,6 +7,7 @@ import com.tanvir.core.util.enums.Constants;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -17,6 +18,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 
 @Service
+@ConditionalOnProperty(prefix = "liveroom.liveness.scheduler", name = "enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class LiveroomLivenessSchedulerService {
