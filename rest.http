@@ -1,0 +1,18 @@
+### Test LiveRoomFirebaseEntity creation via debug endpoint
+POST http://localhost:8071/api/v1/streaming/debug/firebase/create
+Content-Type: application/json
+
+{
+  "id": "test-room-123",
+  "title": "Test Room",
+  "description": "Debugging Firebase create hang",
+  "tags": ["debug", "test"],
+  "type": "public",
+  "status": "online",
+  "country": "US",
+  "host": {
+    "userId": "host-001",
+    "displayName": "Host User"
+  },
+  "audioSeatNumber": 1
+}
