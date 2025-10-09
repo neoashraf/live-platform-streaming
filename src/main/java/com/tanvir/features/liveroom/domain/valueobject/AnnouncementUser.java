@@ -14,4 +14,9 @@ public class AnnouncementUser {
     private String maxId;
     private String name;
     private String levelUrl;
+    private String profileFrameId;
+    private String profileFrameUrl;
+    private String profileImageUrl;
+    private String profileImageId;
+
 }

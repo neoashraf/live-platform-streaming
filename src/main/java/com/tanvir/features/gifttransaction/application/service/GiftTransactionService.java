@@ -100,6 +100,7 @@ public class GiftTransactionService implements GiftTransactionUseCase {
     @Override
     public Mono<SendGiftResponseDto> sendGifts(SendGiftRequestDto requestDto) {
         boolean isLiveRoomGift = requestDto.getLiveRoomId() != null && Constants.STATUS_YES.getValue().equals(requestDto.getLiveSession());
+
         if (isLiveRoomGift) {
             return liveRoomUseCase.getLiveRoomById(requestDto.getLiveRoomId())
                     .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "Live Room not found")))
@@ -714,6 +715,10 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                     .maxId(giftTransaction.getSenderReceiverDto().getSender().getMaxId())
                                     .levelUrl(senderLevelResource.getResourceUrl())
                                     .name(giftTransaction.getSenderReceiverDto().getSender().getDisplayName())
+                                    .profileFrameId(giftTransaction.getSenderReceiverDto().getSender().getProfileFrameId())
+                                    .profileFrameUrl(giftTransaction.getSenderReceiverDto().getSender().getProfileFrameUrl())
+                                    .profileImageId(giftTransaction.getSenderReceiverDto().getSender().getProfileImageId())
+                                    .profileImageUrl(giftTransaction.getSenderReceiverDto().getSender().getProfileImageUrl())
                                     .build())
                             .receiverUser(AnnouncementUser
                                     .builder()
@@ -721,6 +726,10 @@ public class GiftTransactionService implements GiftTransactionUseCase {
                                     .name(giftTransaction.getSenderReceiverDto().getReceiver().getDisplayName())
                                     .maxId(giftTransaction.getSenderReceiverDto().getReceiver().getMaxId())
                                     .levelUrl(receiverLevelResource.getResourceUrl())
+                                    .profileFrameId(giftTransaction.getSenderReceiverDto().getSender().getProfileFrameId())
+                                    .profileFrameUrl(giftTransaction.getSenderReceiverDto().getSender().getProfileFrameUrl())
+                                    .profileImageId(giftTransaction.getSenderReceiverDto().getSender().getProfileImageId())
+                                    .profileImageUrl(giftTransaction.getSenderReceiverDto().getSender().getProfileImageUrl())
                                     .build())
                             .gift(Announcement.Gift
                                     .builder()
