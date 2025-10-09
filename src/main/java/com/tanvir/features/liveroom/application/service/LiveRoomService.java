@@ -662,6 +662,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                                                 .maxId(host.getMaxId())
                                                 .name(host.getDisplayName())
                                                 .levelUrl(levelUrl)
+                                                .profileFrameId(host.getProfileFrameId())
+                                                .profileFrameUrl(host.getProfileFrameUrl())
+                                                .profileImageId(host.getProfileImageId())
+                                                .profileImageUrl(host.getProfileImageUrl())
                                                 .build());
                                         welcomeAnnouncement.setMentionedUser(announcement.getMentionedUser());
                                         welcomeAnnouncement.setMessageTemplate(AnnouncementEnum.ANNOUNCEMENT_MESSAGE_WELCOME.getValue().concat(liveRoom.getDescription()));
