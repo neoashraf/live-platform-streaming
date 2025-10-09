@@ -638,6 +638,10 @@ public class LiveRoomService implements LiveRoomUseCase {
                                         .maxId(user.getMaxId())
                                         .name(user.getDisplayName())
                                         .levelUrl(imageResource.getResourceUrl())
+                                        .profileFrameId(user.getProfileFrameId())
+                                        .profileFrameUrl(user.getProfileFrameUrl())
+                                        .profileImageId(user.getProfileImageId())
+                                        .profileImageUrl(user.getProfileImageUrl())
                                         .build());
 
                                 return announcement;
