@@ -6,6 +6,8 @@ import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequ
 import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequestUpdateDto;
 import com.tanvir.features.liveroom.application.port.in.dto.request.SeatNumberDto;
 import com.tanvir.features.liveroom.domain.LiveRoom;
+import com.tanvir.features.user.domain.User;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface CachePort {
@@ -32,4 +34,6 @@ public interface CachePort {
     Mono<LiveRoomFirebaseEntity> getLiveRoomById(String id);
 
     Mono<LiveRoomFirebaseEntity> updateAudioSeatMap(String liveRoomId, Integer seatNumber, SeatNumberDto seatNumberDto);
+
+    Mono<LiveRoom> updateForCancelJoinRequest(LiveRoom liveRoom, JoinCallRequestDto requestDto);
 }

@@ -16,12 +16,14 @@ import com.tanvir.features.liveroom.domain.Summary;
 import com.tanvir.features.liveroom.domain.valueobject.Announcement;
 import com.tanvir.features.liveroom.domain.valueobject.JoinRequests;
 import com.tanvir.features.liveroom.domain.valueobject.Viewer;
+import com.tanvir.features.user.domain.User;
 import lombok.extern.slf4j.Slf4j;
 import org.modelmapper.ModelMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.testng.util.Strings;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
@@ -469,7 +471,6 @@ public class FirebaseAdapter implements CachePort {
         return firebaseEntity;
     }
 
-
     @Override
     public Mono<LiveRoom> updateForStartingJoinCall(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
         return firebaseRepository.read(liveRoom.getId())
@@ -489,6 +490,35 @@ public class FirebaseAdapter implements CachePort {
                     return Mono.just(firebaseEntity);
                 })
                 .doOnNext(firebaseEntity -> log.debug("Updated firebase entity after processing join call: {}", firebaseEntity))
+                .flatMap(firebaseRepository::update)
+                .map(firebaseReturnedEntity -> liveRoom);
+    }
+
+    @Override
+    public Mono<LiveRoom> updateForCancelJoinRequest(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
+        System.out.println("\nRoom Id : "+liveRoom.getId()+"\n");
+
+        return firebaseRepository.read(liveRoom.getId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
+                .flatMap(firebaseEntity -> {
+
+                    Optional<JoinRequests> optionalJoinRequests = firebaseEntity.getJoinRequests().stream()
+                            .filter(joinRequests -> joinRequests.getRequestId().equals(requestDto.getRequestId()))
+                            .findFirst();
+
+                    if (optionalJoinRequests.isEmpty()) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
+                    }
+                    JoinRequests joinRequest = optionalJoinRequests.get();
+//                    log.info("\nJoin request : {}",joinRequest);
+
+                    if (!joinRequest.getStatus().equals(Constants.STATUS_PENDING.getValue())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"Request isn't in pending status!"));
+                    }
+                    joinRequest.setStatus(Constants.STATUS_CANCELLED.getValue());
+
+                    return Mono.just(firebaseEntity);
+                })
                 .flatMap(firebaseRepository::update)
                 .map(firebaseReturnedEntity -> liveRoom);
     }

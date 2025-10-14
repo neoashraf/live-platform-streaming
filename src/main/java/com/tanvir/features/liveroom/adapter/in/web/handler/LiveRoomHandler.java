@@ -341,6 +341,29 @@ public class LiveRoomHandler {
                 ;
     }
 
+    public Mono<ServerResponse> cancelJoinRequest(ServerRequest serverRequest) {
+        String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
+        String liveRoomId = serverRequest.pathVariable("id");
+        String requestId = serverRequest.pathVariable(QueryParams.REQUEST_ID.getValue());
+        String mediaType = serverRequest.pathVariable(QueryParams.MEDIA_TYPE.getValue());
+
+        return serverRequest
+                .bodyToMono(JoinCallRequestDto.class)
+                .map(requestDto -> {
+                    requestDto.setKeycloakId(keycloakId);
+                    requestDto.setLiveRoomId(liveRoomId);
+                    requestDto.setRequestId(requestId);
+                    requestDto.setMediaType(mediaType);
+                    return requestDto;
+                })
+                .flatMap(liveRoomUseCase::cancelJoinCall)
+                .flatMap(dto -> ServerResponse
+                        .ok()
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .bodyValue(dto))
+                ;
+    }
+
     public Mono<ServerResponse> processJoinRequest(ServerRequest serverRequest) {
         String keycloakId = serverRequest.queryParam(QueryParams.KEYCLOAK_ID.getValue()).orElseThrow(() -> new IllegalArgumentException("The Keycloak ID is mandatory."));
         String liveRoomId = serverRequest.pathVariable(QueryParams.ID.getValue());

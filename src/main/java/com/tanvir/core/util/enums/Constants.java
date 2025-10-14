@@ -27,6 +27,9 @@ public enum Constants {
     STATUS_LIVE("Live"),
     STATUS_OFFLINE("Offline"),
     STATUS_PENDING("Pending"),
+
+    STATUS_CANCELLED("Cancelled"),
+
     STATUS_APPROVED("Approved"),
     STATUS_REJECTED("Rejected"),
     STATUS_CLOSED("Closed"),

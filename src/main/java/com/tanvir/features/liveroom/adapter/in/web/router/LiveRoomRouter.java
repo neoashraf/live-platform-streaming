@@ -88,6 +88,10 @@ public class LiveRoomRouter {
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
                                         nestedBuilder
+                                                .PATCH(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(CANCEL), handler::cancelJoinRequest)
+                                )
+                                .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->
+                                        nestedBuilder
                                                 .PATCH(LIVE_ROOMS.concat(MEDIA_TYPE).concat(ID).concat(JOIN_REQUESTS).concat(REQUEST_ID).concat(PERMIT), handler::processJoinRequest)
                                 )
                                 .nest(RequestPredicates.accept(MediaType.APPLICATION_JSON), nestedBuilder ->

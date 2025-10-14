@@ -23,6 +23,9 @@ public interface LiveRoomUseCase {
     Mono<LiveRoom> updateLiveRoom(LiveRoom liveRoom);
     Mono<LiveRoomJoinPermissionResponseDto> setJoinPermission(JoinPermissionRequestDTO requestDTO);
     Mono<JoinCallResponseDto> requestJoinCall(JoinCallRequestDto requestDto);
+
+    Mono<JoinCallResponseDto> cancelJoinCall(JoinCallRequestDto joinCallRequestUpdateDto);
+
     Mono<JoinCallResponseDto> processJoinCall(JoinCallRequestDto requestDto);
     Mono<JoinCallResponseDto> startJoinCall(JoinCallRequestDto requestDto);
     Mono<JoinCallResponseDto> closeJoinedCall(JoinCallRequestDto requestDto);

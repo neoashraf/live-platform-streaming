@@ -42,6 +42,7 @@ public class RouteNames {
 	public static String CREATE = "/create";
 	public static String UPDATE = "/update";
 	public static String PERMIT = "/permit";
+	public static String CANCEL = "/cancel";
 	public static String START = "/start";
 	public static String CLOSE = "/close";
 	public static String EARNINGS = "/earnings";

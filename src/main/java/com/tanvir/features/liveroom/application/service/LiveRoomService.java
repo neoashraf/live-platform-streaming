@@ -1149,6 +1149,59 @@ public class LiveRoomService implements LiveRoomUseCase {
     }
 
     @Override
+    public Mono<JoinCallResponseDto> cancelJoinCall(JoinCallRequestDto requestDto) {
+
+        List<String> validMedia = List.of(
+                Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue(),
+                Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue()
+        );
+
+        if (!validMedia.contains(requestDto.getMediaType())) {
+            return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Invalid media type!"));
+        }
+
+        return port.getLiveRoomById(requestDto.getLiveRoomId())
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
+                .filter(liveRoom -> liveRoom.getStatus().equals(Constants.STATUS_LIVE.getValue()))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "LiveRoom is not live")))
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User not found")))
+                        .filter(user -> user.getActive().equalsIgnoreCase(Constants.STATUS_YES.getValue()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User is not active")))
+                        .map(user -> Tuples.of(liveRoom, user))
+                )
+                .flatMap(liveRoomUserTuple -> cachePort.getLiveRoomById(liveRoomUserTuple.getT1().getId())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found in firebase by the given id")))
+                        .filter(liveRoomFirebase -> liveRoomFirebase.getJoinRequests() != null && !liveRoomFirebase.getJoinRequests().isEmpty())
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join request list is empty for the LiveRoom now")))
+
+                        .filter(liveRoomFirebase -> liveRoomFirebase.getViewerIds() != null && liveRoomFirebase.getViewerIds().contains(liveRoomUserTuple.getT2().getId()))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "User isn't a viewer!")))
+
+                        .filter(liveRoomFirebase -> liveRoomFirebase.getJoinRequests().stream().anyMatch(joinRequest -> joinRequest.getRequestId().equals(requestDto.getRequestId())))
+                        .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join Request not found for the LiveRoom")))
+                        .map(liveRoomFirebase -> liveRoomUserTuple)
+                )
+                .doOnNext(liveRoomUserTuple2 -> cachePort.updateForCancelJoinRequest(liveRoomUserTuple2.getT1(), requestDto)
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .subscribe()
+                )
+                .map(liveRoomUserTuple2 -> LiveRoomJoinRequestInfo.builder()
+                        .roomId(requestDto.getLiveRoomId())
+                        .status(requestDto.getAction())
+                        .requestId(requestDto.getRequestId())
+                        .reason(requestDto.getReason())
+                        .build())
+                .map(liveRoomJoinRequestInfo -> JoinCallResponseDto.builder()
+                        .message("Join request cancelled successfully.")
+                        .data(liveRoomJoinRequestInfo)
+                        .count(1)
+                        .error(false)
+                        .build()
+                );
+    }
+
+    @Override
     public Mono<JoinCallResponseDto> processJoinCall(JoinCallRequestDto requestDto) {
         List<String> validMedia = List.of(Constants.LIVE_ROOM_TYPE_VIDEO_LOWERCASE.getValue(), Constants.LIVE_ROOM_TYPE_AUDIO_LOWERCASE.getValue());
         if (!validMedia.contains(requestDto.getMediaType())) {
