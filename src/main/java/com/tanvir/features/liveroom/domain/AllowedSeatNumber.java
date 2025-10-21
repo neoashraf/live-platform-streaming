@@ -3,10 +3,10 @@ package com.tanvir.features.liveroom.domain;
 import java.util.Arrays;
 
 public enum AllowedSeatNumber {
-    SEAT_5(5),
-    SEAT_6(6),
-    SEAT_9(9),
-    SEAT_12(12);
+    SEAT_8(8),
+    SEAT_10(10),
+    SEAT_12(12),
+    SEAT_15(15);
 
     private final int seatNumber;
 

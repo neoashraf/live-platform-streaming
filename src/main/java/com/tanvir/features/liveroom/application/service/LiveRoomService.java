@@ -222,6 +222,7 @@ public class LiveRoomService implements LiveRoomUseCase {
                                     .enableAutoJoin(liveRoom.getEnableAutoJoin())
 //                                    .seatAvailableStatus(seatAvailableStatus)
                                     .seatMap(seatAvailableStatusMap)
+                                    .audioSeatNumber(liveRoom.getAudioSeatNumber())
                                     .summary(Summary.builder().build())
                                     .build();
                         }));
@@ -1412,7 +1413,7 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<StreamResponseDto> createAudioStream(LiveRoomRequestDto requestDto) {
         Integer seatNumber = requestDto.getAudioSeatNumber() == null
-                ? AllowedSeatNumber.SEAT_5.getSeatNumber()
+                ? 8
                 : requestDto.getAudioSeatNumber();
 
         if (!AllowedSeatNumber.isValid(seatNumber)) {
