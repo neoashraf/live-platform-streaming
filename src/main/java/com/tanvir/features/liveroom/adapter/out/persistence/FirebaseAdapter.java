@@ -25,6 +25,7 @@ import org.springframework.stereotype.Component;
 import org.testng.util.Strings;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
 import java.time.Duration;
 import java.util.concurrent.TimeoutException;
 
@@ -425,7 +426,7 @@ public class FirebaseAdapter implements CachePort {
                     joinRequests.setStatus(requestDto.getAction());
                     joinRequests.setReason(requestDto.getReason());
 
-                    if(!requestDto.getAction().equals(Constants.STATUS_DECLINE.getValue())){
+                    if (!requestDto.getAction().equals(Constants.STATUS_DECLINE.getValue())) {
                         this.assignSeat(firebaseEntity, joinRequests);
                     }
 
@@ -463,8 +464,7 @@ public class FirebaseAdapter implements CachePort {
             selectedSeat.setUserId(joinRequests.getUserId());
             selectedSeat.setJoinReqId(joinRequests.getRequestId());
             joinRequests.setSeatIndex(minSeatIndex);
-        }
-        else {
+        } else {
             joinRequests.setSeatIndex(seatAvailableStatus.size() + 1);
         }
 
@@ -496,7 +496,7 @@ public class FirebaseAdapter implements CachePort {
 
     @Override
     public Mono<LiveRoom> updateForCancelJoinRequest(LiveRoom liveRoom, JoinCallRequestDto requestDto) {
-        System.out.println("\nRoom Id : "+liveRoom.getId()+"\n");
+        System.out.println("\nRoom Id : " + liveRoom.getId() + "\n");
 
         return firebaseRepository.read(liveRoom.getId())
                 .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "LiveRoom not found by the given id")))
@@ -513,7 +513,7 @@ public class FirebaseAdapter implements CachePort {
 //                    log.info("\nJoin request : {}",joinRequest);
 
                     if (!joinRequest.getStatus().equals(Constants.STATUS_PENDING.getValue())) {
-                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,"Request isn't in pending status!"));
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Request isn't in pending status!"));
                     }
                     joinRequest.setStatus(Constants.STATUS_CANCELLED.getValue());
 
@@ -572,8 +572,9 @@ public class FirebaseAdapter implements CachePort {
 
                     if (optionalJoinRequests.isEmpty()) {
                         return Mono.error(new ExceptionHandlerUtil(HttpStatus.NOT_FOUND, "User request not found"));
-                    } else if (!optionalJoinRequests.get().getStatus().equals(Constants.STATUS_STARTED.getValue())) {
-                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join request is not Started"));
+                    } else if (!optionalJoinRequests.get().getStatus().equals(Constants.STATUS_STARTED.getValue())
+                            && !optionalJoinRequests.get().getStatus().equals(Constants.STATUS_PENDING.getValue())) {
+                        return Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "Join request is not Started or Pending"));
                     }
 
                     optionalJoinRequests.ifPresentOrElse(joinRequests -> {
