@@ -728,26 +728,22 @@ public class LiveRoomService implements LiveRoomUseCase {
     @Override
     public Mono<StreamResponseDto> leaveStream(LiveRoomViewerRequestDto requestDto) {
         return port.getLiveRoomById(requestDto.getLiveRoomId())
-                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST,
-                        "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
+                .switchIfEmpty(Mono.error(new ExceptionHandlerUtil(HttpStatus.BAD_REQUEST, "No LiveRoom found with Id : " + requestDto.getLiveRoomId())))
                 .doOnNext(liveRoom -> log.info("LiveRoom received : {}", liveRoom))
-                .flatMap(liveRoom ->
-                        userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
+                .flatMap(liveRoom -> userUseCase.getUserByKeycloakId(requestDto.getKeycloakId())
                                 .flatMap(user -> {
                                     if (OfficialIdEnum.INVISIBLE_IDS.getValue().contains(user.getMaxId())) {
                                         log.info("Invisible user (maxId: {}) left silently.", user.getMaxId());
-                                        return buildLeaveStreamResponseDto(liveRoom,
-                                                "Invisible user left silently.");
+                                        return buildLeaveStreamResponseDto(liveRoom, "Invisible user left silently.");
                                     }
                                     return this.updateLiveRoomForFanLeave(liveRoom, user)
                                             .flatMap(updatedRoom -> port.saveLiveRoom(updatedRoom)
                                                     .thenReturn(updatedRoom))
-                                            .doOnNext(updatedRoom -> cachePort.updateForViewerLeave(updatedRoom)
+                                            .doOnNext(updatedRoom -> cachePort.updateForViewerLeave(updatedRoom,user)
                                                     .doOnNext(liveRoomEntity -> log.info("LiveRoom updated into firebase successfully"))
                                                     .doOnError(throwable -> log.error("Error Happened while updating LiveRoom into Firebase : {}", throwable.getMessage()))
                                                     .subscribeOn(Schedulers.boundedElastic()).subscribe())
-                                            .flatMap(updatedRoom -> this.buildLeaveStreamResponseDto(updatedRoom,
-                                                    "User successfully left the live room."));
+                                            .flatMap(updatedRoom -> this.buildLeaveStreamResponseDto(updatedRoom, "User successfully left the live room."));
                                 }))
                 .doOnError(throwable -> log.error("Failed to Update LiveRoom with fan Leave. Error : {}", throwable.getMessage()));
     }
@@ -1980,7 +1976,11 @@ public class LiveRoomService implements LiveRoomUseCase {
         }
 
         if (liveRoom.getJoinRequests() != null && !liveRoom.getJoinRequests().isEmpty()) {
-            liveRoom.getJoinRequests().removeIf(joinRequests -> joinRequests.getUserId().equals(user.getId()));
+            liveRoom.getJoinRequests().forEach(joinRequest -> {
+                if (joinRequest.getUserId().equals(user.getId()) && Constants.STATUS_PENDING.getValue().equalsIgnoreCase(joinRequest.getStatus())) {
+                    joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
+                }
+            });
         }
 
         Viewer viewer = Viewer

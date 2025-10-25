@@ -23,7 +23,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.testng.util.Strings;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
@@ -137,7 +136,7 @@ public class FirebaseAdapter implements CachePort {
     }
 
     @Override
-    public Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom) {
+    public Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom, User user) {
         return firebaseRepository.read(liveRoom.getId())
                 .doOnRequest(l -> log.info("Requesting firebase entity with id: {}", liveRoom.getId()))
                 .doOnNext(firebaseEntity -> log.debug("Firebase entity received with id: {}", firebaseEntity))
@@ -178,6 +177,9 @@ public class FirebaseAdapter implements CachePort {
                                         }
                                         joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
                                         joinRequest.setSeatIndex(-1);
+                                    }
+                                    if(joinRequest.getUserId().equals(user.getId()) && joinRequest.getStatus().equals(Constants.STATUS_PENDING.getValue())){
+                                        joinRequest.setStatus(Constants.STATUS_CLOSED.getValue());
                                     }
                                 })
                                 .toList();

@@ -114,8 +114,7 @@ public class LiveRoomHandler {
                 .flatMap(dto -> ServerResponse
                         .ok()
                         .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(dto))
-                ;
+                        .bodyValue(dto));
     }
 
     public Mono<ServerResponse> endStream(ServerRequest serverRequest) {

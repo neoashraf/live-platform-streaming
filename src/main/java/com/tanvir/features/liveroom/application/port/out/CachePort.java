@@ -7,7 +7,6 @@ import com.tanvir.features.liveroom.application.port.in.dto.request.JoinCallRequ
 import com.tanvir.features.liveroom.application.port.in.dto.request.SeatNumberDto;
 import com.tanvir.features.liveroom.domain.LiveRoom;
 import com.tanvir.features.user.domain.User;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface CachePort {
@@ -18,7 +17,7 @@ public interface CachePort {
 
     Mono<LiveRoomEntity> updateForCurrentLiveRoomGiftReceived(LiveRoomFirebaseEntity liveRoomFirebaseEntity, String liveRoomId);
     Mono<LiveRoom> update(LiveRoom liveRoom);
-    Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom);
+    Mono<LiveRoom> updateForViewerLeave(LiveRoom liveRoom, User user);
     Mono<LiveRoom> updateForViewerKick(LiveRoom liveRoom);
     Mono<LiveRoom> updateForComment(LiveRoom liveRoom);
     Mono<LiveRoom> updateForGift(LiveRoom liveRoom);
