@@ -36,3 +36,9 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Credentials (managed in GitHub Secrets) ###
+*firebase*.json
+*-adminsdk-*.json
+*service-account*.json
+src/main/resources/secrets/

@@ -1,6 +1,24 @@
 # max-live-spring-home
 
+## Configuration
 
+Firebase credentials are managed in **GitHub Secrets** (`Settings → Secrets and variables → Actions`)
+and supplied to the application through environment variables:
+
+| Variable                    | Description                                              |
+|-----------------------------|----------------------------------------------------------|
+| `FIREBASE_CREDENTIALS_JSON` | Service-account JSON (map from the environment's secret) |
+| `FIREBASE_CREDENTIALS_FILE` | Alternatively, path to a service-account JSON file       |
+
+Example (GitHub Actions):
+
+```yaml
+env:
+  SPRING_PROFILES_ACTIVE: prod
+  FIREBASE_CREDENTIALS_JSON: ${{ secrets.FIREBASE_CREDENTIALS_JSON_PROD }}
+```
+
+Locally, point `FIREBASE_CREDENTIALS_FILE` at a key file kept outside the repository.
 
 ## Getting started
 
